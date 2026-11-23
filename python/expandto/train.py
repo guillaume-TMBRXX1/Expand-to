@@ -20,7 +20,8 @@ from .data import DATA_DIR
 
 ROOT = DATA_DIR.parents[1]
 TUNABLE_BUILD = ["foodNeed", "woodNeed", "stoneNeed", "wonderPrestige", "monumentPrestige", "popCap", "sawmill",
-                 "forge", "manufactory", "outpost", "markethall", "quarter", "lab", "diversity", "goldReserve"]
+                 "forge", "manufactory", "outpost", "markethall", "quarter", "lab", "diversity", "goldReserve",
+                 "pathWonder", "pathMaterials", "unique"]
 
 
 def evaluate(params: dict, games: int, seed: int) -> dict:
@@ -47,6 +48,8 @@ def mutate(params: dict, rng: random.Random, strength: float = 0.25) -> dict:
     child["branchWeights"][profile][branch] = round(max(0.2, child["branchWeights"][profile][branch] * rng.uniform(0.8, 1.25)), 2)
     if rng.random() < 0.15:
         child["build"]["saveForWonders"] = 1 - child["build"]["saveForWonders"]
+    if rng.random() < 0.3:
+        child["researchFocus"] = round(min(3.5, max(1.0, child.get("researchFocus", 1) * rng.uniform(0.85, 1.15))), 2)
     return child
 
 
@@ -58,6 +61,8 @@ def train(generations: int = 5, population: int = 6, games: int = 20, seed: int 
     if verbose:
         print(f"Génération 0 · paramètres actuels : {best_score:.3f}")
     for gen in range(1, generations + 1):
+        # Comparaison équitable : le meilleur actuel rejoue les mêmes cartes que les candidats de la génération.
+        best_score = fitness(evaluate(best, games, seed + gen))
         for _ in range(population):
             cand = mutate(best, rng)
             score = fitness(evaluate(cand, games, seed + gen))
@@ -76,11 +81,15 @@ def main():
     ap.add_argument("--games", type=int, default=20)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--write", action="store_true", help="écrire le meilleur résultat dans web/data/ai.json")
+    ap.add_argument("--out", help="écrire le meilleur résultat dans ce fichier JSON")
     args = ap.parse_args()
     best, _ = train(args.generations, args.population, args.games, args.seed)
     if args.write:
         (DATA_DIR / "ai.json").write_text(json.dumps(best, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print("web/data/ai.json mis à jour.")
+    elif args.out:
+        Path(args.out).write_text(json.dumps(best, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"Meilleurs paramètres écrits dans {args.out}.")
     else:
         print(json.dumps(best["build"], ensure_ascii=False))
 

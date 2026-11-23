@@ -122,11 +122,34 @@ Objectif : que deux parties ne se ressemblent plus, et que les choix soient plus
 - Cités-États : écartées sous cette forme, une autre façon de faire reste à trouver.
 - Épuisement des ressources rares : écarté. Le nombre de villes est limité (environ 4 en pratique) et on ne peut pas aller chercher de nouveaux gisements. À revoir seulement si le système d'expansion change.
 
-## Phase 7 — Équilibrage (à venir)
+## Phase 7 — Équilibrage ✅
 
-- Les victoires Science, Culture et Économie sont trop rares ; en partie longue, la Diplomatie l'emporte presque toujours (voie « allié de tous » trop accessible avec 3 rivaux).
-- L'espace pour fonder des villes (environ 4 par joueur) : distance minimale entre villes, rayon de territoire.
-- L'IA construit peu de quartiers et de laboratoires ; lancer un vrai entraînement de l'IA dans Colab.
+Mesuré sur 100 parties simulées par réglage (`tools/sim.mjs` et scripts de mesure), en partie normale sur carte moyenne.
+
+- [x] **Place pour les villes** : la carte était pleine en fin de partie (97 % des terres possédées, 3,2 villes par joueur). La distance minimale entre villes passe de 4 à 3 cases : on peut combler les trous de son territoire. L'IA vise 5 villes (6 pour l'Explorateur). Résultat : environ 4 villes par joueur, avec un rayon de territoire inchangé ; l'influence culturelle ajoute encore quelques cases.
+- [x] **Voies de victoire** : l'IA restait bloquée.
+  - Cause 1 : elle épargnait pour une merveille impossible à payer (Outils manquants) et ne construisait plus l'atelier qui les produit.
+  - Cause 2 : sa recherche était trop dispersée pour atteindre le palier 4.
+  - Corrections : recherche concentrée sur la branche du profil, priorité à la merveille de sa voie et aux ateliers des matériaux manquants, thésaurisation avec la Grande Bourse.
+  - Côté règles : seuils abaissés (12 technologies, 750 culture, 1 000 Or de base), technologies de palier 4 à 125, merveilles de voie en 4 tours, Observatoire (10 Outils, aussi en plaine) et Grande Bourse (Planches au lieu de Biens) plus accessibles.
+- [x] **Diplomatie** : la voie « allié de tous » demande 3 élections (4 en partie longue). Le prestige d'alliance passe à 8 et celui d'accord à 3.
+- [x] **Profils** (taux de victoire, 25 % étant l'équilibre avec 4 joueurs et 5 profils) :
+
+  | Profil | Avant | Après |
+  |---|---|---|
+  | Négociant | 9 % | 23 % |
+  | Bâtisseur | 14 % | 21 % |
+  | Diplomate | 33 % | 29 % |
+  | Explorateur | 41 % | 24 % |
+  | Érudit | 28 % | 28 % |
+
+  Chaque profil gagne surtout par sa voie : l'Érudit par la science, l'Explorateur par la culture, le Négociant par l'économie, le Diplomate par la diplomatie.
+- [x] **Répartition des victoires** (100 parties) :
+  - avant : 67 prestige, 25 diplomatie, 5 culture, 3 économie, 0 science ;
+  - après : 39 prestige, 20 science, 19 culture, 15 diplomatie, 7 économie.
+- [x] **Durées** : partie normale environ 39 tours (objectif de prestige 230). Partie longue environ 50 tours (contre 42) : seuils des voies ×3 et technologies 60 % plus chères. Partie rapide environ 31 tours.
+- [x] **Entraînement de l'IA** : nouveaux paramètres entraînables (concentration de la recherche, merveille de voie, matériaux), et comparaison équitable des candidats (mêmes cartes à chaque génération).
+- [ ] À suivre : en partie rapide, presque tout se gagne au prestige ; en partie longue, le Bâtisseur est faible (aucune merveille de voie propre) ; l'IA construit encore peu de laboratoires.
 
 ---
 
