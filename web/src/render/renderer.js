@@ -389,6 +389,38 @@ export class Renderer {
     obj.userData.path = steps.map((i) => new THREE.Vector3(this.wx(i % this.W), this.heights[i], this.wz(Math.floor(i / this.W))));
   }
 
+  // Tracé d'un déplacement prévu : points le long du chemin (couleur selon le tour d'arrivée) et drapeau final.
+  setPath(steps, from) {
+    if (this.pathGroup) { this.scene.remove(this.pathGroup); this.pathGroup.traverse((o) => o.geometry?.dispose()); this.pathGroup = null; }
+    if (!steps || !steps.length) return;
+    const g = new THREE.Group();
+    const dotGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.03, 12);
+    const mats = [new THREE.MeshBasicMaterial({ color: '#ff6b4a' }), new THREE.MeshBasicMaterial({ color: '#2f2a33', transparent: true, opacity: 0.55 })];
+    const pts = [from, ...steps.map((st) => st.i)];
+    for (let k = 1; k < pts.length; k++) {
+      const a = pts[k - 1], b = pts[k];
+      const ax = this.wx(a % this.W), az = this.wz(Math.floor(a / this.W)), bx = this.wx(b % this.W), bz = this.wz(Math.floor(b / this.W));
+      const ha = this.heights[a], hb = this.heights[b];
+      const turn = steps[k - 1].turn;
+      for (let t = 0.25; t <= 1.001; t += 0.25) {
+        const d = new THREE.Mesh(dotGeo, mats[turn === 1 ? 0 : 1]);
+        d.position.set(ax + (bx - ax) * t, Math.max(ha, hb) + 0.06, az + (bz - az) * t);
+        if (t > 0.99) d.scale.setScalar(1.5);
+        g.add(d);
+      }
+    }
+    const last = pts[pts.length - 1];
+    const fx = this.wx(last % this.W), fz = this.wz(Math.floor(last / this.W)), fy = this.heights[last];
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.5, 6), new THREE.MeshBasicMaterial({ color: '#2f2a33' }));
+    pole.position.set(fx, fy + 0.25, fz);
+    const flag = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.01), new THREE.MeshBasicMaterial({ color: '#ff6b4a' }));
+    flag.position.set(fx + 0.1, fy + 0.43, fz);
+    g.add(pole, flag);
+    g.renderOrder = 6;
+    this.pathGroup = g;
+    this.scene.add(g);
+  }
+
   // Pastilles posées sur des cases (bonus d'adjacence) : [{ i, html }]
   setBadges(list) {
     if (!this.badgeLayer) { this.badgeLayer = document.createElement('div'); this.badgeLayer.className = 'labels'; this.container.appendChild(this.badgeLayer); }

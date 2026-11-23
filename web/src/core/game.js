@@ -531,6 +531,21 @@ export function advanceUnit(s, u) {
   return steps;
 }
 
+// Prévisualisation d'un déplacement : chemin et tour d'arrivée de chaque case (1 = ce tour-ci).
+export function planMove(s, u, x, y) {
+  const path = findPath(s, u, x, y);
+  if (!path) return null;
+  const max = unitMaxMoves(s, u);
+  let moves = u.movesLeft, turn = 1;
+  const steps = path.map((i, k) => {
+    const c = enterCost(s, u, s.map.tiles[i], k === path.length - 1);
+    if (c > moves + 1e-6) { turn++; moves = max; }
+    moves -= c;
+    return { i, turn };
+  });
+  return { path, steps, turns: steps.length ? steps[steps.length - 1].turn : 1 };
+}
+
 export function orderMove(s, uid, x, y) {
   const u = s.units.find((v) => v.id === uid);
   if (!u) return { ok: false, reason: 'Unité introuvable.' };
