@@ -391,8 +391,25 @@ export function build(s, pid, type, x, y) {
   if (def.luxuryOnly) b.luxury = t.luxury;
   s.buildings.push(b);
   // Les routes restent sous les bâtiments : elles n'occupent pas la case.
-  if (def.wonder) log(s, `${s.players[pid].name} entame ${def.name}.`, null, 'info');
+  if (def.wonder) {
+    log(s, pid === 0 ? `Vous entamez ${def.name}.` : `${s.players[pid].name} entame ${def.name}.`, null, 'info');
+    // Course aux merveilles : on prévient chaque concurrent déjà engagé sur la même merveille.
+    const rivals = wonderSites(s, type).filter((r) => r.pid !== pid);
+    for (const r of rivals) {
+      log(s, `Course à ${def.name} : ${pid === 0 ? 'vous vous y lancez' : `${s.players[pid].name} s'y lance`} aussi (fin dans ${b.turnsLeft} tours, votre chantier : ${r.turnsLeft}).`, [r.pid], 'warn');
+    }
+    if (rivals.length) {
+      const first = rivals.reduce((a, r) => (r.turnsLeft < a.turnsLeft ? r : a));
+      log(s, `Course à ${def.name} : ${s.players[first.pid].name} la construit déjà (fin dans ${first.turnsLeft} tours, la vôtre : ${b.turnsLeft}). Seul le premier la garde, les autres récupèrent 50 %.`, [pid], 'warn');
+    }
+  }
   return { ok: true, building: b };
+}
+
+// Chantiers en cours d'une merveille (les débuts de merveille sont annoncés à tous, c'est donc une information publique).
+export function wonderSites(s, type) {
+  return s.buildings.filter((b) => b.type === type && b.turnsLeft > 0).map((b) => ({ pid: b.owner, turnsLeft: b.turnsLeft, id: b.id }))
+    .sort((a, b) => a.turnsLeft - b.turnsLeft);
 }
 
 export function canRoad(s, pid, x, y) {

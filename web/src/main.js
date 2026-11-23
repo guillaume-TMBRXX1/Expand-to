@@ -441,12 +441,16 @@ function renderBuildbar() {
     const locked = def.tech && !G.hasTech(s, 0, def.tech);
     const taken = def.wonder && s.wonders[id] !== undefined;
     const adjTxt = describeAdjacency(def);
-    const reason = (locked ? `Nécessite ${G.techDef(s, def.tech).name}` : taken ? `Construite par ${s.players[s.wonders[id]].name}` : def.desc) + (adjTxt ? `\nAdjacence : ${adjTxt}` : '');
+    const sites = def.wonder && !taken ? G.wonderSites(s, id) : [];
+    const mine = sites.find((r) => r.pid === 0), rivals = sites.filter((r) => r.pid !== 0);
+    const raceTxt = rivals.length ? `\nEn chantier chez ${rivals.map((r) => `${s.players[r.pid].name} (fin dans ${r.turnsLeft} tour${r.turnsLeft > 1 ? 's' : ''})`).join(', ')}. Seul le premier à la terminer la garde ; les autres récupèrent 50 % du coût.` : '';
+    const raceChip = rivals.length ? `<div class="chip race" style="margin-top:3px">${esc(s.players[rivals[0].pid].name)} · ${rivals[0].turnsLeft} t.${rivals.length > 1 ? ` +${rivals.length - 1}` : ''}${mine ? ` · vous ${mine.turnsLeft} t.` : ''}</div>` : '';
+    const reason = (locked ? `Nécessite ${G.techDef(s, def.tech).name}` : taken ? `Construite par ${s.players[s.wonders[id]].name}` : def.desc) + raceTxt + (adjTxt ? `\nAdjacence : ${adjTxt}` : '');
     const pressed = mode?.type === 'build' && mode.id === id;
     return `<button class="build-item" data-action="mode-build" data-id="${id}" aria-pressed="${pressed}" aria-disabled="${locked || taken}" title="${esc(reason)}">
       <b>${def.name}${def.wonder ? '' : ''}</b><div class="chips">${costChips(def)}</div>
       <div class="line"><span class="chips">${def.process ? `<span class="chip yield">${Object.values(def.process.in).reduce((a, v) => a + v, 0)}→${chips(def.process.out, 'yield')}</span>` : chips(def.yields, 'yield')}${def.luxuryOnly ? '<span class="chip yield">+1 ressource rare</span>' : ''}${def.prestige ? `<span class="chip yield">+${def.prestige} prest.</span>` : ''}</span></div>
-      ${locked ? `<div class="chip" style="margin-top:3px">${G.techDef(s, def.tech).name}</div>` : taken ? '<div class="chip" style="margin-top:3px">Indisponible</div>' : ''}
+      ${locked ? `<div class="chip" style="margin-top:3px">${G.techDef(s, def.tech).name}</div>` : taken ? '<div class="chip" style="margin-top:3px">Indisponible</div>' : raceChip}
     </button>`;
   }).join('');
   el.innerHTML = `<div class="tabs" role="tablist">${Object.entries(BUILD_TABS).map(([k, v]) => `<button class="tab" role="tab" aria-selected="${k === buildTab}" data-action="tab" data-tab="${k}">${v.label}</button>`).join('')}
