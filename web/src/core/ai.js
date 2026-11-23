@@ -61,6 +61,7 @@ function siteScore(s, pid, t, home) {
     if (n && n.owner === -1) score += { plains: 2, grass: 2, forest: 1.6, hills: 1.8, sand: 1, water: 0.8 }[n.type] || 0;
   }
   if (G.isCoastal(s, t)) score += 2;
+  if (t.river || G.neighbors(s, t.x, t.y).some((n) => n.river)) score += 3; // rivière : nourriture, Or et Moulin à eau
   // Une merveille naturelle dans le futur territoire : rendement et prestige.
   if ((s.naturals || []).some((n) => G.cheb(n.x, n.y, t.x, t.y) <= s.rules.cityRadius && G.tileAt(s, n.x, n.y).owner === -1)) score += 5;
   const d = home ? G.cheb(home.x, home.y, t.x, t.y) : 0;
@@ -218,7 +219,7 @@ function buildSomething(s, pid, w, B) {
 function sellSurplus(s, pid) {
   if (!G.hallCount(s, pid)) return;
   const p = s.players[pid];
-  for (const res of ['goods', 'planks', 'tools', 'spices', 'marble', 'crystal', 'wood', 'stone']) {
+  for (const res of ['goods', 'planks', 'tools', ...G.LUXURIES, 'wood', 'stone']) {
     const extra = Math.floor((p.res[res] || 0) - 40);
     if (extra > 5) G.sell(s, pid, res, extra);
   }

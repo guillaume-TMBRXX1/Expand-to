@@ -48,16 +48,19 @@ def test_balance_helpers():
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js requis pour comparer avec le jeu")
-@pytest.mark.parametrize("map_type,w,h", [("continent", 36, 26), ("pangaea", 28, 20), ("archipelago", 46, 32)])
-def test_mapgen_matches_javascript(map_type, w, h):
+@pytest.mark.parametrize("map_type,w,h,seed", [("continent", 40, 28, 4242), ("pangaea", 32, 24, 7), ("archipelago", 50, 34, 99), ("continent", 50, 34, 123)])
+def test_mapgen_matches_javascript(map_type, w, h, seed):
+    """Terrain, région et rivières identiques entre le jeu (JS) et le labo (Python)."""
     js = (
         "import { generateMap } from './web/src/core/mapgen.js';"
-        f"console.log(JSON.stringify(generateMap(4242, {w}, {h}, '{map_type}').tiles.map(t => t.type)));"
+        f"console.log(JSON.stringify(generateMap({seed}, {w}, {h}, '{map_type}').tiles.map(t => [t.type, t.region, t.river ? t.riverTo : -1])));"
     )
     out = subprocess.run(["node", "--input-type=module", "-e", js], cwd=ROOT, capture_output=True, text=True, check=True)
-    js_types = json.loads(out.stdout)
-    py_types = [t["type"] for row in generate_map(4242, w, h, map_type) for t in row]
-    assert py_types == js_types
+    js_tiles = json.loads(out.stdout)
+    py_tiles = [[t["type"], t["region"], t["riverTo"] if t.get("river") else -1] for row in generate_map(seed, w, h, map_type) for t in row]
+    assert py_tiles == js_tiles
+    assert any(t[2] != -1 for t in py_tiles), "au moins une rivière"
+    assert {t[1] for t in py_tiles} >= {"north", "arid", "coast"}
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js requis")

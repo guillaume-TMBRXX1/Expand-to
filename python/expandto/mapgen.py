@@ -95,4 +95,82 @@ def generate_map(seed: int, width: int = 36, height: int = 26, map_type: str = "
             m = moist(x, y)
             row.append({"x": x, "y": y, "e": e, "m": m, "type": classify(e, m)})
         rows.append(row)
+    tiles = [t for row in rows for t in row]
+    _assign_regions(rng, tiles, width, height)
+    _carve_rivers(rng, tiles, width, height)
     return rows
+
+
+REGIONS = ["north", "temperate", "fertile", "arid", "coast"]
+
+
+def region_of(tile_type: str, lat: float, m: float) -> str:
+    if tile_type in ("deep", "water", "sand"):
+        return "coast"
+    if lat < 0.24:
+        return "north"
+    if lat > 0.76:
+        return "arid"
+    return "fertile" if m > 0.5 else "temperate"
+
+
+def _assign_regions(rng, tiles, width, height):
+    jitter = _fbm(rng, width, height, 2, 6)
+    land = [t["y"] for t in tiles if t["type"] not in ("deep", "water")]
+    y0, y1 = (min(land), max(land)) if land else (height, 0)
+    span = max(1, y1 - y0)
+    for t in tiles:
+        lat = (t["y"] - y0) / span + (jitter(t["x"], t["y"]) - 0.5) * 0.3
+        t["region"] = region_of(t["type"], lat, t["m"])
+
+
+_D4 = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+
+
+def _carve_rivers(rng, tiles, width, height):
+    def at(x, y):
+        return tiles[y * width + x] if 0 <= x < width and 0 <= y < height else None
+
+    def water(t):
+        return t["type"] in ("deep", "water")
+
+    count = math.floor((width * height) / 190 + 0.5)  # Math.round de JavaScript (arrondi de 0,5 vers le haut)
+    sources = [t for t in tiles if t["type"] in ("hills", "mountain") and t["e"] > 0.66]
+    n = tries = 0
+    while n < count and tries < count * 8 and sources:
+        tries += 1
+        src = sources[math.floor(rng.next() * len(sources))]
+        if src.get("river") or any((v := at(src["x"] + dx, src["y"] + dy)) and v.get("river") for dx, dy in _D4):
+            continue
+        path, cur, ok = [src], src, False
+        for _ in range(40):
+            best = None
+            for dx, dy in _D4:
+                v = at(cur["x"] + dx, cur["y"] + dy)
+                if v is None or any(v is q for q in path):
+                    continue
+                if best is None or v["e"] < best["e"]:
+                    best = v
+            if best is None:
+                break
+            if water(best) or best.get("river"):
+                path.append(best)
+                ok = True
+                break
+            if best["e"] > cur["e"] + 0.02:
+                break
+            path.append(best)
+            cur = best
+        if not ok or len(path) < 4:
+            continue
+        for k in range(len(path) - 1):
+            t = path[k]
+            if water(t):
+                break
+            t["river"] = True
+            nx = path[k + 1]
+            t["riverTo"] = nx["y"] * width + nx["x"]
+        n += 1
+    for t in tiles:
+        if t.get("river") and t["type"] == "mountain":
+            t["type"] = "hills"

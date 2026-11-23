@@ -93,7 +93,7 @@ export class Renderer {
     this.controls.maxDistance = Math.max(45, this.W * 1.25);
     this.scene.fog.far = Math.max(90, this.W * 2.2);
     if (this.tiles) { this.scene.remove(this.tiles, this.trees, this.trunks, this.peaks, this.base, this.water, ...(this.decor || [])); }
-    for (const c of this.clouds || []) this.scene.remove(c);
+    if (this.rivers) this.scene.remove(this.rivers);
     for (const o of this.entityObjs.values()) this.entities.remove(o);
     this.entityObjs.clear();
     this.ready = false;
@@ -158,15 +158,47 @@ export class Renderer {
   }
 
   // Décor de terrain : fleurs, touffes d'herbe, rochers, coquillages (déterministe par case).
+  // Climat d'une case : sa région, ou pour les côtes celle de la terre la plus proche (palmiers au sud, pas au nord).
+  computeClimate(state) {
+    const W = this.W, H = this.H, out = new Array(W * H).fill('temperate');
+    state.map.tiles.forEach((t, i) => {
+      if (t.region && t.region !== 'coast') { out[i] = t.region; return; }
+      for (let r = 1; r <= 4; r++) {
+        let found = null;
+        for (let dy = -r; dy <= r && !found; dy++) for (let dx = -r; dx <= r && !found; dx++) {
+          const x = t.x + dx, y = t.y + dy;
+          if (x < 0 || y < 0 || x >= W || y >= H) continue;
+          const n = state.map.tiles[y * W + x];
+          if (n.region && n.region !== 'coast') found = n.region;
+        }
+        if (found) { out[i] = found; break; }
+      }
+    });
+    return out;
+  }
+
   buildDecor(state) {
+    this.climate = this.computeClimate(state);
+    const cl = (t) => this.climate[t.y * this.W + t.x];
     const hash = (x, y, k) => (((x * 73856093) ^ (y * 19349663) ^ (k * 83492791)) >>> 0) / 4294967296;
-    const slots = { flower: [], tuft: [], rock: [], shell: [], palm: [], pine: [], bush: [] };
+    const slots = { flower: [], tuft: [], rock: [], shell: [], palm: [], pine: [], bush: [], snowpine: [], cactus: [] };
     const nearMountain = (t) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const n = state.map.tiles[(t.y + dy) * this.W + t.x + dx]; return n && t.x + dx >= 0 && t.x + dx < this.W && (n.type === 'mountain' || n.type === 'snow'); });
     for (const t of state.map.tiles) {
       const r = hash(t.x, t.y, 91), dx = (hash(t.x, t.y, 92) - 0.5) * 0.5, dz = (hash(t.x, t.y, 93) - 0.5) * 0.5, sc = 0.8 + hash(t.x, t.y, 94) * 0.5;
+      const c = cl(t);
+      if (c === 'north') { // nord froid : sapins enneigés à la place des arbres ronds
+        if (t.type === 'forest') for (let k = 0; k < 3; k++) slots.snowpine.push({ t, dx: (hash(t.x, t.y, 120 + k) - 0.5) * 0.6, dz: (hash(t.x, t.y, 130 + k) - 0.5) * 0.6, sc: 0.8 + hash(t.x, t.y, 140 + k) * 0.4 });
+        else if ((t.type === 'plains' || t.type === 'hills' || t.type === 'grass') && r < 0.35) slots.snowpine.push({ t, dx, dz, sc });
+        continue;
+      }
+      if (c === 'arid') { // sud aride : cactus, palmiers sur le sable
+        if ((t.type === 'plains' || t.type === 'hills' || t.type === 'grass') && r < 0.35) slots.cactus.push({ t, dx, dz, sc, rot: hash(t.x, t.y, 96) * 6.28 });
+        if (t.type === 'sand' && r < 0.5) slots[r < 0.3 ? 'palm' : 'cactus'].push({ t, dx, dz, sc, rot: hash(t.x, t.y, 95) * 6.28 });
+        continue;
+      }
       if (t.type === 'sand' && r < 0.4) slots.palm.push({ t, dx, dz, sc, rot: hash(t.x, t.y, 95) * 6.28 });
       if ((t.type === 'hills' && r < 0.35) || (t.type === 'forest' && nearMountain(t) && r < 0.8)) slots.pine.push({ t, dx, dz, sc });
-      if (t.type === 'plains' && r < 0.25) slots.bush.push({ t, dx, dz, sc: sc * 0.9 });
+      if (t.type === 'plains' && r < (c === 'fertile' ? 0.4 : 0.25)) slots.bush.push({ t, dx, dz, sc: sc * 0.9 });
     }
     for (const t of state.map.tiles) {
       const n = 3;
@@ -174,7 +206,7 @@ export class Renderer {
         const r = hash(t.x, t.y, k + 11);
         const dx = (hash(t.x, t.y, k + 21) - 0.5) * 0.8, dz = (hash(t.x, t.y, k + 31) - 0.5) * 0.8;
         const sc = 0.7 + hash(t.x, t.y, k + 41) * 0.6;
-        if ((t.type === 'grass' || t.type === 'plains') && r < 0.45) slots[r < 0.18 ? 'flower' : 'tuft'].push({ t, dx, dz, sc, c: ['#ffffff', '#ffd23f', '#ff8fab', '#c4a7ff'][Math.floor(r * 40) % 4] });
+        if ((t.type === 'grass' || t.type === 'plains') && cl(t) !== 'north' && r < (cl(t) === 'arid' ? 0.15 : 0.45)) slots[r < 0.18 ? 'flower' : 'tuft'].push({ t, dx, dz, sc, c: ['#ffffff', '#ffd23f', '#ff8fab', '#c4a7ff'][Math.floor(r * 40) % 4] });
         if (t.type === 'hills' && r < 0.6) slots.rock.push({ t, dx, dz, sc: sc * 1.2 });
         if (t.type === 'mountain' && r < 0.4) slots.rock.push({ t, dx: dx * 1.1, dz: dz * 1.1, sc: sc * 1.6 });
         if (t.type === 'sand' && r < 0.3) slots.shell.push({ t, dx, dz, sc });
@@ -189,12 +221,12 @@ export class Renderer {
     ];
     this.decor[0].userData.kind = 'flower'; this.decor[1].userData.kind = 'tuft';
     const vc = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 });
-    for (const [geo, list] of [[this.palmGeo(), slots.palm], [this.pineGeo(), slots.pine], [this.bushGeo(), slots.bush]]) {
+    for (const [geo, list] of [[this.palmGeo(), slots.palm], [this.pineGeo(), slots.pine], [this.bushGeo(), slots.bush], [this.pineGeo(true), slots.snowpine], [this.cactusGeo(), slots.cactus]]) {
       const im = make(geo, vc, list); im.castShadow = true; this.decor.push(im);
     }
     this.scene.add(...this.decor);
     this.buildFoam(state);
-    this.buildClouds();
+    this.buildRivers(state);
   }
 
   // Petites géométries fusionnées à couleurs de sommets (un seul appel de dessin par type).
@@ -220,13 +252,24 @@ export class Renderer {
     parts.push([new THREE.SphereGeometry(0.025, 8, 6), '#8a5634', M(0.05, 0.33, 0)]);
     return this.mergedGeo(parts);
   }
-  pineGeo() {
+  pineGeo(snow = false) {
     const M = (y, s) => new THREE.Matrix4().compose(new THREE.Vector3(0, y, 0), new THREE.Quaternion(), new THREE.Vector3(s, 1, s));
-    return this.mergedGeo([
+    const parts = [
       [new THREE.CylinderGeometry(0.018, 0.024, 0.1, 6), '#7a4e2e', M(0.05, 1)],
-      [new THREE.ConeGeometry(0.11, 0.18, 8), '#3f7f4f', M(0.17, 1)],
-      [new THREE.ConeGeometry(0.085, 0.15, 8), '#4a8f58', M(0.27, 1)],
-      [new THREE.ConeGeometry(0.055, 0.11, 8), '#5aa265', M(0.35, 1)],
+      [new THREE.ConeGeometry(0.11, 0.18, 8), snow ? '#3d6f55' : '#3f7f4f', M(0.17, 1)],
+      [new THREE.ConeGeometry(0.085, 0.15, 8), snow ? '#46785d' : '#4a8f58', M(0.27, 1)],
+      [new THREE.ConeGeometry(0.055, 0.11, 8), snow ? '#ffffff' : '#5aa265', M(0.35, 1)],
+    ];
+    if (snow) parts.push([new THREE.ConeGeometry(0.1, 0.05, 8), '#f4f8fb', M(0.23, 1)], [new THREE.ConeGeometry(0.078, 0.045, 8), '#f4f8fb', M(0.32, 1)]);
+    return this.mergedGeo(parts);
+  }
+  cactusGeo() {
+    const M = (x, y, z, rz = 0) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, rz)), new THREE.Vector3(1, 1, 1));
+    return this.mergedGeo([
+      [new THREE.CapsuleGeometry(0.03, 0.16, 4, 8), '#5f9e5a', M(0, 0.11, 0)],
+      [new THREE.CapsuleGeometry(0.018, 0.06, 4, 8), '#6aab62', M(0.045, 0.14, 0, -0.2)],
+      [new THREE.CapsuleGeometry(0.016, 0.05, 4, 8), '#6aab62', M(-0.04, 0.1, 0, 0.25)],
+      [new THREE.SphereGeometry(0.014, 6, 5), '#ff8fab', M(0, 0.23, 0)],
     ]);
   }
   bushGeo() {
@@ -237,6 +280,120 @@ export class Renderer {
       [new THREE.SphereGeometry(0.035, 9, 7), '#5fae5a', M(-0.035, 0.03, 0.03, 1)],
       [new THREE.SphereGeometry(0.012, 6, 5), '#ff8fab', M(0.02, 0.075, 0.01, 1)],
     ]);
+  }
+
+  // Rivières : un ruban d'eau fin et courbe qui suit le relief. On relie les centres des cases (avec un léger
+  // méandre), on lisse par une spline, et la largeur grandit avec le débit (nombre de cases en amont).
+  // L'eau s'écoule doucement le long du ruban ; une petite chute marque chaque changement de terrasse.
+  buildRivers(state) {
+    const tiles = state.map.tiles, W = this.W;
+    const up = new Map();
+    tiles.forEach((t, i) => { if (t.river) { if (!up.has(t.riverTo)) up.set(t.riverTo, []); up.get(t.riverTo).push(i); } });
+    const flow = new Map();
+    const flowOf = (i) => { if (flow.has(i)) return flow.get(i); let f = 1; for (const j of up.get(i) || []) f += flowOf(j); flow.set(i, f); return f; };
+    // Chaînes : de chaque source jusqu'à la mer, ou jusqu'à la rivière qu'elle rejoint (la jonction est incluse).
+    const chains = [];
+    tiles.forEach((t, i) => {
+      if (!t.river || (up.get(i) || []).length) return;
+      const chain = [i];
+      let cur = t;
+      while (cur.river) {
+        const nx = cur.riverTo;
+        chain.push(nx);
+        const n = tiles[nx];
+        if (!n.river || chains.some((c) => c.includes(nx))) break;
+        cur = n;
+      }
+      chains.push(chain);
+    });
+    // Les affluents qui rejoignent une chaîne déjà tracée s'arrêtent à la jonction ; la chaîne principale doit
+    // donc être tracée avant eux : on trie par longueur décroissante puis on recoupe.
+    chains.sort((a, b) => b.length - a.length);
+    const seen = new Set();
+    this.riverChains = chains.map((c) => {
+      const out = [];
+      for (const i of c) { out.push(i); if (seen.has(i) && out.length > 1) break; seen.add(i); }
+      return out;
+    }).filter((c) => c.length >= 2);
+    this.riverFlow = flow; tiles.forEach((t, i) => { if (t.river) flowOf(i); });
+    const u = this.waterUniform;
+    const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true, roughness: 0.2, metalness: 0.05, transparent: true, opacity: 0.95, depthWrite: false });
+    const speed = { value: this.reducedMotion ? 0 : 0.5 };
+    mat.onBeforeCompile = (sh) => {
+      sh.uniforms.uTime = u; sh.uniforms.uSpeed = speed;
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 rv;\nvarying vec2 vRv;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRv = rv;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uSpeed;\nvarying vec2 vRv;')
+        .replace('#include <color_fragment>', `#include <color_fragment>
+          float edge = abs(vRv.y * 2.0 - 1.0);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.95, 1.0), smoothstep(0.55, 1.0, edge) * 0.55);
+          float ripple = sin(vRv.x * 9.0 - uTime * uSpeed * 6.0 + vRv.y * 3.0) * sin(vRv.x * 3.7 - uTime * uSpeed * 2.5);
+          diffuseColor.rgb += smoothstep(0.6, 1.0, ripple) * 0.18 * (1.0 - edge);`);
+    };
+    this.rivers = new THREE.Mesh(new THREE.BufferGeometry(), mat);
+    this.rivers.renderOrder = 1;
+    this.rivers.receiveShadow = true;
+    this.scene.add(this.rivers);
+  }
+  refreshRivers() {
+    if (!this.rivers) return;
+    const s = this.state, p = s.players[this.viewer], tiles = s.map.tiles;
+    const hash = (x, y, k) => (((x * 73856093) ^ (y * 19349663) ^ (k * 83492791)) >>> 0) / 4294967296;
+    const pos = [], col = [], rv = [], idx = [];
+    const deep = new THREE.Color('#58b4e6'), light = new THREE.Color('#8ed3f2');
+    for (const chain of this.riverChains) {
+      // Points de contrôle : centres des cases, décalés perpendiculairement au courant (méandre).
+      const pts = chain.map((i, k) => {
+        const t = tiles[i];
+        const prev = tiles[chain[Math.max(0, k - 1)]], next = tiles[chain[Math.min(chain.length - 1, k + 1)]];
+        let dx = next.x - prev.x, dz = next.y - prev.y;
+        const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
+        const wob = k === 0 || k === chain.length - 1 ? 0 : (hash(t.x, t.y, 7) - 0.5) * 0.36;
+        const water = s.data.terrain[t.type].water;
+        return { x: this.wx(t.x) - dz * wob, z: this.wz(t.y) + dx * wob, h: this.heights[i] + (water ? 0.01 : 0.014), ex: p.explored[i] === 1, water, i };
+      });
+      // L'embouchure s'arrête au bord de l'eau, pas au centre de la case de mer.
+      const last = pts[pts.length - 1], before = pts[pts.length - 2];
+      if (last.water) { last.x = before.x + (last.x - before.x) * 0.6; last.z = before.z + (last.z - before.z) * 0.6; last.h = before.h; }
+      const cr = (a, b, c, d, t) => 0.5 * ((2 * b) + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t);
+      const steps = 8;
+      let arc = 0, prevPt = null, base = -1;
+      for (let k = 0; k < pts.length - 1; k++) {
+        const a = pts[Math.max(0, k - 1)], b = pts[k], c = pts[k + 1], d = pts[Math.min(pts.length - 1, k + 2)];
+        const fw = (j) => { const f = this.riverFlow.get(pts[j].i) || 1; return Math.min(0.15, 0.045 + 0.022 * Math.sqrt(f)); };
+        for (let st = (k === 0 ? 0 : 1); st <= steps; st++) {
+          const t = st / steps;
+          const x = cr(a.x, b.x, c.x, d.x, t), z = cr(a.z, b.z, c.z, d.z, t);
+          // Hauteur : plate sur chaque case, chute rapide juste après le bord de la terrasse.
+          const drop = c.h < b.h ? THREE.MathUtils.smoothstep(t, 0.5, 0.56) : THREE.MathUtils.smoothstep(t, 0.44, 0.5); // la chute tombe devant la paroi de la terrasse
+          const h = b.h + (c.h - b.h) * drop;
+          const visible = b.ex && c.ex;
+          if (!visible) { prevPt = null; base = -1; continue; }
+          const w = fw(k) + (fw(k + 1) - fw(k)) * t;
+          if (prevPt) arc += Math.hypot(x - prevPt.x, z - prevPt.z);
+          // Direction locale pour la largeur
+          const t2 = Math.min(1, t + 0.02), t1 = Math.max(0, t - 0.02);
+          let tx = cr(a.x, b.x, c.x, d.x, t2) - cr(a.x, b.x, c.x, d.x, t1), tz = cr(a.z, b.z, c.z, d.z, t2) - cr(a.z, b.z, c.z, d.z, t1);
+          const L = Math.hypot(tx, tz) || 1; tx /= L; tz /= L;
+          const nx = -tz * w / 2, nz = tx * w / 2;
+          const vi = pos.length / 3;
+          pos.push(x + nx, h, z + nz, x - nx, h, z - nz);
+          const cc = deep.clone().lerp(light, 0.5 - 0.5 * Math.cos(arc * 1.3));
+          col.push(cc.r, cc.g, cc.b, cc.r, cc.g, cc.b);
+          rv.push(arc, 0, arc, 1);
+          if (base >= 0) idx.push(vi - 2, vi, vi - 1, vi - 1, vi, vi + 1);
+          base = vi; prevPt = { x, z };
+        }
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setAttribute('rv', new THREE.Float32BufferAttribute(rv, 2));
+    g.setIndex(idx);
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(pos.length).map((_, k) => (k % 3 === 1 ? 1 : 0)), 3));
+    this.rivers.geometry.dispose();
+    this.rivers.geometry = g;
   }
 
   // Écume blanche le long des rivages (côté eau).
@@ -256,39 +413,6 @@ export class Renderer {
     this.foam = new THREE.InstancedMesh(new RoundedBoxGeometry(0.9, 0.02, 0.08, 1, 0.01), mat, Math.max(1, edges.length));
     this.foam.renderOrder = 2;
     this.decor.push(this.foam);
-  }
-
-  // Quelques nuages qui dérivent lentement et projettent une ombre douce.
-  buildClouds() {
-    if (this.clouds) for (const c of this.clouds) this.scene.remove(c);
-    const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1, transparent: true, opacity: 0.8, depthWrite: false });
-    const geo = this.mergedGeo([
-      [new THREE.SphereGeometry(0.6, 12, 9), '#ffffff', new THREE.Matrix4().makeScale(1.2, 0.55, 0.9)],
-      [new THREE.SphereGeometry(0.45, 12, 9), '#ffffff', new THREE.Matrix4().compose(new THREE.Vector3(0.65, 0.05, 0.1), new THREE.Quaternion(), new THREE.Vector3(1, 0.6, 0.9))],
-      [new THREE.SphereGeometry(0.42, 12, 9), '#f6f6f6', new THREE.Matrix4().compose(new THREE.Vector3(-0.6, 0, -0.1), new THREE.Quaternion(), new THREE.Vector3(1, 0.55, 0.85))],
-    ]);
-    mat.vertexColors = true;
-    this.clouds = [];
-    const n = Math.round((this.W * this.H) / 160);
-    for (let k = 0; k < n; k++) {
-      const c = new THREE.Mesh(geo, mat);
-      c.castShadow = true;
-      c.position.set((Math.random() - 0.5) * (this.W + 10), 5 + Math.random() * 1.5, (Math.random() - 0.5) * this.H);
-      c.scale.setScalar(0.7 + Math.random() * 0.8);
-      this.clouds.push(c); this.scene.add(c);
-    }
-  }
-  driftClouds(dt) {
-    const half = this.W / 2 + 8;
-    // De près, les nuages s'effacent progressivement pour ne jamais gêner la lecture de la carte.
-    const d = this.camera.position.distanceTo(this.controls.target);
-    const k = Math.min(1, Math.max(0, (d - 18) / 14));
-    this.clouds[0].material.opacity = 0.8 * k;
-    for (const c of this.clouds) {
-      if (!this.reducedMotion) c.position.x += dt * 0.25;
-      if (c.position.x > half) c.position.x = -half;
-      c.visible = k > 0.02;
-    }
   }
 
   refreshDecor(occupied, visible) {
@@ -337,7 +461,7 @@ export class Renderer {
     const s = this.state, p = s.players[this.viewer];
     const m = new THREE.Matrix4(), c = new THREE.Color(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3();
     const vis = this.computeVisible();
-    const memo = new THREE.Color('#a59e98');
+    const memo = new THREE.Color('#a59e98'), tint = new THREE.Color();
     s.map.tiles.forEach((t, i) => {
       const ex = p.explored[i] === 1;
       const h = this.tileHeight(t, ex);
@@ -345,6 +469,8 @@ export class Renderer {
       m.compose(v.set(this.wx(t.x), h / 2, this.wz(t.y)), q, sc.set(ex ? 1 : 1.021, h, ex ? 1 : 1.021));
       this.tiles.setMatrixAt(i, m);
       c.set(ex ? s.data.terrain[t.type].color : FOG_COLOR);
+      const reg = s.rules.regions?.[this.climate?.[i]];
+      if (ex && reg && !s.data.terrain[t.type].water && t.type !== 'snow') c.lerp(tint.set(reg.tint), reg.tintAmount * (t.type === 'mountain' ? 0.4 : 1));
       if (ex && !s.data.terrain[t.type].water) c.offsetHSL(0, 0, ((t.x * 7 + t.y * 13) % 5) * 0.006 - 0.012);
       if (ex && !vis[i]) c.lerp(memo, 0.38);
       this.tiles.setColorAt(i, c);
@@ -357,6 +483,7 @@ export class Renderer {
       for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) occupied.add((b.y + dy) * this.W + b.x + dx);
     }
     this.refreshDecor(occupied, vis);
+    this.refreshRivers();
     const wq = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
     this.waterTiles.forEach((t, k) => {
       const i = t.y * this.W + t.x;
@@ -376,7 +503,7 @@ export class Renderer {
     this.foam.instanceMatrix.needsUpdate = true;
     this.treeSlots.forEach((sl, k) => {
       const i = sl.t.y * this.W + sl.t.x;
-      const ex = p.explored[i] === 1 && sl.t.type === 'forest' && !occupied.has(i);
+      const ex = p.explored[i] === 1 && sl.t.type === 'forest' && !occupied.has(i) && this.climate?.[i] !== 'north';
       const k0 = ex ? sl.s : 0.0001;
       m.compose(v.set(this.wx(sl.t.x) + sl.dx, this.heights[i] + 0.11 * sl.s, this.wz(sl.t.y) + sl.dz), q, sc.setScalar(k0));
       this.trunks.setMatrixAt(k, m);
@@ -794,7 +921,6 @@ export class Renderer {
     this.waterUniform.value = this.time;
     if (!this.reducedMotion) this.animate(dt);
     this.updateEffects(dt);
-    if (this.clouds) this.driftClouds(dt);
     if (this.dayNight && !this.reducedMotion) this.updateLight();
     for (const obj of this.entityObjs.values()) {
       if (!obj.userData.isUnit) continue;

@@ -61,5 +61,7 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
 - **Chantiers** : le bâtiment monte au fil des tours (de 25 à 90 % de sa hauteur, translucide), entouré d'échafaudages, de caisses et d'une grue dont la flèche tourne.
 - **Effets** : à l'achèvement, le bâtiment apparaît avec un léger rebond, suivi d'un nuage de poussière et d'étincelles. Une nouvelle ville apparaît de la même façon, une ville qui grandit rebondit, une nouvelle unité apparaît en douceur, et une unité en marche laisse une petite traînée de poussière. Ces effets ne se jouent que pour les cases visibles, et pas au chargement d'une partie.
 - **Décor** : palmiers sur les plages, sapins sur les collines et au pied des montagnes, buissons dans les plaines (instanciés, avec couleurs de sommets). Une frange d'écume borde les côtes.
-- **Ciel** : quelques nuages dérivent et projettent leur ombre. Ils s'effacent progressivement quand on zoome pour ne jamais gêner la lecture.
+- **Ciel dégagé** : les nuages ont été retirés à la demande, pour garder la carte toujours lisible.
+- **Rivières** : un ruban d'eau fin et courbe, lissé par une spline, avec un léger méandre. Il s'élargit avec le débit (nombre de cases en amont), ses bords sont plus clairs, et des reflets s'écoulent doucement à sa surface. Une petite chute tombe devant chaque paroi de terrasse. Les reflets restent immobiles si le système demande moins d'animations.
+- **Régions** : teinte propre à chaque région climatique, sapins enneigés au nord, cactus et palmiers au sud.
 - Pistes pour la suite : éventuellement des modèles glTF faits main dans le même style.

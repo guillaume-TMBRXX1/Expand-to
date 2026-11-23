@@ -13,7 +13,7 @@ import { lineChart } from './ui/charts.js';
 const $ = (sel) => document.querySelector(sel);
 const BRANCHES = { economy: 'Économie', science: 'Science', culture: 'Culture', diplomacy: 'Diplomatie' };
 const BUILD_TABS = {
-  prod: { label: 'Production', ids: ['farm', 'lumber', 'quarry', 'market', 'harbor', 'district', 'road'] },
+  prod: { label: 'Production', ids: ['farm', 'lumber', 'quarry', 'market', 'watermill', 'harbor', 'district', 'road'] },
   industry: { label: 'Industrie', ids: ['sawmill', 'manufactory', 'forge', 'outpost', 'markethall'] },
   know: { label: 'Savoir & culture', ids: ['library', 'lab', 'theatre', 'monument'] },
   quarter: { label: 'Quartiers 2×2', ids: ['campus', 'artsquarter', 'merchantquarter'] },
@@ -654,7 +654,10 @@ function showTileTip(i, x, y) {
   const units = s.units.filter((u) => u.x === t.x && u.y === t.y && (u.owner === 0 || renderer.visible?.[i]));
   const lines = [`<b>${c ? esc(c.name) : ter.name}</b>${t.owner !== -1 ? ` <span class="muted">· ${esc(s.players[t.owner].name)}</span>` : ''}`];
   if (c) lines.push(`<span class="muted">Ville · ${c.pop} hab. · ${s.rules.tiers[c.tier || 0].name}</span>`);
-  if (!c) lines.push(`<span class="muted">${ter.passable ? `Déplacement ${t.road !== -1 ? s.rules.road.moveCost : ter.move}` : 'Impraticable'}${t.road !== -1 ? ' · route' : ''}</span>`);
+  if (!c) lines.push(`<span class="muted">${ter.passable ? `Déplacement ${G.enterCost(s, { owner: 0, type: 'explorer' }, t)}` : 'Impraticable'}${t.road !== -1 ? ' · route' : ''}</span>`);
+  const reg = s.rules.regions?.[t.region];
+  if (reg) lines.push(`<span class="muted">${reg.name}${t.river ? ' · rivière' : ''}</span>`);
+  if (t.river && !b && !c) lines.push(`<span class="muted">Rivière : +${s.rules.river.buildingYield.gold} Or au bâtiment construit ici, Moulin à eau possible</span>`);
   if (t.natural) { const nd = D.naturalDef(s, t.natural); lines.push(`<span class="chip yield">Merveille naturelle : ${nd.name}</span>`, `<span class="muted">${chipsText(nd.yields)} pour le territoire qui l'englobe · +${s.rules.naturalWonders.ownedPrestige} prestige · ${chipsText(s.rules.naturalWonders.adjacency)} aux bâtiments voisins</span>`); }
   if (t.ruin) lines.push('<span class="chip yield">Ruines antiques : envoyez une unité les fouiller</span>');
   if (t.luxury && !b) lines.push(`<span class="chip yield"><i style="background:${resColor(t.luxury)}"></i>${data.resources[t.luxury].name} (ressource rare)</span>`);
@@ -763,6 +766,9 @@ function showEncyclopedia(tab = 'buildings') {
     const NW = s.rules.naturalWonders, RU = s.rules.ruins;
     body = `<div class="stock-group">Merveilles naturelles</div><div class="enc-item"><div class="muted">Uniques et réparties sur la carte. Les découvrir rapporte ${NW.firstPrestige} prestige au premier, ${NW.laterPrestige} aux suivants. Dans votre territoire : leur rendement et +${NW.ownedPrestige} prestige. Tout bâtiment voisin gagne ${chipsText(NW.adjacency)}. On ne construit pas dessus.</div></div>`
       + NW.list.map((d) => `<div class="enc-item"><div class="vhead"><b>${d.name}</b><span class="muted">${d.terrain.map((k) => data.terrain[k].name).join(', ')}</span></div><div class="muted">${d.desc}</div><div class="enc-line">${chipsText(d.yields)}</div></div>`).join('')
+      + `<div class="stock-group">Régions</div><div class="enc-item"><div class="muted">La carte est divisée en grandes régions climatiques. Chaque ressource rare ne se trouve que dans une ou deux régions : il faut commercer pour toutes les avoir.</div></div>`
+      + Object.entries(s.rules.regions).map(([k, r]) => `<div class="enc-item"><div class="vhead"><b>${r.name}</b></div><div class="muted">${G.LUXURIES.filter((l) => s.rules.luxuries.types[l].regions.includes(k)).map((l) => data.resources[l].name).join(', ') || '—'}</div></div>`).join('')
+      + `<div class="stock-group">Rivières</div><div class="enc-item"><div class="muted">Elles descendent des collines vers la mer. Une ville au bord d'une rivière gagne ${chipsText(s.rules.river.cityYield)}. Un bâtiment construit sur une rivière gagne ${chipsText(s.rules.river.buildingYield)} (et +${s.rules.river.farmFood} Nourriture pour une ferme). Le Moulin à eau et le port fluvial s'y construisent. On s'y déplace plus vite (coût ${s.rules.river.moveCost}).</div></div>`
       + `<div class="stock-group">Ruines antiques</div><div class="enc-item"><div class="muted">Une unité qui entre dans des ruines les fouille et trouve au hasard : ${RU.rewards.map((r) => r.text).join(', ')}.</div></div>`
       + `<div class="stock-group">Événements</div><div class="enc-item"><div class="muted">Tous les ${data.events.every[0]} à ${data.events.every[1]} tours environ, un événement vous propose un choix (sécheresse, comète, savant exilé…). Sans réponse au bout de ${data.events.expireAfter} tours, le choix le plus raisonnable est fait pour vous.</div></div>`;
   } else if (tab === 'resources') {

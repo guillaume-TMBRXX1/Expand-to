@@ -7,7 +7,8 @@ import { contractsTick, influenceTick, crisisTick, crisisActive, crisisDef } fro
 
 export const RES = ['gold', 'food', 'wood', 'stone'];
 export const GOODS = ['planks', 'tools', 'goods'];
-export const LUXURIES = ['spices', 'marble', 'crystal'];
+// Ressources rares : leurs régions, terrains et effets sont dans rules.json (luxuries.types).
+export const LUXURIES = ['furs', 'crystal', 'marble', 'wine', 'silk', 'pearls', 'salt', 'spices', 'incense'];
 export const STOCK = [...RES, ...GOODS, ...LUXURIES];
 export const YIELDS = ['gold', 'food', 'wood', 'stone', 'science', 'culture'];
 // Ordre validé pour la lisibilité daltonienne des voisins (graphiques de fin de partie).
@@ -37,7 +38,7 @@ export function gameRules(data, settings = {}) {
     turnLimit: len.turnLimit,
     prestigeTarget: Math.round((base.prestigeTarget * (len.prestigeScale ?? k) * (size.prestigeScale ?? 1)) / 5) * 5,
     victory: { ...base.victory, cultureTotal: Math.round(base.victory.cultureTotal * (len.pathScale ?? len.prestigeScale ?? k)), economyGold: Math.round(base.victory.economyGold * (len.pathScale ?? len.prestigeScale ?? k) * 1.15), scienceTechs: Math.min(16, Math.round(base.victory.scienceTechs * (len.techScale ?? (k < 1 ? 0.86 : 1)))), secretaryWins: len.secretaryWins ?? base.victory.secretaryWins, allyAllElections: len.allyAllElections ?? base.victory.allyAllElections },
-    luxuries: { ...base.luxuries, perType: Math.round(base.luxuries.perType * (size.width * size.height) / (36 * 26)) },
+    luxuries: { ...base.luxuries, perType: Math.max(1, Math.round(base.luxuries.perType * (size.width * size.height) / (base.luxuries.refArea || 936))) },
   };
 }
 
@@ -56,6 +57,7 @@ export function neighbors(s, x, y, dirs = DIRS8) {
   for (const [dx, dy] of dirs) { const t = tileAt(s, x + dx, y + dy); if (t) out.push(t); }
   return out;
 }
+export const cityOnRiver = (s, c) => { const t = tileAt(s, c.x, c.y); return !!(t.river || neighbors(s, c.x, c.y, DIRS4).some((n) => n.river)); };
 export const isCoastal = (s, t) => neighbors(s, t.x, t.y, DIRS4).some((n) => terrainOf(s, n).water);
 
 export const buildingDef = (s, id) => s.data.buildingsById[id];
@@ -173,23 +175,23 @@ export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profi
   return s;
 }
 
-// Ressources rares : épices (prairies, forêts), marbre (collines), cristal (au pied des montagnes).
+// Ressources rares régionales : chaque type n'apparaît que dans ses régions (rules.json, luxuries.types),
+// sur ses terrains, et loin des points de départ. Faute de place dans sa région, on cherche ailleurs sur le même terrain.
 function placeLuxuries(s, rng, starts) {
   const L = s.rules.luxuries;
   const placed = [];
   const nearMountain = (t) => neighbors(s, t.x, t.y).some((n) => n.type === 'mountain' || n.type === 'snow');
-  const rule = {
-    spices: (t) => t.type === 'grass' || t.type === 'forest',
-    marble: (t) => t.type === 'hills' && !nearMountain(t),
-    crystal: (t) => ['hills', 'plains', 'grass', 'forest'].includes(t.type) && nearMountain(t),
-  };
+  const free = (t) => !t.natural && !t.luxury && !placed.some((o) => cheb(o.x, o.y, t.x, t.y) < L.minSpacing) && !starts.some((o) => cheb(o.x, o.y, t.x, t.y) < 2);
   for (const lux of LUXURIES) {
-    const cands = rng.shuffle(s.map.tiles.filter(rule[lux]));
+    const def = L.types?.[lux];
+    if (!def) continue;
+    const fits = (t) => def.terrain.includes(t.type) && (!def.nearMountain || nearMountain(t));
+    const inRegion = rng.shuffle(s.map.tiles.filter((t) => fits(t) && def.regions.includes(t.region)));
+    const elsewhere = rng.shuffle(s.map.tiles.filter((t) => fits(t) && !def.regions.includes(t.region)));
     let n = 0;
-    for (const t of cands) {
+    for (const t of [...inRegion, ...elsewhere]) {
       if (n >= L.perType) break;
-      if (placed.some((o) => cheb(o.x, o.y, t.x, t.y) < L.minSpacing)) continue;
-      if (starts.some((o) => cheb(o.x, o.y, t.x, t.y) < 2)) continue;
+      if (!free(t)) continue;
       t.luxury = lux; placed.push(t); n++;
     }
   }
@@ -220,7 +222,7 @@ export function playerMods(s, pid) {
   };
   apply(s.data.profilesById[p.profile].mods);
   for (const t of p.techs) apply(techDef(s, t).effects);
-  for (const lux of activeLuxuries(s, pid)) apply(LUXURY_EFFECTS[lux]);
+  for (const lux of activeLuxuries(s, pid)) apply(s.rules.luxuries.types?.[lux]?.effects);
   for (const pol of activePolicies(s, pid)) apply(pol.effects);
   for (const b of activeBuffs(s, pid)) apply({ yieldPct: b.yieldPct });
   if (crisisActive(s)) apply({ yieldPct: crisisDef(s).yieldPct });
@@ -245,11 +247,7 @@ export function playerMods(s, pid) {
   return m;
 }
 
-export const LUXURY_EFFECTS = {
-  spices: { yieldPct: { food: 0.1 }, cityYield: { culture: 1 } },
-  marble: { yieldPct: { culture: 0.15 }, wonderCostPct: -0.15 },
-  crystal: { yieldPct: { science: 0.15 } },
-};
+export const luxuryEffects = (s, lux) => s.rules.luxuries.types?.[lux]?.effects || {};
 export const activeLuxuries = (s, pid) => LUXURIES.filter((k) => (s.players[pid].res[k] || 0) >= 1);
 
 export function costOf(s, pid, def, isBuilding = true) {
@@ -357,8 +355,9 @@ export function canBuild(s, pid, type, x, y) {
     if (!def.terrain.includes(c.type)) return { ok: false, reason: `Terrain requis : ${def.terrain.map((k) => s.data.terrain[k].name).join(', ')}.` };
     if (def.luxuryOnly && !c.luxury) return { ok: false, reason: 'À placer sur une ressource rare.' };
     if (!def.luxuryOnly && c.luxury) return { ok: false, reason: 'Case réservée au Comptoir (ressource rare).' };
+    if (def.river && !c.river) return { ok: false, reason: 'À construire sur une rivière.' };
   }
-  if (def.coastal && !isCoastal(s, t)) return { ok: false, reason: "Doit toucher l'eau." };
+  if (def.coastal && !isCoastal(s, t) && !(def.riverOk && t.river)) return { ok: false, reason: def.riverOk ? "Doit toucher l'eau ou une rivière." : "Doit toucher l'eau." };
   if (def.wonder) {
     if (s.wonders[type] !== undefined) return { ok: false, reason: 'Merveille déjà construite.' };
     if (s.buildings.some((b) => b.type === type && b.owner === pid)) return { ok: false, reason: 'Déjà en construction.' };
@@ -378,6 +377,12 @@ export function adjacencyBonus(s, pid, type, x, y) {
     if (dx >= 0 && dx < f && dy >= 0 && dy < f) continue;
     const t = tileAt(s, x + dx, y + dy);
     if (t) ring.push(t);
+  }
+  // Rivière sous le bâtiment : un peu d'Or (et de Nourriture pour une ferme).
+  const RV = s.rules.river;
+  if (RV && !def.wonder && footprintTiles(s, type, x, y).some((c) => c && c.river)) {
+    for (const [k, v] of Object.entries(RV.buildingYield)) out[k] = (out[k] || 0) + v;
+    if (type === 'farm') out.food = (out.food || 0) + RV.farmFood;
   }
   // Merveille naturelle voisine : bonus pour tout bâtiment (une seule fois).
   if (s.rules.naturalWonders && ring.some((t) => t.natural)) for (const [k, v] of Object.entries(s.rules.naturalWonders.adjacency)) out[k] = (out[k] || 0) + v;
@@ -477,6 +482,9 @@ export function canTrain(s, pid, cityId, type) {
   if (def.requiresBuilding && !s.buildings.some((b) => b.cityId === city.id && b.type === def.requiresBuilding && !b.turnsLeft)) {
     return { ok: false, reason: `Nécessite un ${buildingDef(s, def.requiresBuilding).name} terminé dans cette ville.` };
   }
+  if (def.naval && !s.buildings.some((b) => b.cityId === city.id && b.type === def.requiresBuilding && !b.turnsLeft && neighbors(s, b.x, b.y).some((n) => terrainOf(s, n).water))) {
+    return { ok: false, reason: 'Un navire a besoin d\'un port au bord de la mer.' };
+  }
   if (!canAfford(s, pid, costOf(s, pid, def, false))) return { ok: false, reason: 'Ressources insuffisantes.' };
   return { ok: true };
 }
@@ -516,6 +524,7 @@ export function enterCost(s, u, t, isTarget = false) {
     return Infinity;
   }
   if (t.road !== -1 || c) return s.rules.road.moveCost;
+  if (t.river && s.rules.river) return Math.min(ter.move, s.rules.river.moveCost); // vallée : on longe la rivière
   return ter.move;
 }
 
@@ -629,7 +638,7 @@ export function orderMove(s, uid, x, y) {
 export const tradeRouteCap = (s, pid) => citiesOf(s, pid).length + 1 + playerMods(s, pid).routeCap
   + s.buildings.filter((b) => b.owner === pid && !b.turnsLeft).reduce((a, b) => a + (buildingDef(s, b.type).tradeRoutes || 0), 0);
 
-export const seaRouteCap = (s, pid) => s.buildings.filter((b) => b.owner === pid && b.type === 'harbor' && !b.turnsLeft).length;
+export const seaRouteCap = (s, pid) => s.buildings.filter((b) => b.owner === pid && b.type === 'harbor' && !b.turnsLeft && neighbors(s, b.x, b.y).some((n) => terrainOf(s, n).water)).length;
 
 function establishTradeRoute(s, u, city) {
   const isSea = u.type === 'ship';
@@ -1006,6 +1015,7 @@ export function computeYields(s, pid) {
   const needs = {};
   for (const c of citiesOf(s, pid)) {
     add(R.cityBaseYield); add(mods.cityYield); add(R.perPop, c.pop); pop += c.pop;
+    if (R.river && cityOnRiver(s, c)) add(R.river.cityYield);
     for (const tier of R.tiers.slice(1, (c.tier || 0) + 1)) add(tier.yields);
     const tier = R.tiers[c.tier || 0];
     for (const [k, v] of Object.entries(tier.needs || {})) needs[k] = (needs[k] || 0) + v;

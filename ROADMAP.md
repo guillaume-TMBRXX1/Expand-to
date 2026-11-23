@@ -156,20 +156,22 @@ Mesuré sur 100 parties simulées par réglage (`tools/sim.mjs` et scripts de me
 - [ ] À suivre : un objectif d'entraînement qui récompense la force **et** l'équilibre entre profils.
 - [ ] À suivre : en partie rapide, presque tout se gagne au prestige ; en partie longue, le Bâtisseur est faible (aucune merveille de voie propre) ; l'IA construit encore peu de laboratoires.
 
-## Phase 8 — Cartes, régions et ressources (fondations) · à venir
+## Phase 8 — Cartes, régions et ressources (fondations) ✅
 
-Cette phase passe en premier : le commerce mondial (phase 9) repose sur des ressources réparties par région.
-
-- [ ] **Tailles de carte revues.** Aujourd'hui, la petite carte offre environ 57 cases praticables par joueur (43 avec 3 IA), contre environ 69 sur les cartes moyenne et grande. Elle est occupée à 99 % en fin de partie et ne compte qu'environ 8 ressources rares et 2 merveilles naturelles.
-  - Objectif : environ 70 cases praticables par joueur, quelle que soit la taille, avec le nombre d'IA par défaut.
-  - Piste : petite 32 × 24, moyenne 40 × 28, grande 50 × 34, en vérifiant la durée d'un tour et les performances sur iPad.
-  - Les quantités (ressources rares, merveilles naturelles, ruines) restent proportionnelles à la surface.
-- [ ] **Régions de la carte.** La carte est découpée en grandes régions climatiques, selon la latitude et un bruit de génération : nord froid, terres tempérées, plaines fertiles, côtes et lagunes, sud aride. Chaque région a sa teinte de terrain, son décor et ses ressources propres. Le nom de la région s'affiche au survol et sur la mini-carte.
-- [ ] **Ressources rares régionales, plus nombreuses.** On passe de 3 à environ 9 ressources rares, chacune présente dans une ou deux régions seulement. Aucun joueur ne peut tout avoir, il faut commercer.
-  - Pistes : fourrures et cristal au nord ; marbre et vin dans les collines tempérées ; soie dans les plaines fertiles ; perles et sel sur les côtes ; encens et épices dans le sud aride.
-  - Chaque ressource a son bonus et son modèle 3D. Le prestige de diversité et la consommation sont à rééquilibrer.
-- [ ] **Rivières.** Elles partent des montagnes et rejoignent la mer. Elles donnent un bonus de nourriture et d'Or aux villes et bâtiments riverains, accélèrent les déplacements, et apportent des adjacences (moulin, port fluvial). Elles sont rendues en 3D avec de l'eau animée.
-- [ ] La génération de carte reste identique entre JavaScript et Python (tests pour chaque type de carte).
+- [x] **Tailles de carte revues** : petite 32 × 24 (contre 28 × 20), moyenne 40 × 28 (contre 36 × 26), grande 50 × 34 (contre 46 × 32). Les quantités (ressources rares, merveilles naturelles, ruines, rivières) suivent la surface.
+- [x] **Régions climatiques** : nord froid, terres tempérées, plaines fertiles, sud aride, côtes et lagunes.
+  - Elles dépendent de la latitude, mesurée sur l'étendue des terres pour que chaque région existe même sur un continent entouré d'eau, d'un bruit de génération et de l'humidité.
+  - Chaque région a sa teinte de terrain et son décor : sapins enneigés au nord, cactus et palmiers au sud, buissons plus nombreux dans les plaines fertiles.
+  - Le nom de la région s'affiche au survol d'une case et dans l'encyclopédie.
+- [x] **Neuf ressources rares régionales** (contre 3) : fourrures, cristal, marbre, vin, soie, perles, sel, épices, encens. Leurs régions, terrains et effets sont décrits dans `rules.json` (`luxuries.types`). Chacune a son modèle 3D, avec un repli sur une autre région si la sienne manque de place.
+- [x] **Rivières** : elles naissent sur les hauteurs et descendent vers la case voisine la plus basse jusqu'à la mer.
+  - Une ville riveraine gagne +2 Nourriture et +1 Or. Un bâtiment sur une rivière gagne +1 Or (+1 Nourriture pour une ferme).
+  - Les déplacements le long d'une rivière coûtent 1.
+  - Nouveau Moulin à eau (avec sa roue qui tourne) et port fluvial. Les navires exigent toutefois un port au bord de la mer.
+  - Rendu 3D : un ruban fin et courbe qui s'élargit avec le débit, avec des reflets qui s'écoulent et de petites chutes entre les terrasses.
+- [x] Nuages retirés.
+- [x] **Génération identique en JavaScript et en Python** (terrain, régions et rivières), testée sur 4 cartes.
+- Équilibrage reporté après les phases 8 à 12, comme convenu. La CI passe toujours (36 tours en moyenne en partie normale).
 
 ## Phase 9 — Commerce et économie mondiale · à venir
 

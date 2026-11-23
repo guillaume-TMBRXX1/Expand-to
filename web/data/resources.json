@@ -62,7 +62,7 @@
     "color": "#e2573a",
     "tradeValue": 3.5,
     "kind": "luxury",
-    "desc": "+10% Nourriture et +1 Culture par ville tant que vous en avez."
+    "desc": "Sud aride et plaines fertiles. +10% Nourriture et +1 Culture par ville tant que vous en avez."
   },
   "marble": {
     "name": "Marbre",
@@ -70,7 +70,7 @@
     "color": "#cfc8bd",
     "tradeValue": 3.5,
     "kind": "luxury",
-    "desc": "+15% Culture et merveilles -15% tant que vous en avez."
+    "desc": "Collines tempérées. +15% Culture et merveilles -15% tant que vous en avez."
   },
   "crystal": {
     "name": "Cristal",
@@ -78,6 +78,54 @@
     "color": "#4cc3d9",
     "tradeValue": 3.5,
     "kind": "luxury",
-    "desc": "+15% Science tant que vous en avez."
+    "desc": "Nord et terres tempérées, au pied des montagnes. +15% Science tant que vous en avez."
+  },
+  "furs": {
+    "name": "Fourrures",
+    "short": "Fou",
+    "color": "#a0714f",
+    "tradeValue": 3.5,
+    "kind": "luxury",
+    "desc": "Nord froid. +1 Or par ville et +10% Bois tant que vous en avez."
+  },
+  "wine": {
+    "name": "Vin",
+    "short": "Vin",
+    "color": "#9b2d5a",
+    "tradeValue": 3.5,
+    "kind": "luxury",
+    "desc": "Terres tempérées. +1 Culture par ville et +0,2 relation par tour avec tous."
+  },
+  "silk": {
+    "name": "Soie",
+    "short": "Soi",
+    "color": "#e98fd0",
+    "tradeValue": 3.5,
+    "kind": "luxury",
+    "desc": "Plaines fertiles. +12% Or tant que vous en avez."
+  },
+  "pearls": {
+    "name": "Perles",
+    "short": "Per",
+    "color": "#f3eadf",
+    "tradeValue": 3.5,
+    "kind": "luxury",
+    "desc": "Plages des côtes. +1 Or par ville et +5% Culture tant que vous en avez."
+  },
+  "salt": {
+    "name": "Sel",
+    "short": "Sel",
+    "color": "#dfe6ea",
+    "tradeValue": 3.5,
+    "kind": "luxury",
+    "desc": "Côtes et sud aride. +15% Nourriture tant que vous en avez."
+  },
+  "incense": {
+    "name": "Encens",
+    "short": "Enc",
+    "color": "#c99a3b",
+    "tradeValue": 3.5,
+    "kind": "luxury",
+    "desc": "Sud aride. +10% Culture et +0,2 relation par tour avec tous."
   }
 }
