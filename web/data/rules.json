@@ -982,5 +982,71 @@
     "cultureShare": 0.1,
     "goldPerPoint": 0.5,
     "prestigePer": 40
-  }
+  },
+  "seasons": {
+    "turns": 3,
+    "list": [
+      {
+        "id": "spring",
+        "name": "Printemps",
+        "icon": "🌱",
+        "yieldPct": {
+          "food": 0.05,
+          "culture": 0.05
+        }
+      },
+      {
+        "id": "summer",
+        "name": "Été",
+        "icon": "☀️",
+        "yieldPct": {
+          "gold": 0.08
+        }
+      },
+      {
+        "id": "autumn",
+        "name": "Automne",
+        "icon": "🍂",
+        "yieldPct": {
+          "food": 0.2
+        }
+      },
+      {
+        "id": "winter",
+        "name": "Hiver",
+        "icon": "❄️",
+        "yieldPct": {
+          "food": -0.15
+        },
+        "northMove": 1
+      }
+    ]
+  },
+  "pollution": {
+    "emitters": {
+      "forge": 2,
+      "manufactory": 2,
+      "sawmill": 1
+    },
+    "park": 2,
+    "forestAbsorb": 0.25,
+    "forestMax": 2,
+    "food": 1,
+    "culture": 0.5
+  },
+  "migration": {
+    "every": 5,
+    "threshold": 4,
+    "minPop": 3
+  },
+  "health": [
+    {
+      "pop": 5,
+      "building": "aqueduct"
+    },
+    {
+      "pop": 8,
+      "building": "hospital"
+    }
+  ]
 }

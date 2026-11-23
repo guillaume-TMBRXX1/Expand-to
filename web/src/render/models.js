@@ -585,6 +585,30 @@ BUILDERS.watermill = () => { // Moulin à eau : maison de pierre, roue à aubes 
   return p;
 };
 
+BUILDERS.park = () => { // Parc : pelouse, arbres, bassin et bancs
+  const p = [plinth(PAL.grass)];
+  const pond = new THREE.Mesh(cached('parkpond', () => new THREE.CylinderGeometry(0.16, 0.17, 0.02, 20)), mat(PAL.water, { roughness: 0.2 })); pond.position.set(0.1, Y0 + 0.01, 0.08); p.push(pond);
+  p.push(...lollipopTree(-0.25, -0.25, 1.1), ...lollipopTree(0.25, -0.28, 0.9), ...lollipopTree(-0.3, 0.2, 0.8), bench(-0.08, -0.12), bench(0.2, 0.32, Math.PI));
+  p.push(...bush(0.32, -0.05), ...bush(-0.05, 0.32, 0.8), ...lamp(-0.1, 0.12), sph(0.02, '#ff8fab', 0.05, Y0 + 0.02, -0.3), sph(0.02, '#ffd23f', 0.0, Y0 + 0.02, -0.28));
+  return p;
+};
+BUILDERS.aqueduct = () => { // Aqueduc : arches de pierre et canal d'eau
+  const p = [plinth(PAL.stoneLight)];
+  for (const x of [-0.3, -0.1, 0.1, 0.3]) p.push(rbox(0.07, 0.3, 0.1, PAL.cream, x, Y0, 0, 0.012));
+  p.push(rbox(0.8, 0.06, 0.12, PAL.creamDark, 0, Y0 + 0.3, 0, 0.012), rbox(0.78, 0.02, 0.06, '#7cc4e8', 0, Y0 + 0.36, 0, 0.008));
+  for (const x of [-0.2, 0, 0.2]) { const arch = new THREE.Mesh(cached('arch', () => new THREE.TorusGeometry(0.065, 0.018, 6, 12, Math.PI)), mat(PAL.cream)); arch.position.set(x, Y0 + 0.24, 0); p.push(arch); }
+  p.push(cyl(0.06, 0.07, 0.06, PAL.stone, 0.32, Y0, 0.28, 14), cyl(0.05, 0.05, 0.01, '#7cc4e8', 0.32, Y0 + 0.06, 0.28, 14), ...bush(-0.3, 0.3));
+  return p;
+};
+BUILDERS.hospital = () => { // Hôpital : bâtiment blanc, croix verte, jardin
+  const p = [plinth(PAL.paving)];
+  p.push(rbox(0.5, 0.26, 0.3, PAL.white, 0, Y0, -0.08, 0.025), rbox(0.54, 0.03, 0.34, '#d6e7ee', 0, Y0 + 0.26, -0.08, 0.01));
+  for (const x of [-0.17, -0.06, 0.06, 0.17]) p.push(...windowAt(x, Y0 + 0.15, 0.072, 'z', 0.06, 0.06));
+  p.push(door(0, Y0, 0.073, '#5cb56b'), rbox(0.1, 0.03, 0.012, '#5cb56b', 0, Y0 + 0.31, 0.06, 0.004), rbox(0.03, 0.1, 0.012, '#5cb56b', 0, Y0 + 0.275, 0.06, 0.004));
+  p.push(bench(-0.25, 0.3), ...pot(0.28, 0.3), ...lollipopTree(0.32, -0.3, 0.8));
+  return p;
+};
+
 const NO_ROTATE = new Set(['watermill', 'harbor', 'lighthouse', 'campus', 'artsquarter', 'merchantquarter', 'outpost']);
 // variant : 0..3 (déterministe selon la case) ; progress : 0..1 pour un chantier.
 export function buildingModel(type, wip, lux, variant = 0, progress = 0) {

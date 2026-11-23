@@ -4,6 +4,7 @@ import { MapControls } from 'three/addons/MapControls.js';
 import { RoundedBoxGeometry } from 'three/addons/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/BufferGeometryUtils.js';
 import { cityModel, buildingModel, unitModel, luxuryModel, naturalModel, ruinModel } from './models.js';
+import { seasonOf } from '../core/society.js';
 
 const FOG_COLOR = new THREE.Color('#e4dcd6');
 const BG = '#efe8e4';
@@ -462,6 +463,7 @@ export class Renderer {
     const m = new THREE.Matrix4(), c = new THREE.Color(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3();
     const vis = this.computeVisible();
     const memo = new THREE.Color('#a59e98'), tint = new THREE.Color();
+    const season = seasonOf(s);
     s.map.tiles.forEach((t, i) => {
       const ex = p.explored[i] === 1;
       const h = this.tileHeight(t, ex);
@@ -471,6 +473,13 @@ export class Renderer {
       c.set(ex ? s.data.terrain[t.type].color : FOG_COLOR);
       const reg = s.rules.regions?.[this.climate?.[i]];
       if (ex && reg && !s.data.terrain[t.type].water && t.type !== 'snow') c.lerp(tint.set(reg.tint), reg.tintAmount * (t.type === 'mountain' ? 0.4 : 1));
+      // Saisons : neige en hiver (plus marquée au nord), herbes dorées en automne, vert tendre au printemps.
+      if (ex && season && !s.data.terrain[t.type].water && t.type !== 'snow' && t.type !== 'sand') {
+        const north = this.climate?.[i] === 'north';
+        if (season.id === 'winter' && this.climate?.[i] !== 'arid') c.lerp(tint.set('#f3f6f9'), north ? 0.5 : 0.24);
+        else if (season.id === 'autumn' && ['grass', 'plains', 'forest'].includes(t.type)) c.lerp(tint.set('#d9a050'), 0.16);
+        else if (season.id === 'spring' && ['grass', 'plains'].includes(t.type)) c.lerp(tint.set('#a8e07a'), 0.1);
+      }
       if (ex && !s.data.terrain[t.type].water) c.offsetHSL(0, 0, ((t.x * 7 + t.y * 13) % 5) * 0.006 - 0.012);
       if (ex && !vis[i]) c.lerp(memo, 0.38);
       this.tiles.setColorAt(i, c);
@@ -509,7 +518,8 @@ export class Renderer {
       this.trunks.setMatrixAt(k, m);
       m.compose(v.set(this.wx(sl.t.x) + sl.dx, this.heights[i] + 0.3 * sl.s, this.wz(sl.t.y) + sl.dz), q, sc.set(k0, k0 * 1.1, k0));
       this.trees.setMatrixAt(k, m);
-      this.trees.setColorAt(k, c.set(k % 3 === 0 ? '#86c96a' : k % 3 === 1 ? '#5fae5a' : '#4f9e55'));
+      const pal = season?.id === 'autumn' ? ['#e0a43c', '#d9772f', '#c9a23a'] : season?.id === 'winter' ? ['#a9c7b2', '#8fb79c', '#c9dccf'] : season?.id === 'spring' ? ['#9bdc6e', '#6fbf5e', '#f0a8c8'] : ['#86c96a', '#5fae5a', '#4f9e55'];
+      this.trees.setColorAt(k, c.set(pal[k % 3]));
       if (!vis[i]) this.trees.setColorAt(k, c.lerp(memo, 0.35));
     });
     this.trees.instanceMatrix.needsUpdate = true; this.trunks.instanceMatrix.needsUpdate = true;

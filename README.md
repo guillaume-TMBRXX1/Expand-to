@@ -132,6 +132,16 @@ Sur l'écran d'accueil, vous choisissez :
   - **Patrimoine mondial** : faire classer une merveille naturelle, une merveille, un monument ou un théâtre protège la case contre l'influence des voisins et attire des visiteurs.
   - **Tourisme** : il rapporte de l'Or chaque tour, et du prestige en s'accumulant.
   - **Défis scientifiques** : six objectifs ouverts à tous (Atlas du monde, Grande Encyclopédie…). Le premier qui en remplit un gagne du prestige et de la Science.
+- **Saisons** : chacune dure 3 tours et s'affiche à côté du numéro de tour.
+  - Printemps : un peu plus de Nourriture et de Culture.
+  - Été : plus d'Or.
+  - Automne : les récoltes (+20 % Nourriture).
+  - Hiver : moins de Nourriture, et les chemins du nord sont enneigés.
+
+  La carte change de couleur : feuillages dorés en automne, neige en hiver.
+- **Pollution** : les ateliers (forge, manufacture, menuiserie) polluent leur ville, ce qui coûte de la Nourriture et de la Culture. Les parcs (onglet Cadre de vie) et les forêts du territoire l'absorbent.
+- **Santé** : au-delà de 5 habitants, une ville a besoin d'un Aqueduc ; au-delà de 8, d'un Hôpital.
+- **Migrations** : tous les 5 tours, des habitants quittent la ville la moins attrayante pour la plus attrayante, même chez un voisin. Le panneau de la ville affiche son attractivité, sa pollution et sa santé.
 - **Traités** (Diplomatie) : un traité de 10 ou 20 tours avec les clauses de votre choix (Frontières respectées, Partage de technologie, Tarifs préférentiels, Échanges culturels). Il apporte de la relation et du prestige. Le rompre avant l'échéance coûte cher, et on le renégocie à la fin.
 - **Expositions universelles et Jeux mondiaux** (tous les 15 tours environ) : deux tours avant, on peut se porter candidat pour accueillir l'événement et choisir sa participation au concours. L'hôte et les deux premiers du concours gagnent du prestige.
 - **Personnalités** : chaque IA est loyale, opportuniste ou isolationniste, et se souvient de vos actes (fiche Diplomatie).

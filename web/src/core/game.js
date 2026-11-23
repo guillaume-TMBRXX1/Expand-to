@@ -7,6 +7,7 @@ import { contractsTick, influenceTick, crisisTick, crisisActive, crisisDef } fro
 import * as ECO from './economy.js';
 import * as SUM from './summits.js';
 import * as CUL from './culture.js';
+import * as SOC from './society.js';
 
 export const RES = ['gold', 'food', 'wood', 'stone'];
 export const GOODS = ['planks', 'tools', 'goods'];
@@ -230,6 +231,8 @@ export function playerMods(s, pid) {
   for (const b of activeBuffs(s, pid)) apply({ yieldPct: b.yieldPct });
   if (crisisActive(s)) apply({ yieldPct: crisisDef(s).yieldPct });
   for (const st of SUM.standardsOf(s, pid)) if (st.yieldPct) apply({ yieldPct: st.yieldPct });
+  const season = SOC.seasonOf(s);
+  if (season) apply({ yieldPct: season.yieldPct });
   // Bâtiments à effet global (une fois par type), ex. Relais des cartographes : +1 vision.
   const seenTypes = new Set();
   for (const b of s.buildings) {
@@ -284,7 +287,7 @@ export const isExplored = (s, pid, x, y) => s.players[pid].explored[idx(s, x, y)
 export function cityPopCap(s, city) {
   const extra = s.buildings.filter((b) => b.cityId === city.id && !b.turnsLeft).reduce((a, b) => a + (buildingDef(s, b.type).popCap || 0), 0);
   const tiers = s.rules.tiers.slice(1, (city.tier || 0) + 1).reduce((a, t) => a + (t.popCap || 0), 0);
-  return s.rules.basePopCap + extra + tiers + playerMods(s, city.owner).popCap;
+  return Math.min(SOC.healthCap(s, city).cap, s.rules.basePopCap + extra + tiers + playerMods(s, city.owner).popCap);
 }
 
 function claimTerritory(s, city) {
@@ -530,8 +533,9 @@ export function enterCost(s, u, t, isTarget = false) {
     return Infinity;
   }
   if (t.road !== -1 || c) return s.rules.road.moveCost;
-  if (t.river && s.rules.river) return Math.min(ter.move, s.rules.river.moveCost); // vallée : on longe la rivière
-  return ter.move;
+  const snow = t.region === 'north' && SOC.seasonOf(s)?.northMove || 0; // hiver : chemins enneigés au nord
+  if (t.river && s.rules.river) return Math.min(ter.move, s.rules.river.moveCost) + snow; // vallée : on longe la rivière
+  return ter.move + snow;
 }
 
 class MinHeap {
@@ -1042,6 +1046,7 @@ export function computeYields(s, pid) {
   add(nat.yields);
   if (R.treaties) gross.culture += SUM.treatyCulture(s, pid);
   if (R.artworks) gross.culture += CUL.artYields(s, pid).culture;
+  if (R.pollution) { const pol = SOC.pollutionYields(s, pid); gross.food -= pol.food; gross.culture -= pol.culture; }
   const tourism = R.tourism ? CUL.tourismOf(s, pid).total : 0;
   gross.gold += tourism * (R.tourism?.goldPerPoint || 0);
   const connected = connectedToCapital(s, pid).length;
@@ -1205,6 +1210,7 @@ export function endRound(s) {
   ECO.economyTick(s);
   ECO.leagueTick(s);
   CUL.cultureTick(s);
+  SOC.migrationTick(s);
   // Relations
   for (let a = 0; a < s.players.length; a++) for (let b = a + 1; b < s.players.length; b++) {
     let d = 0;

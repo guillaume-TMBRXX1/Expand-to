@@ -221,12 +221,30 @@ Module `web/src/core/culture.js`, réglages `challenges`, `artworks`, `heritage`
 - [x] IA : elle commande des œuvres, prête à ses amis et fait classer ses sites.
 - Provisoire, jusqu'à l'équilibrage final : le plancher de durée de la CI passe à 50 % de la partie (30 tours en partie normale, contre 35 avant). Les nouvelles sources de prestige et de Science raccourcissent les parties (environ 33 tours aujourd'hui), et l'objectif de prestige seul ne suffit plus à compenser, puisque les voies de victoire accélèrent aussi.
 
-## Phase 12 — Climat et société · à venir
+## Phase 12 — Climat et société ✅
 
-- [ ] **Saisons**, à l'image des moussons et des récoltes : un cycle de quelques tours (récoltes en automne, déplacements plus lents en hiver), en accord avec le cycle jour/nuit.
-- [ ] **Écologie** : les ateliers (forge, manufacture) polluent les cases voisines, ce qui réduit la nourriture et la qualité de vie. On s'en protège avec des parcs et des forêts replantées. C'est un arbitrage entre croissance et cadre de vie.
-- [ ] **Migrations** : les habitants rejoignent les villes les plus attractives, y compris chez les voisins. L'attractivité devient une forme de concurrence pacifique.
-- [ ] **Santé** : aqueduc et hôpital deviennent nécessaires aux grandes villes pour continuer à grandir, en complément des paliers de population.
+Module `web/src/core/society.js`, réglages `seasons`, `pollution`, `migration` et `health` dans `rules.json`.
+
+- [x] **Saisons** : 3 tours chacune, affichées à côté du numéro de tour.
+  - Printemps +5 % Nourriture et Culture ; été +8 % Or ; automne +20 % Nourriture ; hiver −15 % Nourriture et chemins enneigés au nord (+1 de coût de déplacement).
+  - Rendu : herbes et feuillages dorés en automne, neige et arbres givrés en hiver (plus marqués au nord), vert tendre et arbres en fleurs au printemps.
+- [x] **Pollution**
+  - Ce qui pollue : forge 2, manufacture 2, menuiserie 1, dans leur ville.
+  - Ce qui l'absorbe : le nouveau Parc (2 points, +1 Culture) et les forêts du territoire (0,25 chacune, au plus 2).
+  - Chaque point restant coûte 1 Nourriture et 0,5 Culture.
+- [x] **Santé** : nouvel Aqueduc (Architecture), nécessaire au-delà de 5 habitants ; nouvel Hôpital (Chimie), nécessaire au-delà de 8.
+- [x] **Migrations** : tous les 5 tours, un habitant quitte la ville la moins attrayante pour la plus attrayante, y compris chez un voisin (écart minimal de 4). L'attractivité dépend du palier, de la culture, du tourisme, d'une rivière, de la capitale, de la pollution et de la santé.
+- [x] Interface : onglet « Cadre de vie » (Parc, Aqueduc, Hôpital), pollution, santé et attractivité dans le panneau de ville, encyclopédie. Modèles 3D du parc, de l'aqueduc et de l'hôpital.
+- [x] IA : parcs dans les villes polluées, aqueduc et hôpital avant que ses villes ne plafonnent.
+
+## Prochaine étape : équilibrage complet
+
+Toutes les phases de contenu (8 à 12) sont terminées. L'équilibrage doit notamment :
+- ramener la durée des parties normales vers 38 à 40 tours, et remonter le plancher de la CI à 58 % ;
+- revoir la voie économique : l'IA qui possède la Grande Bourse a déjà des milliers d'Or ;
+- vérifier les profils (21 à 29 % chacun) et la répartition des victoires avec tous les nouveaux systèmes ;
+- doser les nouvelles sources de prestige et de Science (événements, ligue, défis, tourisme, œuvres) ;
+- relancer un entraînement de l'IA, avec un objectif qui récompense aussi l'équilibre entre profils.
 
 > Ordre proposé : la phase 8 d'abord (cartes, régions, ressources), puis la phase 9, qui en dépend. Les phases 10 à 12 peuvent ensuite se faire dans l'ordre que l'on préfère. Chaque phase se termine par un passage d'équilibrage en simulation.
 
