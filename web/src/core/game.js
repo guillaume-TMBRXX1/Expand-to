@@ -6,6 +6,7 @@ import { placeFeatures, onDiscover, exploreRuin, naturalYields, activeBuffs, act
 import { contractsTick, influenceTick, crisisTick, crisisActive, crisisDef } from './world.js';
 import * as ECO from './economy.js';
 import * as SUM from './summits.js';
+import * as CUL from './culture.js';
 
 export const RES = ['gold', 'food', 'wood', 'stone'];
 export const GOODS = ['planks', 'tools', 'goods'];
@@ -1040,6 +1041,9 @@ export function computeYields(s, pid) {
   const nat = naturalYields(s, pid);
   add(nat.yields);
   if (R.treaties) gross.culture += SUM.treatyCulture(s, pid);
+  if (R.artworks) gross.culture += CUL.artYields(s, pid).culture;
+  const tourism = R.tourism ? CUL.tourismOf(s, pid).total : 0;
+  gross.gold += tourism * (R.tourism?.goldPerPoint || 0);
   const connected = connectedToCapital(s, pid).length;
   gross.gold += connected * R.road.connectedCityGold;
   const myRoutes = s.tradeRoutes.filter((r) => r.a === pid || r.b === pid);
@@ -1068,7 +1072,7 @@ export function computeYields(s, pid) {
     for (const [k, v] of Object.entries(pr.out)) net[k] = (net[k] || 0) + v;
   }
   for (const [k, v] of Object.entries(needs)) net[k] -= v;
-  return { gross, mult, yields, base, net, needs, processes, upkeep, consumption, connected, routes, agreements, reasons: dip.reasons };
+  return { gross, mult, yields, base, net, needs, processes, upkeep, consumption, connected, routes, agreements, tourism, reasons: dip.reasons };
 }
 
 // Paliers de population : une ville monte de palier si elle est assez peuplée ET si ses besoins sont couverts.
@@ -1124,6 +1128,12 @@ export function computePrestige(s, pid) {
   for (const [k, v] of Object.entries(p.bonusPrestige || {})) b[k] = (b[k] || 0) + v;
   const per = playerMods(s, pid).buildingPrestigePer;
   if (per) b.monuments += Math.floor(s.buildings.filter((x) => x.owner === pid && !x.turnsLeft && !buildingDef(s, x.type).wonder).length / per);
+  if (s.rules.tourism) {
+    const tp = Math.floor((p.tourismTotal || 0) / s.rules.tourism.prestigePer);
+    if (tp) b.tourisme = tp;
+    const her = CUL.heritageOf(s, pid).length * s.rules.heritage.prestige + CUL.artworksOwned(s, pid).length * s.rules.artworks.prestige;
+    if (her) b.patrimoine = her;
+  }
   for (const k of Object.keys(b)) b[k] = Math.round(b[k]); // prestige toujours entier
   const total = Object.values(b).reduce((a, v) => a + v, 0);
   return { total, breakdown: b };
@@ -1194,6 +1204,7 @@ export function endRound(s) {
   }
   ECO.economyTick(s);
   ECO.leagueTick(s);
+  CUL.cultureTick(s);
   // Relations
   for (let a = 0; a < s.players.length; a++) for (let b = a + 1; b < s.players.length; b++) {
     let d = 0;

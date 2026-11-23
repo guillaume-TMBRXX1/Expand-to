@@ -404,3 +404,7 @@ html.touch .stepper .btn.small { width: 38px; min-height: 36px; }
 .treaty-row .row { display: flex; align-items: end; gap: 8px; }
 .field.small select { padding: 4px 6px; font-size: 12.5px; }
 .proposal.expo-card { border-left-color: var(--accent); }
+
+/* ------------------------------------------------------------ culture */
+.lend { display: inline-flex; gap: 4px; align-items: center; }
+.lend select { padding: 3px 6px; font-size: 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
