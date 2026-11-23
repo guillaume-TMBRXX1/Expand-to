@@ -57,3 +57,14 @@ def test_mapgen_matches_javascript():
     js_types = json.loads(out.stdout)
     py_types = [t["type"] for row in generate_map(4242) for t in row]
     assert py_types == js_types
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js requis")
+def test_training_evaluates_candidates():
+    from expandto.train import evaluate, mutate
+    import random
+    data = load_data()
+    summary = evaluate(data["ai"], games=2, seed=3)
+    assert 0 <= summary["winRate0"] <= 1 and summary["avgTurns"] > 0
+    child = mutate(data["ai"], random.Random(1))
+    assert child["build"].keys() == data["ai"]["build"].keys()

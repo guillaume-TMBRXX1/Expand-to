@@ -57,7 +57,9 @@ node tools/sim.mjs 10
 - **Halle marchande** (onglet Industrie) : elle permet de vendre dans l'Entrepôt vos biens, matériaux et ressources rares contre de l'Or. Le prix baisse si vous vendez beaucoup, puis remonte chaque tour. Une option vend automatiquement tout ce qui dépasse 30 unités.
 - **Ressources rares** : épices, marbre et cristal s'exploitent avec un Comptoir. Le bouton **Entrepôt** affiche vos stocks et vos bonus actifs.
 - **Diplomatie** : les voisins méfiants ou hostiles réduisent votre productivité. Accords et alliances la renforcent.
-- **Victoire** : le premier à 150 points de prestige l'emporte, sinon le meilleur score après 60 tours. Le prestige vient des villes, des technologies, de la culture, des monuments, des merveilles, des routes commerciales, des accords et des alliances.
+- **Victoire** : la première voie complétée l'emporte. Les voies sont Science, Culture, Économie et Diplomatie ; sinon, la victoire va au premier à 160 points de prestige, ou au meilleur score après 60 tours. Le bouton « Voies de victoire » (panneau Prestige) suit votre progression.
+- **Congrès mondial** (tous les 10 tours) : votez la résolution et élisez le Secrétaire. Le poids de votre vote grandit avec vos alliances, accords et ambassades.
+- **Personnalités** : chaque IA est loyale, opportuniste ou isolationniste, et se souvient de vos actes (fiche Diplomatie).
 
 ## Structure
 

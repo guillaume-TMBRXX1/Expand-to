@@ -63,12 +63,14 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 
 ## Phase 3 — Diplomatie et IA (v0.4) · ~3 semaines
 
-- [ ] **Congrès mondial** tous les 10 tours : vote de résolutions (embargo, projet commun, sanctions de productivité).
-- [ ] Mémoire diplomatique : promesses, griefs, rancunes, et personnalités d'IA (loyale, opportuniste, isolationniste).
-- [ ] Alliances actives : projets communs, partage de technologies, demandes d'aide.
-- [ ] Voies de victoire explicites, en plus du prestige : Science (Observatoire + projet spatial), Culture (3 merveilles culturelles), Économie (trésor + Bourse), Diplomatie (élu au Congrès).
-- [ ] **Entraînement de l'IA dans Colab** : optimiser les poids des heuristiques (algorithme génétique ou CMA-ES) sur des milliers de simulations, puis exporter le résultat dans `web/data/ai.json`.
-- [ ] Niveaux de difficulté (bonus et malus de l'IA, agressivité diplomatique).
+- [x] **Congrès mondial** tous les 10 tours : vote d'une résolution (science, culture, libre-échange, embargo contre le meneur) pondéré par les alliances, accords et ambassades, et élection d'un Secrétaire (+8 prestige).
+- [x] Mémoire diplomatique (« ce qu'il retient de vous »), promesses (ne plus fonder de ville près d'un voisin ; la rompre coûte très cher) et personnalités d'IA (loyale, opportuniste, isolationniste).
+- [x] Alliances actives : projets communs (+6 prestige et +2 Science +2 Culture par tour), partage de technologies (−25 %), demandes d'aide qui pèsent davantage entre alliés.
+- [x] Voies de victoire : Science (Observatoire + 14 technologies), Culture (Amphithéâtre + 900 culture), Économie (Grande Bourse + 1 200 Or en caisse), Diplomatie (élu 3 fois Secrétaire avec au moins un allié, ou allié de tous), en plus du prestige. Un panneau suit la progression de chaque voie.
+- [x] **Entraînement de l'IA** : paramètres dans `web/data/ai.json`, recherche évolutive `python -m expandto.train` (et une cellule dans le notebook Colab) qui fait jouer les candidats dans le vrai moteur.
+- [x] Niveaux de difficulté (Facile / Normal / Difficile : rendement, coûts et relations de départ des IA).
+- [x] Moteur plus rapide (file de priorité pour les chemins) : environ 0,35 s par partie simulée.
+- [ ] À suivre : les IA atteignent rarement les victoires Science, Culture et Économie (seuils à ajuster selon vos retours) ; lancer un vrai entraînement plus long dans Colab.
 
 ## Phase 4 — Présentation (v0.5) · ~2 à 3 semaines
 

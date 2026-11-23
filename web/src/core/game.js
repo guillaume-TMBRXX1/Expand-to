@@ -97,10 +97,11 @@ function findStarts(s, count, rng) {
   return null;
 }
 
-export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profile = 'merchant', name = 'Vous', aiCount = 3 }) {
+export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profile = 'merchant', name = 'Vous', aiCount = 3, difficulty = 'normal' }) {
   const rules = data.rules;
   const rng = makeRng(seed);
-  const s = { data, rules, seed, turn: 1, nextId: 1, log: [], proposals: [], relations: {}, agreements: [], alliances: [], tradeRoutes: [], wonders: {}, winner: null };
+  const s = { data, rules, seed, turn: 1, nextId: 1, log: [], proposals: [], relations: {}, agreements: [], alliances: [], tradeRoutes: [], wonders: {}, winner: null,
+    difficulty, embassies: [], memory: {}, promises: [], projects: [], resolutions: [], congress: null, secretary: null };
   let starts = null;
   for (let attempt = 0; attempt < 40 && !starts; attempt++) {
     s.map = generateMap((seed + attempt * 7919) >>> 0, rules.map.width, rules.map.height);
@@ -124,6 +125,7 @@ export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profi
       res, sciencePool: 0, cultureTotal: 0, techs: [...(mods.startTechs || [])], research: null,
       explored: new Array(rules.map.width * rules.map.height).fill(0),
       cityNameIdx: 0, prestige: 0, prestigeBreakdown: {}, lastYield: null, ai: {},
+      personality: i === 0 ? null : rng.pick(Object.keys(data.ai?.personalities || { loyal: 1 })), secretaryWins: 0,
     });
     const st = starts[i];
     spawnUnit(s, i, 'settler', st.x, st.y);
@@ -133,7 +135,8 @@ export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profi
   }
   for (let a = 0; a <= aiCount; a++) for (let b = a + 1; b <= aiCount; b++) {
     const bonus = (data.profilesById[s.players[a].profile].mods.relationStart || 0) + (data.profilesById[s.players[b].profile].mods.relationStart || 0);
-    s.relations[relKey(a, b)] = rng.int(21) - 10 + bonus;
+    const diff = a === 0 ? (data.ai?.difficulty?.[difficulty]?.aiRelation || 0) : 0;
+    s.relations[relKey(a, b)] = rng.int(21) - 10 + bonus + diff;
   }
   s.rngState = rng.next(); // graine dérivée pour l'IA
   s.rng = makeRng(Math.floor(s.rngState * 1e9));
@@ -188,6 +191,16 @@ export function playerMods(s, pid) {
   apply(s.data.profilesById[p.profile].mods);
   for (const t of p.techs) apply(techDef(s, t).effects);
   for (const lux of activeLuxuries(s, pid)) apply(LUXURY_EFFECTS[lux]);
+  if (!p.isHuman && s.data.ai) { // niveau de difficulté : bonus / malus des IA
+    const d = s.data.ai.difficulty[s.difficulty || 'normal'];
+    if (d?.aiYieldPct) apply({ yieldPct: Object.fromEntries(['gold', 'science', 'culture', 'wood', 'stone', 'food'].map((k) => [k, d.aiYieldPct])) });
+    if (d?.aiCostPct) apply({ costPct: d.aiCostPct });
+  }
+  for (const r of activeResolutions(s)) {
+    const def = s.rules.congress.resolutions[r.id];
+    if (def.yieldPct) apply({ yieldPct: def.yieldPct });
+    if (r.id === 'embargo' && r.target === pid) apply({ yieldPct: { gold: -0.1 } });
+  }
   return m;
 }
 
@@ -259,10 +272,23 @@ export function foundCity(s, uid) {
   claimTerritory(s, city);
   s.units = s.units.filter((x) => x.id !== uid);
   log(s, `${p.name} fonde ${city.name}.`, null, u.owner === 0 ? 'good' : 'info');
+  const upset = new Set();
   for (const other of s.cities) {
-    if (other.owner !== u.owner && cheb(other.x, other.y, city.x, city.y) < s.rules.borderDistance - 1) {
-      addRel(s, u.owner, other.owner, s.rules.settleNearPenalty);
+    if (other.owner !== u.owner && cheb(other.x, other.y, city.x, city.y) < s.rules.borderDistance - 1 && !upset.has(other.owner)) {
+      upset.add(other.owner);
+      const promise = s.promises.find((pr) => pr.from === u.owner && pr.to === other.owner && pr.type === 'noSettle');
+      if (promise) { // promesse rompue
+        s.promises = s.promises.filter((x) => x !== promise);
+        remember(s, u.owner, other.owner, 'Promesse rompue : nouvelle ville à nos portes', s.rules.promise.breakPenalty);
+        for (const q of s.players) if (q.id !== u.owner && q.id !== other.owner) remember(s, u.owner, q.id, `A trahi une promesse faite à ${s.players[other.owner].name}`, s.rules.promise.reputationPenalty);
+        log(s, `${p.name} rompt sa promesse envers ${s.players[other.owner].name} !`, null, 'bad');
+        continue;
+      }
+      remember(s, u.owner, other.owner, `Ville ${city.name} fondée trop près de ${other.name}`, s.rules.settleNearPenalty);
       log(s, `${s.players[other.owner].name} n'apprécie pas l'implantation de ${city.name} si près de ${other.name} (${s.rules.settleNearPenalty}).`, [u.owner, other.owner], 'bad');
+      if (s.players[u.owner].isHuman && !s.players[other.owner].isHuman) {
+        s.proposals.push({ id: s.nextId++, from: other.owner, to: u.owner, kind: 'promise', payload: { type: 'noSettle' }, turn: s.turn });
+      }
     }
   }
   return { ok: true, city };
@@ -423,15 +449,42 @@ export function enterCost(s, u, t, isTarget = false) {
   return ter.move;
 }
 
+class MinHeap {
+  constructor() { this.k = []; this.v = []; }
+  get size() { return this.k.length; }
+  push(key, val) {
+    const k = this.k, v = this.v;
+    let i = k.length; k.push(key); v.push(val);
+    while (i > 0) { const p = (i - 1) >> 1; if (k[p] <= k[i]) break; [k[p], k[i]] = [k[i], k[p]]; [v[p], v[i]] = [v[i], v[p]]; i = p; }
+  }
+  pop() {
+    const k = this.k, v = this.v;
+    const top = [k[0], v[0]];
+    const lk = k.pop(), lv = v.pop();
+    if (k.length) {
+      k[0] = lk; v[0] = lv;
+      let i = 0;
+      for (;;) {
+        const l = 2 * i + 1, r = l + 1; let m = i;
+        if (l < k.length && k[l] < k[m]) m = l;
+        if (r < k.length && k[r] < k[m]) m = r;
+        if (m === i) break;
+        [k[m], k[i]] = [k[i], k[m]]; [v[m], v[i]] = [v[i], v[m]]; i = m;
+      }
+    }
+    return top;
+  }
+}
+
 // Dijkstra : coûts depuis l'unité, limités par budget (Infinity = carte entière).
 export function dijkstra(s, u, budget = Infinity, target = null) {
   const W = s.map.width;
   const dist = new Map([[idx(s, u.x, u.y), 0]]);
   const prev = new Map();
-  const open = [[0, idx(s, u.x, u.y)]];
-  while (open.length) {
-    open.sort((a, b) => a[0] - b[0]);
-    const [d, i] = open.shift();
+  const open = new MinHeap();
+  open.push(0, idx(s, u.x, u.y));
+  while (open.size) {
+    const [d, i] = open.pop();
     if (d > dist.get(i)) continue;
     if (target !== null && i === target) break;
     const x = i % W, y = Math.floor(i / W);
@@ -439,7 +492,7 @@ export function dijkstra(s, u, budget = Infinity, target = null) {
       const ni = idx(s, n.x, n.y);
       const nd = d + enterCost(s, u, n, ni === target);
       if (nd > budget || nd >= (dist.get(ni) ?? Infinity)) continue;
-      dist.set(ni, nd); prev.set(ni, i); open.push([nd, ni]);
+      dist.set(ni, nd); prev.set(ni, i); open.push(nd, ni);
     }
   }
   return { dist, prev };
@@ -500,7 +553,7 @@ function establishTradeRoute(s, u, city) {
   if (s.tradeRoutes.some((r) => r.a === u.owner && r.cityId === city.id)) { log(s, `Une route vers ${city.name} existe déjà.`, [u.owner], 'bad'); return; }
   const sea = u.type === 'ship';
   s.tradeRoutes.push({ a: u.owner, b: city.owner, cityId: city.id, sea });
-  addRel(s, u.owner, city.owner, (sea ? s.rules.seaRoute : s.rules.tradeRoute).relation);
+  remember(s, u.owner, city.owner, `Route ${sea ? 'maritime' : 'commerciale'} vers ${city.name}`, (sea ? s.rules.seaRoute : s.rules.tradeRoute).relation);
   s.units = s.units.filter((v) => v.id !== u.id);
   log(s, `Route ${sea ? 'maritime' : 'commerciale'} ouverte entre ${s.players[u.owner].name} et ${city.name} (${s.players[city.owner].name}).`, [u.owner, city.owner], 'good');
 }
@@ -512,7 +565,7 @@ function openEmbassy(s, u, city) {
     return;
   }
   s.embassies.push({ from: u.owner, to: city.owner, cityId: city.id });
-  addRel(s, u.owner, city.owner, s.rules.embassy.relation);
+  remember(s, u.owner, city.owner, `Ambassade ouverte à ${city.name}`, s.rules.embassy.relation);
   for (const t of s.map.tiles) if (t.owner === city.owner) s.players[u.owner].explored[idx(s, t.x, t.y)] = 1;
   s.units = s.units.filter((v) => v.id !== u.id);
   log(s, `${s.players[u.owner].name} ouvre une ambassade à ${city.name} (${s.players[city.owner].name}, +${s.rules.embassy.relation} relation).`, [u.owner, city.owner], 'good');
@@ -623,11 +676,17 @@ export function setResearch(s, pid, techId) {
   checkResearch(s, pid);
   return { ok: true };
 }
+// Partage de technologies : -25% si un allié connaît déjà la technologie.
+export function techCost(s, pid, techId) {
+  const t = techDef(s, techId);
+  const allyKnows = s.players.some((q) => q.id !== pid && isAllied(s, pid, q.id) && q.techs.includes(techId));
+  return Math.round(t.cost * (allyKnows ? 1 - s.rules.allyTechDiscount : 1));
+}
 function checkResearch(s, pid) {
   const p = s.players[pid];
-  while (p.research && p.sciencePool >= techDef(s, p.research).cost) {
+  while (p.research && p.sciencePool >= techCost(s, pid, p.research)) {
     const t = techDef(s, p.research);
-    p.sciencePool -= t.cost;
+    p.sciencePool -= techCost(s, pid, p.research);
     p.techs.push(t.id);
     p.research = null;
     log(s, `${p.name} découvre ${t.name}.`, p.isHuman ? null : [pid], p.isHuman ? 'good' : 'info');
@@ -642,6 +701,21 @@ export function addRel(s, a, b, d) {
   if (a === b) return;
   s.relations[relKey(a, b)] = Math.max(-100, Math.min(100, getRel(s, a, b) + d));
 }
+// Mémoire diplomatique : « target » se souvient de ce que « actor » lui a fait. La personnalité amplifie ou atténue.
+export const personalityOf = (s, pid) => (s.players[pid].personality && s.data.ai?.personalities?.[s.players[pid].personality]) || null;
+export function remember(s, actor, target, text, value) {
+  if (actor === target) return 0;
+  const pers = personalityOf(s, target);
+  const v = Math.round(value * (pers ? (value < 0 ? pers.grudge : pers.favor) : 1));
+  addRel(s, actor, target, v);
+  const key = `${target}<${actor}`;
+  s.memory = s.memory || {};
+  (s.memory[key] = s.memory[key] || []).push({ turn: s.turn, text, value: v });
+  if (s.memory[key].length > 12) s.memory[key].shift();
+  return v;
+}
+export const memoriesOf = (s, target, actor) => (s.memory?.[`${target}<${actor}`] || []);
+
 export function relStatus(v) {
   if (v <= -30) return { label: 'Hostile', tone: 'bad' };
   if (v < 0) return { label: 'Méfiant', tone: 'warn' };
@@ -700,17 +774,26 @@ export function evaluateProposal(s, from, to, kind, payload = {}) {
       if (hasAgreement(s, from, to)) return { accept: false, reason: 'Accord déjà en place.' };
       if (rel < R.tradeAgreement.minRelation) return { accept: false, reason: `Relation insuffisante (min. ${R.tradeAgreement.minRelation}).` };
       return { accept: true };
-    case 'alliance':
+    case 'alliance': {
       if (isAllied(s, from, to)) return { accept: false, reason: 'Déjà alliés.' };
-      if (rel < R.alliance.minRelation) return { accept: false, reason: `Relation insuffisante (min. ${R.alliance.minRelation}).` };
+      const min = personalityOf(s, to)?.allianceMin ?? R.alliance.minRelation;
+      if (rel < min) return { accept: false, reason: `Relation insuffisante (min. ${min} pour une IA ${personalityOf(s, to)?.name.toLowerCase() || ''}).` };
       if (s.alliances.filter((a) => a.a === to || a.b === to).length >= 2) return { accept: false, reason: `${target.name} a déjà deux alliés.` };
       return { accept: true };
+    }
+    case 'project': {
+      if (!isAllied(s, from, to)) return { accept: false, reason: 'Réservé aux alliés.' };
+      if (projectsBetween(s, from, to) >= R.jointProject.maxPerPair) return { accept: false, reason: 'Nombre maximal de projets communs atteint.' };
+      if (!canAfford(s, to, R.jointProject.cost)) return { accept: false, reason: `${target.name} n'a pas les ressources pour participer.` };
+      return rel >= R.jointProject.minRelation ? { accept: true } : { accept: false, reason: `Relation insuffisante (min. ${R.jointProject.minRelation}).` };
+    }
     case 'exchange': {
       const { give = {}, want = {} } = payload;
       if (!canAfford(s, to, want)) return { accept: false, reason: `${target.name} n'a pas ces ressources.` };
       if (rel <= R.malus.hostileBelow) return { accept: false, reason: 'Refus : relations hostiles.' };
       const factor = 1 + rel / 200;
-      const ok = tradeValue(s, give, to) * factor >= tradeValue(s, want) * 1.05;
+      const greed = personalityOf(s, to)?.tradeGreed ?? 1.05;
+      const ok = tradeValue(s, give, to) * factor >= tradeValue(s, want) * greed;
       return ok ? { accept: true } : { accept: false, reason: "L'offre n'est pas assez avantageuse." };
     }
     default: return { accept: false, reason: 'Inconnu.' };
@@ -726,7 +809,7 @@ export function giveGift(s, from, to, amount) {
   const already = s.giftLedger[key] || 0;
   const gain = Math.max(0, Math.min(15 - already, Math.round(amount / 3)));
   s.giftLedger[key] = already + gain;
-  addRel(s, from, to, gain);
+  remember(s, from, to, `Cadeau de ${amount} Or`, gain);
   log(s, `${s.players[from].name} offre ${amount} Or à ${s.players[to].name} (+${gain} relation).`, [from, to], 'good');
   return { ok: true, gain };
 }
@@ -735,6 +818,10 @@ export function propose(s, from, to, kind, payload = {}) {
   if (kind === 'agreement' && !hasTech(s, from, 'protocol')) return { ok: false, reason: 'Nécessite la technologie Protocole.' };
   if (kind === 'alliance' && !hasTech(s, from, 'embassies')) return { ok: false, reason: 'Nécessite la technologie Ambassades.' };
   if (kind === 'exchange' && !canAfford(s, from, payload.give || {})) return { ok: false, reason: 'Vous n\'avez pas ces ressources.' };
+  if (kind === 'project') {
+    if (!isAllied(s, from, to)) return { ok: false, reason: 'Les projets communs sont réservés aux alliés.' };
+    if (!canAfford(s, from, s.rules.jointProject.cost)) return { ok: false, reason: `Il faut ${fmtBundle(s, s.rules.jointProject.cost)}.` };
+  }
   if (s.players[to].isHuman) {
     s.proposals.push({ id: s.nextId++, from, to, kind, payload, turn: s.turn });
     return { ok: true, pending: true };
@@ -760,13 +847,22 @@ export function applyDeal(s, from, to, kind, payload) {
     pay(s, from, payload.give); pay(s, to, payload.want);
     for (const [k, v] of Object.entries(payload.give)) B.res[k] += v;
     for (const [k, v] of Object.entries(payload.want)) A.res[k] += v;
-    addRel(s, from, to, 2);
+    remember(s, from, to, 'Échange de ressources', 2);
     log(s, `Échange conclu entre ${A.name} et ${B.name} (${fmtBundle(s, payload.give)} contre ${fmtBundle(s, payload.want)}).`, [from, to], 'good');
   } else if (kind === 'request') {
     pay(s, to, payload.want);
     for (const [k, v] of Object.entries(payload.want)) A.res[k] += v;
-    addRel(s, from, to, 12);
-    log(s, `Vous aidez ${A.name} (${fmtBundle(s, payload.want)}). Relation +12.`, [from, to], 'good');
+    const v = remember(s, to, from, `Aide reçue (${fmtBundle(s, payload.want)})`, isAllied(s, from, to) ? 18 : 12);
+    log(s, `Vous aidez ${A.name} (${fmtBundle(s, payload.want)}). Relation +${v}.`, [from, to], 'good');
+  } else if (kind === 'promise') {
+    s.promises.push({ from: to, to: from, type: payload.type, turn: s.turn });
+    remember(s, to, from, 'Promesse de ne pas s\'installer près de nous', s.rules.promise.keepBonus);
+    log(s, `Vous promettez à ${A.name} de ne plus fonder de ville près de ses frontières.`, [from, to], 'good');
+  } else if (kind === 'project') {
+    pay(s, from, s.rules.jointProject.cost); pay(s, to, s.rules.jointProject.cost);
+    s.projects.push({ a: from, b: to, turn: s.turn });
+    remember(s, from, to, 'Projet commun', 5); remember(s, to, from, 'Projet commun', 5);
+    log(s, `Projet commun lancé entre ${A.name} et ${B.name} (+${s.rules.jointProject.prestige} prestige chacun).`, null, 'good');
   }
 }
 
@@ -779,16 +875,17 @@ export function respondProposal(s, propId, accept) {
     if (!canAfford(s, pr.to, need)) return { ok: false, reason: 'Ressources insuffisantes.' };
     applyDeal(s, pr.from, pr.to, pr.kind, pr.payload);
   } else {
-    const penalty = pr.kind === 'request' ? -8 : -3;
-    addRel(s, pr.from, pr.to, penalty);
-    log(s, `Vous déclinez la proposition de ${s.players[pr.from].name} (${penalty} relation).`, [pr.to], 'bad');
+    const base = pr.kind === 'request' ? (isAllied(s, pr.from, pr.to) ? -12 : -8) : pr.kind === 'promise' ? s.rules.promise.declinePenalty : -3;
+    const label = { request: 'Demande d\'aide refusée', promise: 'Promesse refusée', alliance: 'Alliance refusée', agreement: 'Accord refusé', exchange: 'Échange refusé', project: 'Projet commun refusé' }[pr.kind] || 'Proposition refusée';
+    const v = remember(s, pr.to, pr.from, label, base);
+    log(s, `Vous déclinez la proposition de ${s.players[pr.from].name} (${v} relation).`, [pr.to], 'bad');
   }
   return { ok: true };
 }
 
 export function cancelAgreement(s, a, b) {
   s.agreements = s.agreements.filter((r) => !pairMatch(r, a, b));
-  addRel(s, a, b, -15);
+  remember(s, a, b, 'Accord commercial rompu', -15);
   log(s, `${s.players[a].name} rompt l'accord commercial avec ${s.players[b].name} (-15).`, [a, b], 'bad');
 }
 
@@ -848,7 +945,10 @@ export function computeYields(s, pid) {
   gross.gold += connected * R.road.connectedCityGold;
   const myRoutes = s.tradeRoutes.filter((r) => r.a === pid || r.b === pid);
   const routes = myRoutes.length;
-  gross.gold += myRoutes.reduce((a, r) => a + (r.sea ? R.seaRoute.gold : R.tradeRoute.gold), 0);
+  const embargoed = activeResolutions(s).some((r) => r.id === 'embargo' && r.target === pid);
+  const freeTrade = activeResolutions(s).some((r) => r.id === 'trade') ? R.congress.resolutions.trade.routeGold : 0;
+  if (!embargoed) gross.gold += myRoutes.reduce((a, r) => a + (r.sea ? R.seaRoute.gold : R.tradeRoute.gold) + freeTrade, 0);
+  for (const pj of s.projects || []) if (pj.a === pid || pj.b === pid) add(R.jointProject.yields);
   const agreements = s.agreements.filter((r) => r.a === pid || r.b === pid).length;
   gross.gold += agreements * R.tradeAgreement.gold;
   const dip = diplomacyPct(s, pid);
@@ -908,6 +1008,8 @@ export function computePrestige(s, pid) {
     const def = buildingDef(s, bd.type);
     if (def.prestige) b[def.wonder ? 'merveilles' : 'monuments'] += def.prestige;
   }
+  b.diplomatie += (s.projects || []).filter((pj) => pj.a === pid || pj.b === pid).length * s.rules.jointProject.prestige;
+  if (s.secretary === pid) b.diplomatie += s.rules.congress.secretaryPrestige;
   const embP = playerMods(s, pid).embassyPrestige;
   if (embP) b.diplomatie += (s.embassies || []).filter((e) => e.from === pid).length * embP;
   const lux = activeLuxuries(s, pid).length;
@@ -985,7 +1087,7 @@ export function endRound(s) {
   // Relations
   for (let a = 0; a < s.players.length; a++) for (let b = a + 1; b < s.players.length; b++) {
     let d = 0;
-    if (areNeighbors(s, a, b) && !isAllied(s, a, b)) d += R.borderTension;
+    if (areNeighbors(s, a, b) && !isAllied(s, a, b)) d += R.borderTension * Math.max(personalityOf(s, a)?.borderTension || 1, personalityOf(s, b)?.borderTension || 1);
     if (hasAgreement(s, a, b)) d += R.tradeAgreement.relationPerTurn;
     if (isAllied(s, a, b)) d += R.alliance.relationPerTurn;
     d += s.tradeRoutes.filter((r) => pairMatch(r, a, b)).length * 0.5;
@@ -995,7 +1097,8 @@ export function endRound(s) {
       if (owner === a || owner === b) d += (buildingDef(s, w).relationPerTurn || 0);
     }
     addRel(s, a, b, d);
-    if (isAllied(s, a, b) && getRel(s, a, b) < R.alliance.breakBelow) {
+    const breakBelow = Math.max(R.alliance.breakBelow, personalityOf(s, a)?.breakBelow ?? 0, personalityOf(s, b)?.breakBelow ?? 0);
+    if (isAllied(s, a, b) && getRel(s, a, b) < breakBelow) {
       s.alliances = s.alliances.filter((r) => !pairMatch(r, a, b));
       log(s, `L'alliance entre ${s.players[a].name} et ${s.players[b].name} est rompue.`, null, 'bad');
     }
@@ -1006,15 +1109,125 @@ export function endRound(s) {
   for (const c of s.cities) c.trained = false;
   for (const u of s.units) u.movesLeft = unitMaxMoves(s, u);
   for (const u of s.units.filter((v) => v.owner === 0 && v.target)) advanceUnit(s, u);
+  if (s.congress && s.congress.status === 'open') resolveCongress(s); // vote humain non exprimé : abstention
   for (const p of s.players) {
     const pr = computePrestige(s, p.id);
     p.prestige = pr.total; p.prestigeBreakdown = pr.breakdown;
   }
+  if (s.turn % R.congress.every === 0 && s.turn <= R.turnLimit) openCongress(s);
   const ranking = [...s.players].sort((a, b) => b.prestige - a.prestige);
-  if (ranking[0].prestige >= R.prestigeTarget) {
+  const path = checkVictoryPaths(s);
+  if (path) {
+    s.winner = path;
+  } else if (ranking[0].prestige >= R.prestigeTarget) {
     s.winner = { pid: ranking[0].id, reason: `${ranking[0].name} atteint ${R.prestigeTarget} points de prestige.` };
   } else if (s.turn > R.turnLimit) {
     s.winner = { pid: ranking[0].id, reason: `Fin des ${R.turnLimit} tours : ${ranking[0].name} a le plus grand prestige.` };
   }
   if (s.winner) log(s, s.winner.reason, null, s.winner.pid === 0 ? 'good' : 'bad');
+}
+
+// ------------------------------------------------------------ alliances actives
+export const projectsBetween = (s, a, b) => (s.projects || []).filter((pj) => pairMatch(pj, a, b)).length;
+
+// ------------------------------------------------------------ Congrès mondial
+// Tous les 10 tours : une résolution est soumise au vote et un Secrétaire est élu.
+// Poids d'un vote : 1 + alliances + 0,5 par accord commercial + 0,5 par ambassade reçue.
+export const activeResolutions = (s) => (s.resolutions || []).filter((r) => r.until >= s.turn);
+export function voteWeight(s, pid) {
+  return 1 + s.alliances.filter((r) => r.a === pid || r.b === pid).length
+    + 0.5 * s.agreements.filter((r) => r.a === pid || r.b === pid).length
+    + 0.5 * (s.embassies || []).filter((e) => e.to === pid).length;
+}
+
+function openCongress(s) {
+  const R = s.rules.congress;
+  const ids = Object.keys(R.resolutions);
+  const id = ids[s.rng.int(ids.length)];
+  const leader = [...s.players].sort((a, b) => b.prestige - a.prestige)[0];
+  s.congress = { turn: s.turn, id, target: R.resolutions[id].targeted ? leader.id : null, votes: {}, secretaryVotes: {}, status: 'open' };
+  for (const p of s.players) if (!p.isHuman) aiCongressVote(s, p.id);
+  log(s, `Le Congrès mondial se réunit : « ${R.resolutions[id].name} »${s.congress.target !== null ? ` (cible : ${s.players[s.congress.target].name})` : ''} et élection du Secrétaire.`, null, 'warn');
+  if (!s.players.some((p) => p.isHuman)) resolveCongress(s);
+}
+
+function aiCongressVote(s, pid) {
+  const c = s.congress;
+  const pers = s.players[pid].personality;
+  let yes;
+  if (c.id === 'embargo') yes = c.target !== pid && !isAllied(s, pid, c.target) && getRel(s, pid, c.target) < 40;
+  else if (c.id === 'trade') yes = pers !== 'isolationist' || s.tradeRoutes.some((r) => r.a === pid || r.b === pid);
+  else yes = pers !== 'isolationist' || s.rng.next() < 0.5;
+  c.votes[pid] = yes;
+  // Secrétaire : l'IA soutient le joueur qu'elle apprécie le plus (≥ 40), sinon elle-même.
+  let best = pid, bestRel = 60;
+  for (const q of s.players) if (q.id !== pid && getRel(s, pid, q.id) >= bestRel) { best = q.id; bestRel = getRel(s, pid, q.id); }
+  // Coalition : face à un joueur à une élection de la victoire diplomatique, on soutient son rival le plus fort.
+  const need = s.rules.victory.secretaryWins - 1;
+  const threat = s.players.find((q) => q.id !== pid && (q.secretaryWins || 0) >= need && !isAllied(s, pid, q.id));
+  if (threat && best === threat.id) best = pid;
+  if (threat) {
+    const rival = s.players.filter((q) => q.id !== threat.id).sort((a, b) => voteWeight(s, b.id) - voteWeight(s, a.id))[0];
+    if (rival) best = rival.id;
+  }
+  c.secretaryVotes[pid] = best;
+}
+
+export function castCongressVote(s, pid, yes, candidate) {
+  if (!s.congress || s.congress.status !== 'open') return { ok: false };
+  s.congress.votes[pid] = yes;
+  if (candidate !== undefined && candidate !== null) s.congress.secretaryVotes[pid] = candidate;
+  resolveCongress(s);
+  return { ok: true };
+}
+
+function resolveCongress(s) {
+  const c = s.congress, R = s.rules.congress;
+  let yesW = 0, noW = 0;
+  for (const p of s.players) {
+    if (c.votes[p.id] === undefined) continue;
+    if (c.votes[p.id]) yesW += voteWeight(s, p.id); else noW += voteWeight(s, p.id);
+  }
+  c.passed = yesW > noW;
+  c.tally = { yes: yesW, no: noW };
+  const def = R.resolutions[c.id];
+  if (c.passed) s.resolutions.push({ id: c.id, target: c.target, until: s.turn + R.duration - 1 });
+  log(s, `Congrès : « ${def.name} » ${c.passed ? 'adoptée' : 'rejetée'} (${yesW.toFixed(1).replace('.0', '')} pour, ${noW.toFixed(1).replace('.0', '')} contre).`, null, c.passed ? 'good' : 'info');
+  const score = {};
+  for (const [voter, cand] of Object.entries(c.secretaryVotes)) score[cand] = (score[cand] || 0) + voteWeight(s, Number(voter));
+  const ranked = Object.entries(score).sort((a, b) => b[1] - a[1]);
+  if (ranked.length && (ranked.length === 1 || ranked[0][1] > ranked[1][1])) {
+    s.secretary = Number(ranked[0][0]);
+    s.players[s.secretary].secretaryWins = (s.players[s.secretary].secretaryWins || 0) + 1;
+    log(s, `${s.players[s.secretary].name} est élu Secrétaire du Congrès (+${R.secretaryPrestige} prestige jusqu'au prochain congrès).`, null, s.secretary === 0 ? 'good' : 'warn');
+  } else {
+    s.secretary = null;
+    log(s, 'Aucun Secrétaire élu : égalité des voix.', null, 'info');
+  }
+  c.status = 'closed';
+  c.secretary = s.secretary;
+}
+
+// ------------------------------------------------------------ voies de victoire
+export function victoryProgress(s, pid) {
+  const V = s.rules.victory, p = s.players[pid];
+  const others = s.players.filter((q) => q.id !== pid);
+  return {
+    science: { label: 'Science', done: s.wonders.observatory === pid && p.techs.length >= V.scienceTechs, text: `Observatoire Céleste ${s.wonders.observatory === pid ? '✓' : '✗'} · ${p.techs.length}/${V.scienceTechs} technologies`, pct: Math.min(1, (p.techs.length / V.scienceTechs) * 0.6 + (s.wonders.observatory === pid ? 0.4 : 0)) },
+    culture: { label: 'Culture', done: s.wonders.amphitheatre === pid && p.cultureTotal >= V.cultureTotal, text: `Amphithéâtre ${s.wonders.amphitheatre === pid ? '✓' : '✗'} · ${Math.floor(p.cultureTotal)}/${V.cultureTotal} culture`, pct: Math.min(1, (p.cultureTotal / V.cultureTotal) * 0.6 + (s.wonders.amphitheatre === pid ? 0.4 : 0)) },
+    economy: { label: 'Économie', done: s.wonders.exchange === pid && p.res.gold >= V.economyGold, text: `Grande Bourse ${s.wonders.exchange === pid ? '✓' : '✗'} · ${Math.floor(p.res.gold)}/${V.economyGold} Or en caisse`, pct: Math.min(1, Math.min(1, p.res.gold / V.economyGold) * 0.6 + (s.wonders.exchange === pid ? 0.4 : 0)) },
+    diplomacy: { label: 'Diplomatie', done: ((p.secretaryWins || 0) >= V.secretaryWins && others.some((q) => isAllied(s, pid, q.id))) || (others.length >= 2 && others.every((q) => isAllied(s, pid, q.id))), text: `Élu Secrétaire ${p.secretaryWins || 0}/${V.secretaryWins} fois (avec au moins un allié) · allié de ${others.filter((q) => isAllied(s, pid, q.id)).length}/${others.length}`, pct: Math.min(1, Math.max((p.secretaryWins || 0) / V.secretaryWins, others.filter((q) => isAllied(s, pid, q.id)).length / Math.max(1, others.length))) },
+    prestige: { label: 'Prestige', done: p.prestige >= s.rules.prestigeTarget, text: `${p.prestige}/${s.rules.prestigeTarget} prestige`, pct: Math.min(1, p.prestige / s.rules.prestigeTarget) },
+  };
+}
+
+function checkVictoryPaths(s) {
+  const names = { science: 'scientifique', culture: 'culturelle', economy: 'économique', diplomacy: 'diplomatique' };
+  for (const p of s.players) {
+    const vp = victoryProgress(s, p.id);
+    for (const k of ['science', 'culture', 'economy', 'diplomacy']) {
+      if (vp[k].done) return { pid: p.id, type: k, reason: `Victoire ${names[k]} de ${p.name} : ${vp[k].text}.` };
+    }
+  }
+  return null;
 }

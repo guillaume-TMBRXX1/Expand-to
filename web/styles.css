@@ -215,3 +215,26 @@ kbd { font: 12px ui-monospace, monospace; background: var(--surface-2); border: 
 .check.small { font-size: 12px; gap: 4px; }
 .check.small input { width: 13px; height: 13px; }
 #stock { width: 340px; }
+
+.tile-badge { position: absolute; left: 0; top: 0; display: flex; gap: 4px; background: rgba(255, 253, 251, .96); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; font-size: 11.5px; font-weight: 800; white-space: nowrap; box-shadow: 0 1px 3px rgba(60,40,30,.15); pointer-events: none; font-variant-numeric: tabular-nums; }
+.tile-badge span { display: inline-flex; align-items: center; gap: 3px; }
+.tile-badge i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.adj-toggle { margin-left: auto; }
+.adj-toggle[aria-pressed="true"] { background: #e3f6ec; color: var(--good); }
+
+/* ------------------------------------------------------------ phase 3 */
+.score-actions { display: flex; gap: 6px; margin: 2px 0 8px; flex-wrap: wrap; }
+.resolution { font-size: 12px; background: var(--surface-2); border-radius: 8px; padding: 5px 8px; margin-bottom: 6px; }
+.pers { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; line-height: 1.4; }
+.memories { margin-top: 4px; }
+.mem { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 3px 0; border-top: 1px solid var(--line); }
+.mem:first-of-type { border-top: 0; }
+.mem.good b, b.good { color: var(--good); } .mem.bad b, b.bad { color: var(--bad); }
+.cands { display: flex; flex-direction: column; gap: 6px; }
+.vpath { padding: 10px 0; border-top: 1px solid var(--line); }
+.vpath:first-of-type { border-top: 0; }
+.vhead { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; margin-bottom: 6px; flex-wrap: wrap; }
+.vhead .muted { font-size: 12.5px; }
+.bar.big { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.bar.big > div { height: 100%; }
+.vrival { font-size: 12px; margin: 6px 0 3px; }

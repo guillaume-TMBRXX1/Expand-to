@@ -1,13 +1,14 @@
 // IA des joueurs ordinateurs : heuristiques simples pondérées par leur profil.
 import * as G from './game.js';
 
-const BRANCH_WEIGHTS = {
-  merchant: { economy: 3, science: 1.2, culture: 1, diplomacy: 1.8 },
-  scholar: { economy: 1, science: 3, culture: 1.2, diplomacy: 1.3 },
-  builder: { economy: 1.8, science: 1.2, culture: 2.5, diplomacy: 1 },
-  diplomat: { economy: 1.5, science: 1, culture: 1.2, diplomacy: 3 },
-  explorer: { economy: 1.5, science: 1.3, culture: 2.2, diplomacy: 1.2 },
-};
+// Paramètres de l'IA : web/data/ai.json, éventuellement surchargés par joueur (s.aiOverrides[pid]) pour l'entraînement.
+function merge(a, b) {
+  if (!b) return a;
+  const out = { ...a };
+  for (const [k, v] of Object.entries(b)) out[k] = v && typeof v === 'object' && !Array.isArray(v) ? merge(a[k] || {}, v) : v;
+  return out;
+}
+export function aiParams(s, pid) { return merge(s.data.ai, s.aiOverrides?.[pid]); }
 const YIELD_BRANCH = { gold: 'economy', science: 'science', culture: 'culture', food: 'economy', wood: 'economy', stone: 'economy' };
 
 export function playAITurns(s) {
@@ -16,11 +17,12 @@ export function playAITurns(s) {
 
 function aiTurn(s, pid) {
   const p = s.players[pid];
-  const w = BRANCH_WEIGHTS[p.profile];
+  const P = aiParams(s, pid);
+  const w = P.branchWeights[p.profile];
   chooseResearch(s, pid, w);
   for (const u of s.units.filter((x) => x.owner === pid)) moveUnit(s, pid, u);
-  trainUnits(s, pid);
-  for (let i = 0; i < 2; i++) if (!buildSomething(s, pid, w)) break;
+  trainUnits(s, pid, P);
+  for (let i = 0; i < 2; i++) if (!buildSomething(s, pid, w, P.build)) break;
   buildRoads(s, pid);
   sellSurplus(s, pid);
   diplomacy(s, pid);
@@ -31,7 +33,7 @@ function chooseResearch(s, pid, w) {
   if (p.research) return;
   const options = G.availableTechs(s, pid);
   if (!options.length) return;
-  options.sort((a, b) => (w[b.branch] / b.cost) - (w[a.branch] / a.cost) + (s.rng.next() - 0.5) * 0.02);
+  options.sort((a, b) => (w[b.branch] / G.techCost(s, pid, b.id)) - (w[a.branch] / G.techCost(s, pid, a.id)) + (s.rng.next() - 0.5) * 0.02);
   G.setResearch(s, pid, options[0].id);
 }
 
@@ -105,12 +107,12 @@ function moveUnit(s, pid, u) {
   }
 }
 
-function trainUnits(s, pid) {
+function trainUnits(s, pid, P) {
   const p = s.players[pid];
   const cities = G.citiesOf(s, pid).sort((a, b) => b.pop - a.pop);
   if (!cities.length) return;
   const settlers = s.units.filter((u) => u.owner === pid && u.type === 'settler').length;
-  const wanted = p.profile === 'explorer' ? 5 : 4;
+  const wanted = p.profile === 'explorer' ? P.expansion.explorerTargetCities : P.expansion.targetCities;
   if (cities.length + settlers < wanted && settlers === 0 && s.turn > 2) G.train(s, pid, cities[0].id, 'settler');
   const caravans = s.units.filter((u) => u.owner === pid && u.type === 'caravan').length;
   const routes = s.tradeRoutes.filter((r) => r.a === pid && !r.sea).length;
@@ -131,34 +133,35 @@ function trainUnits(s, pid) {
 
 // ------------------------------------------------------------ constructions
 
-function buildSomething(s, pid, w) {
+function buildSomething(s, pid, w, B) {
   const p = s.players[pid];
   if (!G.citiesOf(s, pid).length) return false;
   const y = p.lastYield ? p.lastYield.net : { food: 1, wood: 1, stone: 1, gold: 2 };
-  const reserve = s.units.some((u) => u.owner === pid && u.type === 'settler') ? 0 : 35;
+  const reserve = s.units.some((u) => u.owner === pid && u.type === 'settler') ? 0 : B.goldReserve;
   const scored = s.data.buildings.map((def) => {
     let score = 0;
     for (const [k, v] of Object.entries(def.yields)) score += v * (w[YIELD_BRANCH[k]] || 1);
-    if (def.yields.food && y.food < 2) score += 12;
-    if (def.yields.wood && (y.wood < 3 || p.res.wood < 20)) score += 10;
-    if (def.yields.stone && (y.stone < 3 || p.res.stone < 20)) score += 9;
-    if (def.wonder) score += def.prestige;
-    if (def.prestige && !def.wonder) score += def.prestige * 1.5;
-    if (def.popCap) score += 6;
+    if (def.yields.food && y.food < 2) score += B.foodNeed;
+    if (def.yields.wood && (y.wood < 3 || p.res.wood < 20)) score += B.woodNeed;
+    if (def.yields.stone && (y.stone < 3 || p.res.stone < 20)) score += B.stoneNeed;
+    if (def.wonder) score += def.prestige * B.wonderPrestige;
+    if (def.prestige && !def.wonder) score += def.prestige * B.monumentPrestige;
+    if (def.popCap) score += B.popCap;
     const count = s.buildings.filter((b) => b.owner === pid && b.type === def.id).length;
     const nCities = G.citiesOf(s, pid).length;
-    if (def.id === 'sawmill' && count < Math.max(1, Math.ceil(nCities / 2)) && (p.res.planks || 0) < 30) score += 14;
-    if (def.id === 'forge' && count < 1 + Math.floor(nCities / 3) && (p.res.tools || 0) < 25) score += 13;
-    if (def.id === 'manufactory' && count < 1 + Math.floor(nCities / 2) && y.food >= 3 && (p.res.goods || 0) < 25) score += 13;
-    if (def.id === 'outpost') score += 16;
-    if (def.id === 'markethall' && count === 0) score += 10;
-    if (def.footprint) score += 4;
-    if (!def.wonder) score -= count * 1.2; // diversité : on évite d'empiler toujours le même bâtiment
+    if (def.id === 'sawmill' && count < Math.max(1, Math.ceil(nCities / 2)) && (p.res.planks || 0) < 30) score += B.sawmill;
+    if (def.id === 'forge' && count < 1 + Math.floor(nCities / 3) && (p.res.tools || 0) < 25) score += B.forge;
+    if (def.id === 'manufactory' && count < 1 + Math.floor(nCities / 2) && y.food >= 3 && (p.res.goods || 0) < 25) score += B.manufactory;
+    if (def.id === 'outpost') score += B.outpost;
+    if (def.id === 'markethall' && count === 0) score += B.markethall;
+    if (def.id === 'lab') score += B.lab;
+    if (def.footprint) score += B.quarter;
+    if (!def.wonder) score -= count * B.diversity; // diversité : on évite d'empiler toujours le même bâtiment
     return { def, score: score + s.rng.next() * 2 };
   }).sort((a, b) => b.score - a.score);
   const tiles = s.map.tiles.filter((t) => t.owner === pid);
   // Épargne pour une merveille : tant qu'une merveille est accessible, l'IA ne construit plus que l'essentiel.
-  const target = scored.find(({ def }) => def.wonder && s.wonders[def.id] === undefined && (!def.tech || G.hasTech(s, pid, def.tech))
+  const target = B.saveForWonders && scored.find(({ def }) => def.wonder && s.wonders[def.id] === undefined && (!def.tech || G.hasTech(s, pid, def.tech))
     && !s.buildings.some((b) => b.owner === pid && b.type === def.id) && tiles.some((t) => def.terrain.includes(t.type) && !G.cityAt(s, t.x, t.y) && !G.buildingAt(s, t.x, t.y) && (!def.coastal || G.isCoastal(s, t))));
   const essential = (def) => (def.yields.food && y.food < 2) || def.id === 'quarry' || (def.id === 'lumber' && y.wood < 4);
   for (const { def } of scored) {
@@ -215,18 +218,26 @@ function lowestResource(p) {
 
 function diplomacy(s, pid) {
   const p = s.players[pid];
+  const pers = G.personalityOf(s, pid) || { proposeRate: 1, allianceMin: 55 };
+  const rate = pers.proposeRate;
+  const proj = s.rules.jointProject;
   let toHuman = s.proposals.filter((x) => x.to === 0).length;
   for (const q of s.players) {
     if (q.id === pid) continue;
     const rel = G.getRel(s, pid, q.id);
     const r = s.rng.next();
     const canPropose = !q.isHuman || toHuman < 2;
-    if (canPropose && G.hasTech(s, pid, 'protocol') && !G.hasAgreement(s, pid, q.id) && rel >= 15 && r < 0.3) {
+    if (canPropose && G.hasTech(s, pid, 'protocol') && !G.hasAgreement(s, pid, q.id) && rel >= 15 && r < 0.3 * rate) {
       if (G.propose(s, pid, q.id, 'agreement').pending) toHuman++;
       continue;
     }
-    if (canPropose && G.hasTech(s, pid, 'embassies') && !G.isAllied(s, pid, q.id) && rel >= 55 && r < 0.25) {
+    if (canPropose && G.hasTech(s, pid, 'embassies') && !G.isAllied(s, pid, q.id) && rel >= Math.max(55, pers.allianceMin) && r < 0.25 * rate) {
       if (G.propose(s, pid, q.id, 'alliance').pending) toHuman++;
+      continue;
+    }
+    if (canPropose && G.isAllied(s, pid, q.id) && rel >= proj.minRelation && G.projectsBetween(s, pid, q.id) < proj.maxPerPair
+      && G.canAfford(s, pid, proj.cost) && p.res.gold > 120 && r < 0.12 * rate) {
+      if (G.propose(s, pid, q.id, 'project').pending) toHuman++;
       continue;
     }
     if (rel < 5 && p.res.gold > 140 && r < 0.2) { G.giveGift(s, pid, q.id, 30); continue; }
