@@ -408,6 +408,19 @@ export function luxuryModel(lux) {
   return g;
 }
 
+BUILDERS.markethall = () => {
+  const p = [plinth(PAL.paving)];
+  for (const [x, z] of [[-0.3, -0.22], [0.3, -0.22], [-0.3, 0.18], [0.3, 0.18]]) p.push(cyl(0.022, 0.026, 0.22, PAL.white, x, Y0, z, 10));
+  const roof = place(cached('hallroof', () => new THREE.CylinderGeometry(0.26, 0.26, 0.72, 20, 1, false, 0, Math.PI)), PAL.roofGreen, 0, Y0 + 0.22, -0.02);
+  roof.rotation.z = Math.PI / 2; roof.rotation.y = Math.PI / 2; roof.scale.set(1, 1, 0.75);
+  p.push(roof, rbox(0.74, 0.03, 0.46, PAL.white, 0, Y0 + 0.21, -0.02, 0.01));
+  for (const [x, c] of [[-0.18, '#e0677e'], [0.02, PAL.gold], [0.2, PAL.roofBlue]]) p.push(rbox(0.14, 0.07, 0.12, PAL.wood, x, Y0, -0.02, 0.012), sph(0.025, c, x - 0.03, Y0 + 0.09, -0.02), sph(0.025, c, x + 0.03, Y0 + 0.09, 0.0));
+  p.push(crate(-0.3, 0.33, PAL.wood, 0.07), crate(-0.22, 0.33, '#d29a5b', 0.07), crate(0.32, 0.33, PAL.steelDark, 0.06));
+  p.push(rbox(0.18, 0.08, 0.02, PAL.gold, 0, Y0 + 0.3, 0.215, 0.01), cyl(0.025, 0.025, 0.012, '#fff3c4', 0, Y0 + 0.3, 0.228, 16));
+  p[p.length - 1].rotation.x = Math.PI / 2; p[p.length - 1].position.y = Y0 + 0.34;
+  return p;
+};
+
 BUILDERS.outpost = (lux = 'spices') => {
   const p = [plinth('#e9dcc5')];
   p.push(rbox(0.26, 0.16, 0.2, PAL.wood, -0.15, Y0, -0.15, 0.02), rotY(gable(0.32, 0.1, 0.24, PAL.roofGreen, -0.15, Y0 + 0.16, -0.15), 0), door(-0.15, Y0, -0.048));

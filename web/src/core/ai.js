@@ -22,6 +22,7 @@ function aiTurn(s, pid) {
   trainUnits(s, pid);
   for (let i = 0; i < 2; i++) if (!buildSomething(s, pid, w)) break;
   buildRoads(s, pid);
+  sellSurplus(s, pid);
   diplomacy(s, pid);
 }
 
@@ -150,6 +151,7 @@ function buildSomething(s, pid, w) {
     if (def.id === 'forge' && count < 1 + Math.floor(nCities / 3) && (p.res.tools || 0) < 25) score += 13;
     if (def.id === 'manufactory' && count < 1 + Math.floor(nCities / 2) && y.food >= 3 && (p.res.goods || 0) < 25) score += 13;
     if (def.id === 'outpost') score += 16;
+    if (def.id === 'markethall' && count === 0) score += 10;
     if (def.footprint) score += 4;
     if (!def.wonder) score -= count * 1.2; // diversité : on évite d'empiler toujours le même bâtiment
     return { def, score: score + s.rng.next() * 2 };
@@ -172,6 +174,16 @@ function buildSomething(s, pid, w) {
     if (best) { G.build(s, pid, def.id, best.x, best.y); return true; }
   }
   return false;
+}
+
+// Vend les surplus (au-delà de 40) quand une Halle marchande existe ; garde toujours de quoi activer les luxes.
+function sellSurplus(s, pid) {
+  if (!G.hallCount(s, pid)) return;
+  const p = s.players[pid];
+  for (const res of ['goods', 'planks', 'tools', 'spices', 'marble', 'crystal', 'wood', 'stone']) {
+    const extra = Math.floor((p.res[res] || 0) - 40);
+    if (extra > 5) G.sell(s, pid, res, extra);
+  }
 }
 
 function buildRoads(s, pid) {

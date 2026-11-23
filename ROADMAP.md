@@ -58,6 +58,7 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 - [x] Véhicules : navire marchand (routes maritimes à +4 Or, une par port) et dirigeable (survole montagnes et océans).
 - [x] Unités civiles : Ingénieur (routes partout, défrichage) et Émissaire (ambassade : +15 relation, +1 par tour).
 - [x] Quartiers 2×2 : Campus, Quartier des arts, Quartier marchand.
+- [x] Halle marchande : vente des surplus (biens, matériaux, ressources rares) avec un prix qui baisse quand on vend beaucoup, et une vente automatique au-delà de 30 unités.
 - [ ] Notes pour plus tard : l'IA construit encore peu de quartiers 2×2 et de laboratoires, et le moteur pourrait être optimisé (une simulation prend environ 0,5 s par partie).
 
 ## Phase 3 — Diplomatie et IA (v0.4) · ~3 semaines

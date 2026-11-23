@@ -10,7 +10,7 @@ const $ = (sel) => document.querySelector(sel);
 const BRANCHES = { economy: 'Économie', science: 'Science', culture: 'Culture', diplomacy: 'Diplomatie' };
 const BUILD_TABS = {
   prod: { label: 'Production', ids: ['farm', 'lumber', 'quarry', 'market', 'harbor', 'district', 'road'] },
-  industry: { label: 'Industrie', ids: ['sawmill', 'manufactory', 'forge', 'outpost'] },
+  industry: { label: 'Industrie', ids: ['sawmill', 'manufactory', 'forge', 'outpost', 'markethall'] },
   know: { label: 'Savoir & culture', ids: ['library', 'lab', 'theatre', 'monument'] },
   quarter: { label: 'Quartiers 2×2', ids: ['campus', 'artsquarter', 'merchantquarter'] },
   wonder: { label: 'Merveilles', ids: ['lighthouse', 'grandlibrary', 'observatory', 'amphitheatre', 'exchange', 'nations'] },
@@ -220,9 +220,24 @@ function renderStock() {
   const p = me();
   const y = G.computeYields(s, 0);
   const active = new Set(G.activeLuxuries(s, 0));
-  const row = (k) => `<div class="stock-row"><span><i style="background:${resColor(k)}"></i>${data.resources[k].name}</span><b>${fmt(p.res[k] || 0)}</b><small class="${(y.net[k] || 0) < 0 ? 'neg' : ''}">${sign(y.net[k] || 0)}</small></div>`;
+  const canSell = G.hallCount(s, 0) > 0;
+  const auto = p.autoSell || {};
+  const keep = data.rules.market.autoSellKeep;
+  const sellBar = (k) => {
+    if (!canSell) return '';
+    const stock = Math.floor(p.res[k] || 0);
+    const q5 = G.quoteSale(s, 0, k, Math.min(5, stock)).gold, q10 = G.quoteSale(s, 0, k, Math.min(10, stock)).gold;
+    const price = G.unitPrice(s, 0, k);
+    return `<div class="sell-row"><span class="muted">${price.toFixed(1).replace('.', ',')} Or/u</span>
+      <button class="btn small" data-action="sell" data-res="${k}" data-qty="5" ${stock >= 1 ? '' : 'disabled'} title="Vendre 5 : +${q5} Or">−5 · +${q5}</button>
+      <button class="btn small" data-action="sell" data-res="${k}" data-qty="10" ${stock >= 1 ? '' : 'disabled'} title="Vendre 10 : +${q10} Or">−10 · +${q10}</button>
+      <label class="check small" title="Chaque fin de tour, vendre tout ce qui dépasse ${keep}"><input type="checkbox" data-action="autosell" data-res="${k}" ${auto[k] !== undefined ? 'checked' : ''}> auto &gt; ${keep}</label></div>`;
+  };
+  const row = (k) => `<div class="stock-row"><span><i style="background:${resColor(k)}"></i>${data.resources[k].name}</span><b>${fmt(p.res[k] || 0)}</b><small class="${(y.net[k] || 0) < 0 ? 'neg' : ''}">${sign(y.net[k] || 0)}</small></div>${sellBar(k)}`;
   el.innerHTML = `<div class="section-title"><span>Entrepôt</span><button class="btn small ghost" data-action="stock">Fermer</button></div>
+    ${canSell ? `<p class="muted" style="font-size:12px;margin:0 0 4px">Halle marchande : vente à ${Math.round(G.sellRate(s, 0) * 100)}% de la valeur. Le prix baisse si vous vendez beaucoup, puis remonte chaque tour.</p>` : '<p class="muted" style="font-size:12px;margin:0 0 4px">Construisez une <b>Halle marchande</b> (onglet Industrie, technologie Commerce) pour vendre vos surplus contre de l\'Or.</p>'}
     <div class="stock-group">Biens transformés</div>${G.GOODS.map(row).join('')}
+    ${canSell ? `<div class="stock-group">Matériaux</div>${['wood', 'stone', 'food'].map(row).join('')}` : ''}
     <div class="stock-group">Ressources rares</div>${G.LUXURIES.map((k) => row(k) + `<div class="stock-desc ${active.has(k) ? 'good' : ''}">${active.has(k) ? 'Actif : ' : ''}${data.resources[k].desc}</div>`).join('')}
     <p class="muted" style="font-size:12px;margin:8px 0 0">Chaque ressource rare active rapporte aussi ${data.rules.luxuries.diversityPrestige} prestige. Échangez-les en Diplomatie.</p>`;
 }
@@ -586,6 +601,15 @@ function onAction(e) {
     }
     case 'new-game': closeModal(); save(); for (const x of ['#topbar', '#side', '#buildbar', '#selection', '#hint', '#tutorial', '#summary']) $(x).hidden = true; s = null; showStart(); break;
     case 'menu': showMenu(); break;
+    case 'sell': {
+      const r = G.sell(s, 0, b.dataset.res, Number(b.dataset.qty));
+      if (!r.ok) toast(r.reason, 'bad'); else toast(`${r.qty} ${data.resources[b.dataset.res].name} vendus : +${r.gold} Or.`, 'good');
+      renderTop(); renderStock(); save(); break;
+    }
+    case 'autosell': {
+      G.setAutoSell(s, 0, b.dataset.res, b.checked ? data.rules.market.autoSellKeep : null);
+      renderStock(); save(); break;
+    }
     case 'stock': $('#stock').hidden = !$('#stock').hidden; renderTop(); renderStock(); break;
     case 'eng-road': case 'eng-clear': {
       const r = a === 'eng-road' ? G.engineerRoad(s, sel.id) : G.clearForest(s, sel.id);

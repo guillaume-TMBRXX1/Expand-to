@@ -167,7 +167,7 @@ function placeLuxuries(s, rng, starts) {
 
 export function playerMods(s, pid) {
   const p = s.players[pid];
-  const m = { yieldPct: {}, cityYield: {}, costPct: 0, wonderCostPct: 0, tradePrestige: 0, buildingPrestigePer: 0, discoveryPrestige: 0, techPrestige: 0, popCap: 0, relationPerTurn: 0, moveBonus: 0, visionBonus: 0 };
+  const m = { yieldPct: {}, cityYield: {}, costPct: 0, wonderCostPct: 0, tradePrestige: 0, buildingPrestigePer: 0, discoveryPrestige: 0, techPrestige: 0, sellBonus: 0, embassyPrestige: 0, popCap: 0, relationPerTurn: 0, moveBonus: 0, visionBonus: 0 };
   const apply = (e) => {
     if (!e) return;
     for (const [k, v] of Object.entries(e.yieldPct || {})) m.yieldPct[k] = (m.yieldPct[k] || 0) + v;
@@ -178,6 +178,8 @@ export function playerMods(s, pid) {
     if (e.buildingPrestigePer) m.buildingPrestigePer = e.buildingPrestigePer;
     m.discoveryPrestige += e.discoveryPrestige || 0;
     m.techPrestige += e.techPrestige || 0;
+    m.sellBonus += e.sellBonus || 0;
+    m.embassyPrestige += e.embassyPrestige || 0;
     m.popCap += e.popCap || 0;
     m.relationPerTurn += e.relationPerTurn || 0;
     m.moveBonus += e.moveBonus || 0;
@@ -555,6 +557,60 @@ export function clearForest(s, uid) {
   return { ok: true };
 }
 
+// ---------------------------------------------------------------- marché
+// Vente contre de l'Or dans une Halle marchande. Le prix baisse quand on vend beaucoup (saturation)
+// et remonte doucement chaque tour.
+export const hallCount = (s, pid) => s.buildings.filter((b) => b.owner === pid && b.type === 'markethall' && !b.turnsLeft).length;
+export function marketFactor(s, pid, res) { return (s.players[pid].market || {})[res] ?? 1; }
+export function sellRate(s, pid) {
+  const M = s.rules.market;
+  const halls = Math.min(hallCount(s, pid), M.maxHalls);
+  if (!halls) return 0;
+  const mq = s.buildings.some((b) => b.owner === pid && b.type === 'merchantquarter' && !b.turnsLeft) ? M.merchantQuarterBonus : 0;
+  return M.baseRate + (halls - 1) * M.perHall + mq + playerMods(s, pid).sellBonus;
+}
+export function unitPrice(s, pid, res) {
+  return (s.data.resources[res].tradeValue || 0) * sellRate(s, pid) * marketFactor(s, pid, res);
+}
+// Recette estimée pour qty unités (le prix baisse à chaque unité vendue).
+export function quoteSale(s, pid, res, qty) {
+  const M = s.rules.market;
+  let f = marketFactor(s, pid, res), total = 0;
+  const base = (s.data.resources[res].tradeValue || 0) * sellRate(s, pid);
+  for (let i = 0; i < qty; i++) { total += base * f; f = Math.max(M.minPrice, f * M.saturation); }
+  return { gold: Math.floor(total), factor: f };
+}
+export function sell(s, pid, res, qty) {
+  const p = s.players[pid];
+  if (!s.rules.market.sellable.includes(res)) return { ok: false, reason: 'Ressource non vendable.' };
+  if (!hallCount(s, pid)) return { ok: false, reason: 'Construisez d\'abord une Halle marchande.' };
+  qty = Math.min(Math.floor(qty), Math.floor(p.res[res] || 0));
+  if (qty <= 0) return { ok: false, reason: 'Stock insuffisant.' };
+  const q = quoteSale(s, pid, res, qty);
+  p.res[res] -= qty;
+  p.res.gold += q.gold;
+  p.market = p.market || {};
+  p.market[res] = q.factor;
+  return { ok: true, qty, gold: q.gold };
+}
+function marketTick(s, pid) {
+  const p = s.players[pid];
+  const M = s.rules.market;
+  for (const [res, keep] of Object.entries(p.autoSell || {})) {
+    const extra = Math.floor((p.res[res] || 0) - keep);
+    if (extra > 0 && hallCount(s, pid)) {
+      const r = sell(s, pid, res, extra);
+      if (r.ok && p.isHuman) log(s, `Vente automatique : ${r.qty} ${s.data.resources[res].name} → ${r.gold} Or.`, [pid], 'info');
+    }
+  }
+  for (const res of Object.keys(p.market || {})) p.market[res] = Math.min(1, p.market[res] + M.recovery);
+}
+export function setAutoSell(s, pid, res, keep) {
+  const p = s.players[pid];
+  p.autoSell = p.autoSell || {};
+  if (keep === null) delete p.autoSell[res]; else p.autoSell[res] = keep;
+}
+
 // ------------------------------------------------------------- recherche
 
 export function availableTechs(s, pid) {
@@ -852,6 +908,8 @@ export function computePrestige(s, pid) {
     const def = buildingDef(s, bd.type);
     if (def.prestige) b[def.wonder ? 'merveilles' : 'monuments'] += def.prestige;
   }
+  const embP = playerMods(s, pid).embassyPrestige;
+  if (embP) b.diplomatie += (s.embassies || []).filter((e) => e.from === pid).length * embP;
   const lux = activeLuxuries(s, pid).length;
   if (lux) b.luxe = lux * s.rules.luxuries.diversityPrestige;
   const disc = playerMods(s, pid).discoveryPrestige;
@@ -898,6 +956,7 @@ export function endRound(s) {
       for (const [k, v] of Object.entries(pr.out)) p.res[k] = (p.res[k] || 0) + v;
     }
     updateTiers(s, p.id);
+    marketTick(s, p.id);
     p.sciencePool += y.net.science;
     p.cultureTotal += y.net.culture;
     checkResearch(s, p.id);
