@@ -387,3 +387,12 @@ html.touch .stepper .btn.small { width: 38px; min-height: 36px; }
 .proposal.crisis { border-left-color: var(--bad); background: #fff6f4; }
 .crisis-line { border-left: 3px solid var(--bad); }
 .crisis-levels { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ------------------------------------------------------ marché mondial et ligue */
+.mk-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 2px 0 2px 14px; font-size: 11.5px; }
+.mk-tags { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.spark { width: 56px; height: 18px; }
+.league { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 13px; }
+.league .btn { margin-left: auto; }
+.league-members { flex-basis: 100%; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.league-members .avatar { border-radius: 8px; vertical-align: middle; }

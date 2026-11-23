@@ -80,7 +80,16 @@ Sur l'écran d'accueil, vous choisissez :
 - **Caravane** : envoyez-la dans une ville étrangère pour ouvrir une route commerciale. Elle rapporte de l'Or, de la relation et du prestige.
 - **Industrie** : les Menuiseries, Forges et Manufactures transforment vos matières premières en planches, outils et biens. Ces biens font monter vos villes de palier (Artisans, puis Savants).
 - **Adjacences** : placez vos bâtiments les uns à côté des autres pour obtenir des bonus. Le gain s'affiche au survol pendant la construction.
-- **Halle marchande** (onglet Industrie) : elle permet de vendre dans l'Entrepôt vos biens, matériaux et ressources rares contre de l'Or. Le prix baisse si vous vendez beaucoup, puis remonte chaque tour. Une option vend automatiquement tout ce qui dépasse un seuil réglable pour chaque ressource (30 par défaut).
+- **Halle marchande et marché mondial** (onglet Industrie, puis Entrepôt) : les cours sont communs à tous les joueurs.
+  - Chaque vente fait baisser le cours, chaque achat le fait monter, puis il revient peu à peu selon la rareté.
+  - On peut acheter une ressource, avec une marge, dès qu'un autre joueur la produit.
+  - Une option vend automatiquement tout ce qui dépasse un seuil réglable pour chaque ressource.
+- **Bulles spéculatives** : de temps en temps, une ressource devient à la mode, son cours s'envole quelques tours, puis la bulle éclate.
+- **Monopoles** : le seul producteur d'une ressource rare la vend 25 % plus cher et touche une part des achats des autres.
+- **Ligue marchande** (Diplomatie) : une seule par partie, fondée pour 60 Or.
+  - Les membres paient 2 Or par tour.
+  - Leurs routes communes rapportent +2 Or et +1 prestige, et leurs ventes sont payées 10 % de plus.
+  - Un conflit ouvert, une cotisation impayée ou un contrat non honoré vaut l'exclusion.
 - **Merveilles** : chacune est unique dans la partie. Le premier qui l'achève la garde, et les autres chantiers sont remboursés à 50 %. Si un rival en construit une, sa carte dans l'onglet Merveilles affiche son nom et le nombre de tours restants (et les vôtres si vous êtes en course). Le journal vous prévient dès qu'une course commence.
 - **Régions** : la carte est divisée en cinq régions climatiques (nord froid, terres tempérées, plaines fertiles, sud aride, côtes et lagunes), chacune avec sa teinte et son décor. Le nom de la région s'affiche au survol d'une case.
 - **Ressources rares** : neuf ressources, chacune présente dans une ou deux régions seulement. Il faut donc commercer pour toutes les avoir :
@@ -97,7 +106,7 @@ Sur l'écran d'accueil, vous choisissez :
   - On s'y déplace plus vite.
   - Le Moulin à eau et le port fluvial s'y construisent.
 - **Diplomatie** : les voisins méfiants ou hostiles réduisent votre productivité. Accords et alliances la renforcent.
-- **Victoire** : la première voie complétée l'emporte. Sinon, la victoire va au premier à 230 points de prestige, ou au meilleur score après 60 tours. Les voies (valeurs en partie normale) :
+- **Victoire** : la première voie complétée l'emporte. Sinon, la victoire va au premier à 250 points de prestige, ou au meilleur score après 60 tours. Les voies (valeurs en partie normale) :
   - Science : Observatoire Céleste et 12 technologies ;
   - Culture : Amphithéâtre et 750 de culture ;
   - Économie : Grande Bourse et 1 150 Or en caisse ;
