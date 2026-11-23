@@ -69,10 +69,18 @@ def classify(e: float, m: float) -> str:
     return "snow"
 
 
-def generate_map(seed: int, width: int = 36, height: int = 26) -> list[list[dict]]:
+MAP_TYPES = {
+    "continent": {"cell": 9, "gain": 1.25, "bias": -0.1, "fall0": 0.55},
+    "pangaea": {"cell": 11, "gain": 1.15, "bias": 0.0, "fall0": 0.7},
+    "archipelago": {"cell": 5, "gain": 1.35, "bias": -0.16, "fall0": 0.62},
+}
+
+
+def generate_map(seed: int, width: int = 36, height: int = 26, map_type: str = "continent") -> list[list[dict]]:
     """Retourne une grille [y][x] de cases {x, y, e, m, type}."""
+    T = MAP_TYPES.get(map_type, MAP_TYPES["continent"])
     rng = Mulberry32(seed)
-    elev = _fbm(rng, width, height, 4, 9)
+    elev = _fbm(rng, width, height, 4, T["cell"])
     moist = _fbm(rng, width, height, 3, 7)
     rows = []
     for y in range(height):
@@ -80,8 +88,8 @@ def generate_map(seed: int, width: int = 36, height: int = 26) -> list[list[dict
         for x in range(width):
             nx, ny = (x / (width - 1)) * 2 - 1, (y / (height - 1)) * 2 - 1
             d = max(abs(nx), abs(ny) * 1.05)
-            falloff = min(1, max(0, (d - 0.55) / 0.45))
-            e = elev(x, y) * 1.25 - 0.1
+            falloff = min(1, max(0, (d - T["fall0"]) / (1 - T["fall0"])))
+            e = elev(x, y) * T["gain"] + T["bias"]
             e = e * (1 - falloff * 0.9) - falloff * 0.15
             e = min(1, max(0, e))
             m = moist(x, y)

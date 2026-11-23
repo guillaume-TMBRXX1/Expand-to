@@ -1,5 +1,6 @@
 // Sauvegardes : une sauvegarde automatique + 3 emplacements, export / import de fichier JSON.
 import { makeRng } from '../core/rng.js';
+import { gameRules } from '../core/game.js';
 
 const PREFIX = 'expandto.';
 export const SLOTS = [
@@ -28,7 +29,7 @@ export function serialize(s) {
   const p = s.players[0];
   return JSON.stringify({
     format: FORMAT,
-    meta: { savedAt: new Date().toISOString(), turn: s.turn, name: p.name, profile: p.profile, prestige: p.prestige, seed: s.seed, winner: !!s.winner },
+    meta: { savedAt: new Date().toISOString(), turn: s.turn, name: p.name, profile: p.profile, prestige: p.prestige, seed: s.seed, winner: !!s.winner, settings: s.settings || null },
     state,
   });
 }
@@ -37,7 +38,8 @@ export function deserialize(text, data) {
   const parsed = JSON.parse(text);
   const st = parsed.state || parsed; // accepte aussi un état brut
   if (!st || !st.map || !Array.isArray(st.players)) throw new Error('Fichier de sauvegarde invalide.');
-  st.data = data; st.rules = data.rules;
+  st.data = data; st.rules = gameRules(data, st.settings || {});
+  st.history = st.history || [];
   st.rng = makeRng((st.seed * 31 + st.turn) >>> 0);
   return st;
 }
@@ -74,4 +76,14 @@ export function pickFile() {
     });
     input.click();
   });
+}
+
+// Historique des parties terminées (10 dernières), affiché sur l'écran d'accueil.
+export function recordFinishedGame(entry) {
+  const list = finishedGames();
+  list.unshift(entry);
+  store.set('history', JSON.stringify(list.slice(0, 10)));
+}
+export function finishedGames() {
+  try { return JSON.parse(store.get('history') || '[]'); } catch { return []; }
 }

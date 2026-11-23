@@ -57,10 +57,12 @@ function siteScore(s, pid, t, home) {
 
 function bestSite(s, pid, u) {
   const home = G.citiesOf(s, pid)[0] || u;
+  const { dist } = G.dijkstra(s, u); // un seul calcul de chemins pour toutes les cases candidates
   let best = null, bestScore = -Infinity;
   for (const t of s.map.tiles) {
+    if (!dist.has(G.idx(s, t.x, t.y))) continue;
     const sc = siteScore(s, pid, t, home);
-    if (sc > bestScore && G.findPath(s, u, t.x, t.y) !== null) { bestScore = sc; best = t; }
+    if (sc > bestScore) { bestScore = sc; best = t; }
   }
   return best;
 }
@@ -116,7 +118,7 @@ function trainUnits(s, pid, P) {
   if (cities.length + settlers < wanted && settlers === 0 && s.turn > 2) G.train(s, pid, cities[0].id, 'settler');
   const caravans = s.units.filter((u) => u.owner === pid && u.type === 'caravan').length;
   const routes = s.tradeRoutes.filter((r) => r.a === pid && !r.sea).length;
-  if (caravans === 0 && routes < cities.length + 1 && p.res.gold > 70) {
+  if (caravans === 0 && routes < G.tradeRouteCap(s, pid) && p.res.gold > 70) {
     const c = cities.find((x) => !x.trained);
     if (c) G.train(s, pid, c.id, 'caravan');
   }

@@ -86,6 +86,11 @@ export class Renderer {
   setState(state, viewer = 0) {
     this.state = state; this.viewer = viewer;
     this.W = state.map.width; this.H = state.map.height;
+    const sc0 = this.sun.shadow.camera; // ombres et zoom adaptés à la taille de la carte
+    Object.assign(sc0, { left: -(this.W / 2 + 4), right: this.W / 2 + 4, top: this.H / 2 + 4, bottom: -(this.H / 2 + 4) });
+    sc0.updateProjectionMatrix();
+    this.controls.maxDistance = Math.max(45, this.W * 1.25);
+    this.scene.fog.far = Math.max(90, this.W * 2.2);
     if (this.tiles) { this.scene.remove(this.tiles, this.trees, this.trunks, this.peaks, this.base, this.water, ...(this.decor || [])); }
     for (const o of this.entityObjs.values()) this.entities.remove(o);
     this.entityObjs.clear();

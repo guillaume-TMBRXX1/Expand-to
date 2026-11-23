@@ -8,15 +8,35 @@ export const GOODS = ['planks', 'tools', 'goods'];
 export const LUXURIES = ['spices', 'marble', 'crystal'];
 export const STOCK = [...RES, ...GOODS, ...LUXURIES];
 export const YIELDS = ['gold', 'food', 'wood', 'stone', 'science', 'culture'];
-export const PLAYER_COLORS = ['#ff6b4a', '#8b5cf6', '#f5b700', '#14b8a6', '#ec4899'];
-const AI_NAMES = ['Aurélia', 'Borvane', 'Cassilde', 'Dunmor'];
+// Ordre validé pour la lisibilité daltonienne des voisins (graphiques de fin de partie).
+export const PLAYER_COLORS = ['#ff6b4a', '#8b5cf6', '#f5b700', '#14b8a6', '#2f6fde', '#9a5b2e', '#ec4899', '#65a30d'];
+const AI_NAMES = ['Aurélia', 'Borvane', 'Cassilde', 'Dunmor', 'Elvire', 'Faramond', 'Ysolde'];
 const CITY_NAMES = [
   ['Lumen', 'Valmer', 'Ostrel', 'Brisa', 'Coralie', 'Ferrand', 'Sélène', 'Talmont', 'Ivra', 'Noctis'],
   ['Aurel', 'Vespa', 'Orméa', 'Lysse', 'Calde', 'Ambre', 'Sirth', 'Mévane'],
   ['Borg', 'Halden', 'Kerst', 'Morvin', 'Ulme', 'Tarsk', 'Grane', 'Védric'],
   ['Cassis', 'Rivel', 'Amaro', 'Flora', 'Pélia', 'Salva', 'Tiber', 'Ondine'],
   ['Dunn', 'Esker', 'Falk', 'Gorse', 'Hagen', 'Ilse', 'Jorv', 'Kael'],
+  ['Elbe', 'Lumière', 'Mira', 'Nacre', 'Opale', 'Prisme', 'Quartz', 'Rosée'],
+  ['Fanal', 'Gué', 'Hune', 'Isard', 'Jonc', 'Kermès', 'Loire', 'Meuse'],
+  ['Ysa', 'Zélie', 'Azur', 'Brume', 'Cyprès', 'Dune', 'Écume', 'Fougère'],
 ];
+
+// Règles d'une partie : les règles de base ajustées par les réglages (taille, durée).
+export function gameRules(data, settings = {}) {
+  const base = data.rules;
+  const size = base.mapSizes?.[settings.size || 'medium'] || { width: base.map.width, height: base.map.height };
+  const len = base.gameLengths?.[settings.length || 'normal'] || { turnLimit: base.turnLimit, scale: 1 };
+  const k = len.scale;
+  return {
+    ...base,
+    map: { width: size.width, height: size.height },
+    turnLimit: len.turnLimit,
+    prestigeTarget: Math.round((base.prestigeTarget * (len.prestigeScale ?? k) * (size.prestigeScale ?? 1)) / 5) * 5,
+    victory: { ...base.victory, cultureTotal: Math.round(base.victory.cultureTotal * (len.prestigeScale ?? k)), economyGold: Math.round(base.victory.economyGold * (len.prestigeScale ?? k) * 1.15), scienceTechs: Math.min(16, Math.round(base.victory.scienceTechs * (k < 1 ? 0.86 : 1))), secretaryWins: len.secretaryWins ?? base.victory.secretaryWins },
+    luxuries: { ...base.luxuries, perType: Math.round(base.luxuries.perType * (size.width * size.height) / (36 * 26)) },
+  };
+}
 
 // ---------------------------------------------------------------- utilitaires
 
@@ -87,7 +107,9 @@ function findStarts(s, count, rng) {
     .map((t) => ({ t, score: startScore(s, t) + rng.next() }))
     .filter((c) => c.score > 26)
     .sort((a, b) => b.score - a.score);
-  for (const minDist of [11, 10, 9, 8, 7]) {
+  const area = s.map.width * s.map.height;
+  const ideal = Math.round(Math.sqrt(area / count) * 0.75);
+  for (const minDist of [ideal + 2, ideal + 1, ideal, ideal - 1, ideal - 2, 7, 6].filter((d) => d >= 6)) {
     const picked = [];
     for (const c of candidates) {
       if (picked.every((p) => cheb(p.x, p.y, c.t.x, c.t.y) >= minDist)) picked.push(c.t);
@@ -97,21 +119,24 @@ function findStarts(s, count, rng) {
   return null;
 }
 
-export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profile = 'merchant', name = 'Vous', aiCount = 3, difficulty = 'normal' }) {
-  const rules = data.rules;
+export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profile = 'merchant', name = 'Vous', aiCount = 3, difficulty = 'normal', size = 'medium', mapType = 'continent', length = 'normal' }) {
+  const settings = { size, mapType, length };
+  const rules = gameRules(data, settings);
   const rng = makeRng(seed);
-  const s = { data, rules, seed, turn: 1, nextId: 1, log: [], proposals: [], relations: {}, agreements: [], alliances: [], tradeRoutes: [], wonders: {}, winner: null,
+  const s = { data, rules, settings, history: [], seed, turn: 1, nextId: 1, log: [], proposals: [], relations: {}, agreements: [], alliances: [], tradeRoutes: [], wonders: {}, winner: null,
     difficulty, embassies: [], memory: {}, promises: [], projects: [], resolutions: [], congress: null, secretary: null };
   let starts = null;
   for (let attempt = 0; attempt < 40 && !starts; attempt++) {
-    s.map = generateMap((seed + attempt * 7919) >>> 0, rules.map.width, rules.map.height);
+    s.map = generateMap((seed + attempt * 7919) >>> 0, rules.map.width, rules.map.height, mapType);
     starts = findStarts(s, aiCount + 1, rng);
   }
   if (!starts) throw new Error('Impossible de générer une carte jouable');
   rng.shuffle(starts);
 
   placeLuxuries(s, rng, starts);
-  const aiProfiles = rng.shuffle(data.profiles.map((p) => p.id)).slice(0, aiCount);
+  const pool = [];
+  while (pool.length < aiCount) pool.push(...rng.shuffle(data.profiles.map((p) => p.id)));
+  const aiProfiles = pool.slice(0, aiCount);
   s.players = [];
   s.cities = []; s.units = []; s.buildings = [];
   for (let i = 0; i <= aiCount; i++) {
@@ -170,7 +195,7 @@ function placeLuxuries(s, rng, starts) {
 
 export function playerMods(s, pid) {
   const p = s.players[pid];
-  const m = { yieldPct: {}, cityYield: {}, costPct: 0, wonderCostPct: 0, tradePrestige: 0, buildingPrestigePer: 0, discoveryPrestige: 0, techPrestige: 0, sellBonus: 0, embassyPrestige: 0, popCap: 0, relationPerTurn: 0, moveBonus: 0, visionBonus: 0 };
+  const m = { yieldPct: {}, cityYield: {}, costPct: 0, wonderCostPct: 0, tradePrestige: 0, buildingPrestigePer: 0, discoveryPrestige: 0, techPrestige: 0, sellBonus: 0, embassyPrestige: 0, routeCap: 0, popCap: 0, relationPerTurn: 0, moveBonus: 0, visionBonus: 0 };
   const apply = (e) => {
     if (!e) return;
     for (const [k, v] of Object.entries(e.yieldPct || {})) m.yieldPct[k] = (m.yieldPct[k] || 0) + v;
@@ -183,6 +208,7 @@ export function playerMods(s, pid) {
     m.techPrestige += e.techPrestige || 0;
     m.sellBonus += e.sellBonus || 0;
     m.embassyPrestige += e.embassyPrestige || 0;
+    m.routeCap += e.routeCap || 0;
     m.popCap += e.popCap || 0;
     m.relationPerTurn += e.relationPerTurn || 0;
     m.moveBonus += e.moveBonus || 0;
@@ -444,7 +470,11 @@ export function enterCost(s, u, t, isTarget = false) {
     if (ter.water) return 1;
     return c && neighbors(s, t.x, t.y).some((n) => terrainOf(s, n).water) ? 1 : Infinity;
   }
-  if (!ter.passable) return Infinity;
+  if (!ter.passable) {
+    // Embarquement : avec la Navigation, les unités terrestres traversent les lagunes peu profondes.
+    if (t.type === 'water' && s.rules.embark && hasTech(s, u.owner, s.rules.embark.tech)) return s.rules.embark.moveCost;
+    return Infinity;
+  }
   if (t.road !== -1 || c) return s.rules.road.moveCost;
   return ter.move;
 }
@@ -555,7 +585,7 @@ export function orderMove(s, uid, x, y) {
   return { ok: true, steps, unit: u };
 }
 
-export const tradeRouteCap = (s, pid) => citiesOf(s, pid).length + 1
+export const tradeRouteCap = (s, pid) => citiesOf(s, pid).length + 1 + playerMods(s, pid).routeCap
   + s.buildings.filter((b) => b.owner === pid && !b.turnsLeft).reduce((a, b) => a + (buildingDef(s, b.type).tradeRoutes || 0), 0);
 
 export const seaRouteCap = (s, pid) => s.buildings.filter((b) => b.owner === pid && b.type === 'harbor' && !b.turnsLeft).length;
@@ -1015,7 +1045,9 @@ export function computePrestige(s, pid) {
     monuments: 0, merveilles: 0,
     diplomatie: s.alliances.filter((r) => r.a === pid || r.b === pid).length * s.rules.alliance.prestige
       + s.agreements.filter((r) => r.a === pid || r.b === pid).length * s.rules.tradeAgreement.prestige,
-    commerce: s.tradeRoutes.filter((r) => r.a === pid || r.b === pid).length * (s.rules.tradeRoute.prestige + playerMods(s, pid).tradePrestige)
+    // Routes ouvertes par le joueur : prestige plein ; routes reçues d'autres joueurs : 1 point chacune.
+    commerce: s.tradeRoutes.filter((r) => r.a === pid).length * (s.rules.tradeRoute.prestige + playerMods(s, pid).tradePrestige)
+      + s.tradeRoutes.filter((r) => r.b === pid).length
       + s.agreements.filter((r) => r.a === pid || r.b === pid).length * playerMods(s, pid).tradePrestige,
   };
   for (const bd of s.buildings) {
@@ -1129,6 +1161,7 @@ export function endRound(s) {
     const pr = computePrestige(s, p.id);
     p.prestige = pr.total; p.prestigeBreakdown = pr.breakdown;
   }
+  recordHistory(s);
   if (s.turn % R.congress.every === 0 && s.turn <= R.turnLimit) openCongress(s);
   const ranking = [...s.players].sort((a, b) => b.prestige - a.prestige);
   const path = checkVictoryPaths(s);
@@ -1231,7 +1264,7 @@ export function victoryProgress(s, pid) {
     science: { label: 'Science', done: s.wonders.observatory === pid && p.techs.length >= V.scienceTechs, text: `Observatoire Céleste ${s.wonders.observatory === pid ? '✓' : '✗'} · ${p.techs.length}/${V.scienceTechs} technologies`, pct: Math.min(1, (p.techs.length / V.scienceTechs) * 0.6 + (s.wonders.observatory === pid ? 0.4 : 0)) },
     culture: { label: 'Culture', done: s.wonders.amphitheatre === pid && p.cultureTotal >= V.cultureTotal, text: `Amphithéâtre ${s.wonders.amphitheatre === pid ? '✓' : '✗'} · ${Math.floor(p.cultureTotal)}/${V.cultureTotal} culture`, pct: Math.min(1, (p.cultureTotal / V.cultureTotal) * 0.6 + (s.wonders.amphitheatre === pid ? 0.4 : 0)) },
     economy: { label: 'Économie', done: s.wonders.exchange === pid && p.res.gold >= V.economyGold, text: `Grande Bourse ${s.wonders.exchange === pid ? '✓' : '✗'} · ${Math.floor(p.res.gold)}/${V.economyGold} Or en caisse`, pct: Math.min(1, Math.min(1, p.res.gold / V.economyGold) * 0.6 + (s.wonders.exchange === pid ? 0.4 : 0)) },
-    diplomacy: { label: 'Diplomatie', done: ((p.secretaryWins || 0) >= V.secretaryWins && others.some((q) => isAllied(s, pid, q.id))) || (others.length >= 2 && others.every((q) => isAllied(s, pid, q.id))), text: `Élu Secrétaire ${p.secretaryWins || 0}/${V.secretaryWins} fois (avec au moins un allié) · allié de ${others.filter((q) => isAllied(s, pid, q.id)).length}/${others.length}`, pct: Math.min(1, Math.max((p.secretaryWins || 0) / V.secretaryWins, others.filter((q) => isAllied(s, pid, q.id)).length / Math.max(1, others.length))) },
+    diplomacy: { label: 'Diplomatie', done: ((p.secretaryWins || 0) >= V.secretaryWins && others.filter((q) => isAllied(s, pid, q.id)).length >= Math.max(1, Math.floor(others.length / 2))) || (others.length >= 2 && others.every((q) => isAllied(s, pid, q.id))), text: `Élu Secrétaire ${p.secretaryWins || 0}/${V.secretaryWins} fois (et allié de la moitié des rivaux) · allié de ${others.filter((q) => isAllied(s, pid, q.id)).length}/${others.length}`, pct: Math.min(1, Math.max((p.secretaryWins || 0) / V.secretaryWins, others.filter((q) => isAllied(s, pid, q.id)).length / Math.max(1, others.length))) },
     prestige: { label: 'Prestige', done: p.prestige >= s.rules.prestigeTarget, text: `${p.prestige}/${s.rules.prestigeTarget} prestige`, pct: Math.min(1, p.prestige / s.rules.prestigeTarget) },
   };
 }
@@ -1245,4 +1278,37 @@ function checkVictoryPaths(s) {
     }
   }
   return null;
+}
+
+// ------------------------------------------------------------ statistiques
+// Un instantané par tour et par joueur pour les graphiques de fin de partie.
+function recordHistory(s) {
+  s.history = s.history || [];
+  s.history.push({
+    turn: s.turn - 1,
+    players: s.players.map((p) => ({
+      prestige: p.prestige,
+      cities: citiesOf(s, p.id).length,
+      pop: citiesOf(s, p.id).reduce((a, c) => a + c.pop, 0),
+      culture: Math.floor(p.cultureTotal),
+      techs: p.techs.length,
+      gold: Math.round(p.lastYield?.net.gold || 0),
+      science: Math.round(p.lastYield?.net.science || 0),
+    })),
+  });
+}
+
+export function finalStats(s) {
+  return s.players.map((p) => ({
+    id: p.id, name: p.name, color: p.color, profile: p.profile, prestige: p.prestige,
+    cities: citiesOf(s, p.id).length,
+    pop: citiesOf(s, p.id).reduce((a, c) => a + c.pop, 0),
+    techs: p.techs.length,
+    culture: Math.floor(p.cultureTotal),
+    buildings: s.buildings.filter((b) => b.owner === p.id && !b.turnsLeft).length,
+    wonders: Object.values(s.wonders).filter((o) => o === p.id).length,
+    routes: s.tradeRoutes.filter((r) => r.a === p.id || r.b === p.id).length,
+    alliances: s.alliances.filter((r) => r.a === p.id || r.b === p.id).length,
+    secretary: p.secretaryWins || 0,
+  }));
 }

@@ -30,8 +30,18 @@ cd python && python3 -m pytest -q
 ```
 
 ```bash
-node tools/sim.mjs 10
+node tools/sim.mjs 10 --size=large --type=archipelago --length=long --ais=7
 ```
+
+## Paramètres de partie
+
+Sur l'écran d'accueil, vous choisissez :
+- la **taille de carte** : petite, moyenne ou grande, avec jusqu'à 7 IA sur une grande carte ;
+- le **type de carte** : continent, pangée ou archipel. En archipel, la Navigation permet de traverser les lagunes ;
+- la **durée** : 40, 60 ou 80 tours ;
+- la **difficulté** et le **profil**.
+
+À la fin d'une partie, des graphiques et un tableau résument la partie. Les 10 dernières parties s'affichent sur l'accueil.
 
 ## Comment jouer
 
