@@ -1,7 +1,7 @@
 {
   "map": { "width": 36, "height": 26 },
   "turnLimit": 60,
-  "prestigeTarget": 150,
+  "prestigeTarget": 140,
   "cityBaseYield": { "food": 3, "gold": 2, "science": 1, "culture": 1, "wood": 1, "stone": 1 },
   "perPop": { "gold": 1, "science": 0.5, "culture": 0.25 },
   "foodPerPop": 1,
@@ -20,6 +20,6 @@
   "borderTension": -1,
   "settleNearPenalty": -15,
   "malus": { "hostileBelow": -30, "hostilePct": -0.12, "wary": 0, "waryPct": -0.05 },
-  "prestige": { "perCity": 3, "perTechTier": 2, "culturePerPoint": 20 },
+  "prestige": { "perCity": 3, "perTechTier": 1.5, "culturePerPoint": 20 },
   "startStock": { "gold": 50, "food": 10, "wood": 20, "stone": 10 }
 }

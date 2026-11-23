@@ -46,6 +46,7 @@ node tools/sim.mjs 10
 | Construire une route | `R` |
 | Technologies | `T` |
 | Diplomatie | `D` |
+| Menu (sauvegardes, export, import) | `M` |
 | Annuler | `Échap` |
 
 - **Construire** : choisissez un bâtiment dans la barre du bas, puis une case verte de votre territoire. Maintenez `Maj` pour en placer plusieurs.

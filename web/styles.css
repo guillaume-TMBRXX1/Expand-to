@@ -167,3 +167,24 @@ kbd { font: 12px ui-monospace, monospace; background: var(--surface-2); border: 
 .civ h3 .avatar, .proposal-head .avatar { border-radius: 12px; }
 .proposal-head { display: flex; gap: 10px; align-items: flex-start; }
 .brand { font-weight: 800; }
+
+/* ------------------------------------------------------------ phase 1 */
+#minimap { padding: 8px; }
+#minimap canvas { display: block; width: 100%; border-radius: 10px; cursor: pointer; image-rendering: pixelated; }
+#tutorial { position: absolute; top: 76px; left: 12px; width: 320px; padding: 12px 14px; border-left: 4px solid var(--accent); }
+#tutorial h3 { font-size: 15px; margin: 2px 0 4px; }
+#tutorial p { font-size: 13.5px; line-height: 1.5; margin: 0 0 10px; }
+.tuto-bar { height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
+.tuto-bar > div { height: 100%; background: var(--accent); }
+#summary { position: absolute; top: 76px; left: 50%; transform: translateX(-50%); width: min(460px, calc(100% - 24px)); padding: 12px 14px; z-index: 4; }
+#summary ul { margin: 8px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+#summary li.good { color: #17734a; } #summary li.bad { color: #a83232; } #summary li.warn { color: #8a6000; }
+.summary-gains { gap: 6px 10px; }
+.saves { margin-top: 22px; }
+.save-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.save-row .muted { font-size: 12.5px; }
+.save-row .row { display: flex; gap: 6px; }
+.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); cursor: pointer; }
+.check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.start-actions { align-items: center; }
+#hint { top: auto; bottom: 150px; }

@@ -23,16 +23,20 @@
         <div id="turn" class="turn"></div>
         <button class="btn" data-action="tech" title="Technologies (T)">Technologies</button>
         <button class="btn" data-action="diplo" title="Diplomatie (D)">Diplomatie</button>
+        <button class="btn" data-action="menu" title="Menu : sauvegardes, export (M)">Menu</button>
         <button class="btn primary" data-action="end-turn" title="Fin du tour (Entrée)">Finir le tour</button>
       </div>
     </header>
 
     <aside id="side" hidden>
+      <section class="card" id="minimap"><canvas aria-label="Mini-carte : cliquez pour centrer la vue"></canvas></section>
       <section class="card" id="scoreboard"></section>
       <section id="proposals"></section>
       <section class="card" id="journal"></section>
     </aside>
 
+    <section id="tutorial" class="card" hidden aria-live="polite"></section>
+    <section id="summary" class="card" hidden aria-live="polite"></section>
     <section id="selection" class="card" hidden></section>
     <nav id="buildbar" class="card" hidden></nav>
     <div id="hint" hidden></div>

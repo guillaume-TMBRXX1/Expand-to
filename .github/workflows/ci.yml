@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Installer pytest
+        run: pip install pytest
+      - name: Tests Python (données, équilibrage, carte identique au JS)
+        run: cd python && python -m pytest -q
+      - name: Simulation IA contre IA (durée moyenne entre 35 et 60 tours)
+        run: node tools/sim.mjs 20 2024 --check --quiet
