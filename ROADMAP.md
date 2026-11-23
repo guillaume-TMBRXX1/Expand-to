@@ -71,6 +71,7 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 ## Phase 4 — Présentation (v0.5) · ~2 à 3 semaines
 
 - [x] Direction artistique « jouet en argile » : modèles arrondis sur socles-dioramas, personnages toy, portraits SVG, palette chaude (voir DESIGN.md).
+- [ ] **Affiner le design du prototype**, jugé trop sobre : davantage de détails sur les bâtiments, les unités et le terrain (retour de revue v0.1).
 - [ ] Animations légères (fumée, drapeaux, roues) et modèles glTF faits main dans le même style.
 - [ ] Brouillard en deux niveaux (exploré / visible), eau animée, cycle jour/nuit subtil.
 - [ ] Ambiance sonore et effets.
