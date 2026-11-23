@@ -84,7 +84,16 @@ function moveUnit(s, pid, u) {
     G.advanceUnit(s, u);
     return;
   }
-  if (u.type === 'caravan') {
+  if (u.type === 'emissary') {
+    if (!u.target) {
+      const targets = s.cities.filter((c) => c.owner !== pid && !G.hasEmbassy(s, pid, c.owner))
+        .sort((a, b) => G.cheb(a.x, a.y, u.x, u.y) - G.cheb(b.x, b.y, u.x, u.y));
+      for (const c of targets) if (G.findPath(s, u, c.x, c.y)) { u.target = { x: c.x, y: c.y }; break; }
+    }
+    G.advanceUnit(s, u);
+    return;
+  }
+  if (u.type === 'caravan' || u.type === 'ship') {
     if (!u.target) {
       const routed = new Set(s.tradeRoutes.filter((r) => r.a === pid).map((r) => r.cityId));
       const targets = s.cities.filter((c) => c.owner !== pid && !routed.has(c.id))
@@ -103,10 +112,19 @@ function trainUnits(s, pid) {
   const wanted = p.profile === 'explorer' ? 5 : 4;
   if (cities.length + settlers < wanted && settlers === 0 && s.turn > 2) G.train(s, pid, cities[0].id, 'settler');
   const caravans = s.units.filter((u) => u.owner === pid && u.type === 'caravan').length;
-  const routes = s.tradeRoutes.filter((r) => r.a === pid).length;
+  const routes = s.tradeRoutes.filter((r) => r.a === pid && !r.sea).length;
   if (caravans === 0 && routes < cities.length + 1 && p.res.gold > 70) {
     const c = cities.find((x) => !x.trained);
     if (c) G.train(s, pid, c.id, 'caravan');
+  }
+  const has = (type) => s.units.some((u) => u.owner === pid && u.type === type);
+  if (!has('emissary') && p.res.gold > 80 && s.players.some((q) => q.id !== pid && !G.hasEmbassy(s, pid, q.id) && G.citiesOf(s, q.id).length)) {
+    const c = cities.find((x) => !x.trained);
+    if (c) G.train(s, pid, c.id, 'emissary');
+  }
+  if (!has('ship') && p.res.gold > 90 && s.tradeRoutes.filter((r) => r.a === pid && r.sea).length < G.seaRouteCap(s, pid)) {
+    const c = cities.find((x) => !x.trained && G.canTrain(s, pid, x.id, 'ship').ok);
+    if (c) G.train(s, pid, c.id, 'ship');
   }
 }
 
@@ -126,6 +144,14 @@ function buildSomething(s, pid, w) {
     if (def.wonder) score += def.prestige;
     if (def.prestige && !def.wonder) score += def.prestige * 1.5;
     if (def.popCap) score += 6;
+    const count = s.buildings.filter((b) => b.owner === pid && b.type === def.id).length;
+    const nCities = G.citiesOf(s, pid).length;
+    if (def.id === 'sawmill' && count < Math.max(1, Math.ceil(nCities / 2)) && (p.res.planks || 0) < 30) score += 14;
+    if (def.id === 'forge' && count < 1 + Math.floor(nCities / 3) && (p.res.tools || 0) < 25) score += 13;
+    if (def.id === 'manufactory' && count < 1 + Math.floor(nCities / 2) && y.food >= 3 && (p.res.goods || 0) < 25) score += 13;
+    if (def.id === 'outpost') score += 16;
+    if (def.footprint) score += 4;
+    if (!def.wonder) score -= count * 1.2; // diversité : on évite d'empiler toujours le même bâtiment
     return { def, score: score + s.rng.next() * 2 };
   }).sort((a, b) => b.score - a.score);
   const tiles = s.map.tiles.filter((t) => t.owner === pid);
@@ -137,9 +163,13 @@ function buildSomething(s, pid, w) {
     if (target && !def.wonder && !essential(def)) continue;
     const cost = G.costOf(s, pid, def);
     if ((cost.gold || 0) + reserve > p.res.gold && cost.gold) continue;
+    let best = null, bestVal = -1;
     for (const t of tiles) {
-      if (G.canBuild(s, pid, def.id, t.x, t.y).ok) { G.build(s, pid, def.id, t.x, t.y); return true; }
+      if (!G.canBuild(s, pid, def.id, t.x, t.y).ok) continue;
+      const val = Object.values(G.adjacencyBonus(s, pid, def.id, t.x, t.y)).reduce((a, v) => a + v, 0);
+      if (val > bestVal) { bestVal = val; best = t; }
     }
+    if (best) { G.build(s, pid, def.id, best.x, best.y); return true; }
   }
   return false;
 }

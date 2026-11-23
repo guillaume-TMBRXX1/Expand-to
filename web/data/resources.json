@@ -1,8 +1,83 @@
 {
-  "gold":    { "name": "Or",         "short": "Or",  "color": "#e8a813", "tradeValue": 1.0 },
-  "food":    { "name": "Nourriture", "short": "Nou", "color": "#6dbb3c", "tradeValue": 0.8 },
-  "wood":    { "name": "Bois",       "short": "Boi", "color": "#a8743f", "tradeValue": 1.2 },
-  "stone":   { "name": "Pierre",     "short": "Pie", "color": "#8a97a5", "tradeValue": 1.5 },
-  "science": { "name": "Science",    "short": "Sci", "color": "#3a9ff0", "tradeValue": 0 },
-  "culture": { "name": "Culture",    "short": "Cul", "color": "#bf5bd6", "tradeValue": 0 }
+  "gold": {
+    "name": "Or",
+    "short": "Or",
+    "color": "#e8a813",
+    "tradeValue": 1.0
+  },
+  "food": {
+    "name": "Nourriture",
+    "short": "Nou",
+    "color": "#6dbb3c",
+    "tradeValue": 0.8
+  },
+  "wood": {
+    "name": "Bois",
+    "short": "Boi",
+    "color": "#a8743f",
+    "tradeValue": 1.2
+  },
+  "stone": {
+    "name": "Pierre",
+    "short": "Pie",
+    "color": "#8a97a5",
+    "tradeValue": 1.5
+  },
+  "science": {
+    "name": "Science",
+    "short": "Sci",
+    "color": "#3a9ff0",
+    "tradeValue": 0
+  },
+  "culture": {
+    "name": "Culture",
+    "short": "Cul",
+    "color": "#bf5bd6",
+    "tradeValue": 0
+  },
+  "planks": {
+    "name": "Planches",
+    "short": "Pla",
+    "color": "#d29a5b",
+    "tradeValue": 2.0,
+    "kind": "goods"
+  },
+  "tools": {
+    "name": "Outils",
+    "short": "Out",
+    "color": "#5f6b7a",
+    "tradeValue": 3.0,
+    "kind": "goods"
+  },
+  "goods": {
+    "name": "Biens",
+    "short": "Bie",
+    "color": "#e0677e",
+    "tradeValue": 2.5,
+    "kind": "goods"
+  },
+  "spices": {
+    "name": "Épices",
+    "short": "Épi",
+    "color": "#e2573a",
+    "tradeValue": 3.5,
+    "kind": "luxury",
+    "desc": "+10% Nourriture et +1 Culture par ville tant que vous en avez."
+  },
+  "marble": {
+    "name": "Marbre",
+    "short": "Mar",
+    "color": "#cfc8bd",
+    "tradeValue": 3.5,
+    "kind": "luxury",
+    "desc": "+15% Culture et merveilles -15% tant que vous en avez."
+  },
+  "crystal": {
+    "name": "Cristal",
+    "short": "Cri",
+    "color": "#4cc3d9",
+    "tradeValue": 3.5,
+    "kind": "luxury",
+    "desc": "+15% Science tant que vous en avez."
+  }
 }

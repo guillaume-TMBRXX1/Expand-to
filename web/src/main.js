@@ -10,7 +10,9 @@ const $ = (sel) => document.querySelector(sel);
 const BRANCHES = { economy: 'Économie', science: 'Science', culture: 'Culture', diplomacy: 'Diplomatie' };
 const BUILD_TABS = {
   prod: { label: 'Production', ids: ['farm', 'lumber', 'quarry', 'market', 'harbor', 'district', 'road'] },
+  industry: { label: 'Industrie', ids: ['sawmill', 'manufactory', 'forge', 'outpost'] },
   know: { label: 'Savoir & culture', ids: ['library', 'lab', 'theatre', 'monument'] },
+  quarter: { label: 'Quartiers 2×2', ids: ['campus', 'artsquarter', 'merchantquarter'] },
   wonder: { label: 'Merveilles', ids: ['lighthouse', 'grandlibrary', 'observatory', 'amphitheatre', 'exchange', 'nations'] },
 };
 
@@ -125,7 +127,7 @@ function startGame(state) {
 
 // ------------------------------------------------------------------ rendu UI
 function renderAll() {
-  renderTop(); renderSide(); renderSelection(); renderBuildbar(); renderHighlights(); renderTutorial(); drawMinimap();
+  renderTop(); renderStock(); renderSide(); renderSelection(); renderBuildbar(); renderHighlights(); renderTutorial(); drawMinimap();
 }
 
 // ---------------------------------------------------------------- tutoriel
@@ -184,7 +186,7 @@ function showSummary(before) {
   const p = me();
   const el = $('#summary');
   const delta = (a, b) => b - a;
-  const gains = [...G.RES.map((k) => [data.resources[k].name, resColor(k), delta(before.res[k], p.res[k])]),
+  const gains = [...G.STOCK.map((k) => [data.resources[k].name, resColor(k), delta(before.res[k], p.res[k])]),
     ['Culture', resColor('culture'), delta(before.culture, p.cultureTotal)], ['Prestige', 'var(--accent)', delta(before.prestige, p.prestige)]];
   const events = s.log.filter((l) => l.turn === before.turn && (!l.who || l.who.includes(0))).slice(-5).reverse();
   el.innerHTML = `<div class="section-title"><span>Tour ${before.turn} terminé</span><button class="btn small ghost" data-action="summary-close" aria-label="Fermer le résumé">Fermer</button></div>
@@ -203,11 +205,26 @@ function renderTop() {
     return `<span class="res" title="${tip}"><i style="background:${resColor(k)}"></i><b>${fmt(p.res[k])}</b><small class="${y.net[k] < 0 ? 'neg' : ''}">${sign(y.net[k])}</small></span>`;
   });
   const research = p.research ? G.techDef(s, p.research) : null;
-  items.push(`<span class="res" title="Science accumulée / coût de la recherche en cours"><i style="background:${resColor('science')}"></i><b>${research ? `${research.name} ${fmt(p.sciencePool)}/${research.cost}` : `${fmt(p.sciencePool)} — aucune recherche`}</b><small>${sign(y.net.science)}</small></span>`);
+  items.push(`<span class="res" title="Science accumulée / coût de la recherche en cours"><i style="background:${resColor('science')}"></i><b>${research ? `${research.name} ${fmt(p.sciencePool)}/${research.cost}` : `${fmt(p.sciencePool)} · à choisir`}</b><small>${sign(y.net.science)}</small></span>`);
   items.push(`<span class="res" title="Culture totale (1 prestige / ${data.rules.prestige.culturePerPoint})"><i style="background:${resColor('culture')}"></i><b>${fmt(p.cultureTotal)}</b><small>${sign(y.net.culture)}</small></span>`);
+  const stockTotal = [...G.GOODS, ...G.LUXURIES].reduce((a, k) => a + Math.floor(p.res[k] || 0), 0);
+  items.push(`<button class="res res-btn" data-action="stock" title="Entrepôt : biens transformés et ressources rares" aria-expanded="${!$('#stock').hidden}"><i style="background:${resColor('goods')}"></i><b>Entrepôt</b><small>${stockTotal}</small></button>`);
   items.push(`<span class="res" title="Prestige — objectif de victoire"><i style="background:var(--accent)"></i><b>${p.prestige} / ${data.rules.prestigeTarget}</b><small>prestige</small></span>`);
   $('#resources').innerHTML = items.join('');
   $('#turn').textContent = `Tour ${s.turn} / ${data.rules.turnLimit}`;
+}
+
+function renderStock() {
+  const el = $('#stock');
+  if (el.hidden) return;
+  const p = me();
+  const y = G.computeYields(s, 0);
+  const active = new Set(G.activeLuxuries(s, 0));
+  const row = (k) => `<div class="stock-row"><span><i style="background:${resColor(k)}"></i>${data.resources[k].name}</span><b>${fmt(p.res[k] || 0)}</b><small class="${(y.net[k] || 0) < 0 ? 'neg' : ''}">${sign(y.net[k] || 0)}</small></div>`;
+  el.innerHTML = `<div class="section-title"><span>Entrepôt</span><button class="btn small ghost" data-action="stock">Fermer</button></div>
+    <div class="stock-group">Biens transformés</div>${G.GOODS.map(row).join('')}
+    <div class="stock-group">Ressources rares</div>${G.LUXURIES.map((k) => row(k) + `<div class="stock-desc ${active.has(k) ? 'good' : ''}">${active.has(k) ? 'Actif : ' : ''}${data.resources[k].desc}</div>`).join('')}
+    <p class="muted" style="font-size:12px;margin:8px 0 0">Chaque ressource rare active rapporte aussi ${data.rules.luxuries.diversityPrestige} prestige. Échangez-les en Diplomatie.</p>`;
 }
 
 function renderSide() {
@@ -252,11 +269,13 @@ function renderSelection() {
       ${u.target ? `<dt>Destination</dt><dd>(${u.target.x}, ${u.target.y})</dd>` : ''}</dl>
       ${u.owner === 0 ? `<div class="actions">
         ${u.type === 'settler' ? `<button class="btn primary small" data-action="found" ${found.ok ? '' : 'disabled'}>Fonder une ville (F)</button>` : ''}
+        ${u.type === 'engineer' ? (() => { const a = G.canEngineerRoad(s, u), b2 = G.canClearForest(s, u);
+          return `<button class="btn small" data-action="eng-road" ${a.ok ? '' : 'disabled'} title="${esc(a.reason || '')}">Route ici (1 Bois)</button><button class="btn small" data-action="eng-clear" ${b2.ok ? '' : 'disabled'} title="${esc(b2.reason || '')}">Défricher (+${data.rules.engineer.clearWood} Bois)</button>`; })() : ''}
         ${u.target ? '<button class="btn small" data-action="cancel-order">Annuler l\'ordre</button>' : ''}
         <button class="btn small ghost" data-action="next-unit">Unité suivante (Espace)</button>
       </div>
       ${found && !found.ok ? `<div class="reason">${found.reason}</div>` : ''}
-      <div class="reason">Cliquez une case pour vous y rendre${u.type === 'caravan' ? ' — visez une ville étrangère pour ouvrir une route commerciale' : ''}.</div>` : ''}`;
+      <div class="reason">Cliquez une case pour vous y rendre${{ caravan: ' — visez une ville étrangère pour ouvrir une route commerciale', ship: ' — naviguez jusqu\'à une ville étrangère au bord de l\'eau pour une route maritime', emissary: ' — entrez dans une ville étrangère pour y ouvrir une ambassade', airship: ' — il survole montagnes et océans', engineer: ' — puis tracez une route ou défrichez' }[u.type] || ''}.</div>` : ''}`;
     return;
   }
   if (sel.kind === 'city') {
@@ -270,7 +289,9 @@ function renderSelection() {
     el.innerHTML = `<h3><span class="dot" style="background:${owner.color}"></span>${esc(c.name)}${c.capital ? ' <span class="tag">Capitale</span>' : ''}${!mine ? ` <span class="muted">· ${esc(owner.name)}</span>` : ''}</h3>
       <dl class="kv"><dt>Population</dt><dd>${c.pop} / ${cap}</dd>
       ${mine ? `<dt>Croissance</dt><dd>${fmt(me().res.food)} / ${need} Nourriture</dd>` : `<dt>Relation</dt><dd>${Math.round(G.getRel(s, 0, c.owner))} · ${G.relStatus(G.getRel(s, 0, c.owner)).label}</dd>`}
+      <dt>Palier</dt><dd>${data.rules.tiers[c.tier || 0].name}</dd>
       <dt>Rayon du territoire</dt><dd>${c.radius}</dd><dt>Bâtiments</dt><dd>${blds.length}</dd></dl>
+      ${mine ? tierHint(c) : ''}
       ${mine ? `<div class="section-title" style="margin-top:12px"><span>Former une unité</span><span>${c.trained ? '1 / tour — fait' : '1 / tour'}</span></div>
       <div class="actions">${data.units.map((d) => {
         const chk = G.canTrain(s, 0, c.id, d.id);
@@ -287,11 +308,23 @@ function renderSelection() {
   const bdef = b && G.buildingDef(s, b.type);
   el.innerHTML = `<h3>${ter.name}</h3>
     <dl class="kv"><dt>Coordonnées</dt><dd>${t.x}, ${t.y}</dd><dt>Propriétaire</dt><dd>${t.owner === -1 ? '—' : esc(s.players[t.owner].name)}</dd>
-    <dt>Déplacement</dt><dd>${ter.passable ? (t.road !== -1 ? `${data.rules.road.moveCost} (route)` : ter.move) : 'impraticable'}</dd></dl>
+    <dt>Déplacement</dt><dd>${ter.passable ? (t.road !== -1 ? `${data.rules.road.moveCost} (route)` : ter.move) : 'impraticable'}</dd>
+    ${t.luxury ? `<dt>Ressource rare</dt><dd>${data.resources[t.luxury].name}</dd>` : ''}</dl>
+    ${t.luxury && !bdef ? `<div class="reason">${data.resources[t.luxury].desc} Construisez un <b>Comptoir</b> ici (onglet Industrie) pour l'exploiter.</div>` : ''}
     ${bdef ? `<div class="section-title" style="margin-top:10px"><span>${bdef.name}</span><span>${b.turnsLeft > 0 ? `${b.turnsLeft} tour(s)` : 'actif'}</span></div>
-      <div class="chips">${chips(bdef.yields, 'yield')}${bdef.prestige ? `<span class="chip yield">+${bdef.prestige} prestige</span>` : ''}</div>
+      <div class="chips">${chips(bdef.yields, 'yield')}${bdef.process ? `<span class="chip">${G.fmtBundle(s, bdef.process.in)} → ${G.fmtBundle(s, bdef.process.out)}</span>` : ''}${b.luxury ? chips({ [b.luxury]: 1 }, 'yield') : ''}${bdef.prestige ? `<span class="chip yield">+${bdef.prestige} prestige</span>` : ''}</div>
+      ${(() => { const adj = G.adjacencyBonus(s, b.owner, b.type, b.x, b.y); return Object.keys(adj).length && Object.values(adj).some((v) => v) ? `<div class="chips" style="margin-top:4px"><span class="chip">Adjacence :</span>${chips(Object.fromEntries(Object.entries(adj).filter(([, v]) => v)), 'yield')}</div>` : ''; })()}
       <p class="muted" style="font-size:12.5px;margin:6px 0 0">${bdef.desc}</p>` : ''}`;
 }
+
+function tierHint(c) {
+  const tiers = data.rules.tiers;
+  const cur = tiers[c.tier || 0], next = tiers[(c.tier || 0) + 1];
+  const needs = Object.keys(cur.needs || {}).length ? `Consomme ${G.fmtBundle(s, cur.needs)} par tour.` : '';
+  const up = next ? `Palier suivant, <b>${next.name}</b> : ${next.minPop} habitants et ${G.fmtBundle(s, next.needs)} par tour → ${chipsText(next.yields)}${next.popCap ? `, +${next.popCap} pop. max` : ''}.` : 'Palier maximal atteint.';
+  return `<div class="reason">${needs} ${up}</div>`;
+}
+const chipsText = (b) => Object.entries(b || {}).map(([k, v]) => `+${v} ${data.resources[k].name}`).join(', ');
 
 function renderBuildbar() {
   const el = $('#buildbar');
@@ -309,7 +342,7 @@ function renderBuildbar() {
     const pressed = mode?.type === 'build' && mode.id === id;
     return `<button class="build-item" data-action="mode-build" data-id="${id}" aria-pressed="${pressed}" aria-disabled="${locked || taken}" title="${esc(reason)}">
       <b>${def.name}${def.wonder ? '' : ''}</b><div class="chips">${costChips(def)}</div>
-      <div class="line"><span class="chips">${chips(def.yields, 'yield')}${def.prestige ? `<span class="chip yield">+${def.prestige} prest.</span>` : ''}</span></div>
+      <div class="line"><span class="chips">${def.process ? `<span class="chip yield">${Object.values(def.process.in).reduce((a, v) => a + v, 0)}→${chips(def.process.out, 'yield')}</span>` : chips(def.yields, 'yield')}${def.luxuryOnly ? '<span class="chip yield">+1 ressource rare</span>' : ''}${def.prestige ? `<span class="chip yield">+${def.prestige} prest.</span>` : ''}</span></div>
       ${locked ? `<div class="chip" style="margin-top:3px">${G.techDef(s, def.tech).name}</div>` : taken ? '<div class="chip" style="margin-top:3px">Indisponible</div>' : ''}
     </button>`;
   }).join('');
@@ -337,7 +370,7 @@ function renderHighlights() {
   if (sel?.kind === 'tile') selIdx = sel.i;
   renderer.setCursor(selIdx, 'select');
   const hint = $('#hint');
-  if (mode?.type === 'build') { hint.hidden = false; hint.textContent = `${G.buildingDef(s, mode.id).name} : choisissez une case verte dans votre territoire — Échap pour annuler`; }
+  if (mode?.type === 'build') { hint.hidden = false; hint.textContent = `${G.buildingDef(s, mode.id).name} : choisissez une case verte${G.footprintOf(s, mode.id) > 1 ? ' (coin nord-ouest du quartier 2×2)' : ''} — survolez pour voir les bonus d'adjacence — Échap pour annuler`; }
   else if (mode?.type === 'road') { hint.hidden = false; hint.textContent = 'Route : cliquez les cases jaunes pour prolonger le réseau — Échap pour terminer'; }
   else hint.hidden = true;
 }
@@ -451,7 +484,7 @@ function showTech() {
 
 function showDiplo() {
   Tuto.flag(s, 'diplo');
-  const resOpts = (sel0) => G.RES.map((k) => `<option value="${k}" ${k === sel0 ? 'selected' : ''}>${data.resources[k].name}</option>`).join('');
+  const resOpts = (sel0) => G.STOCK.map((k) => `<option value="${k}" ${k === sel0 ? 'selected' : ''}>${data.resources[k].name}</option>`).join('');
   const dip = G.diplomacyPct(s, 0);
   const cards = s.players.filter((p) => p.id !== 0).map((q) => {
     const rel = Math.round(G.getRel(s, 0, q.id));
@@ -553,6 +586,12 @@ function onAction(e) {
     }
     case 'new-game': closeModal(); save(); for (const x of ['#topbar', '#side', '#buildbar', '#selection', '#hint', '#tutorial', '#summary']) $(x).hidden = true; s = null; showStart(); break;
     case 'menu': showMenu(); break;
+    case 'stock': $('#stock').hidden = !$('#stock').hidden; renderTop(); renderStock(); break;
+    case 'eng-road': case 'eng-clear': {
+      const r = a === 'eng-road' ? G.engineerRoad(s, sel.id) : G.clearForest(s, sel.id);
+      if (!r.ok) toast(r.reason, 'bad');
+      refreshWorld(); save(); break;
+    }
     case 'save-slot': if (Saves.saveTo(b.dataset.slot, s)) toast('Partie sauvegardée.', 'good'); else toast('Stockage du navigateur indisponible.', 'bad'); showMenu(); break;
     case 'load-slot': { try { const st = Saves.loadFrom(b.dataset.slot, data); if (st) startGame(st); } catch { toast('Sauvegarde illisible.', 'bad'); } break; }
     case 'delete-slot': {
@@ -592,7 +631,12 @@ function bindInput() {
       const t = s.map.tiles[i];
       const r = mode.type === 'build' ? G.canBuild(s, 0, mode.id, t.x, t.y) : G.canRoad(s, 0, t.x, t.y);
       const base = mode.type === 'build' ? `${G.buildingDef(s, mode.id).name} : ` : 'Route : ';
-      $('#hint').textContent = base + (r.ok ? 'cliquez pour construire (Maj : en placer plusieurs)' : r.reason);
+      let extra = '';
+      if (r.ok && mode.type === 'build') {
+        const adj = Object.entries(G.adjacencyBonus(s, 0, mode.id, t.x, t.y)).filter(([, v]) => v);
+        if (adj.length) extra = ` · adjacence ${adj.map(([k, v]) => `+${v} ${data.resources[k].name}`).join(', ')}`;
+      }
+      $('#hint').textContent = base + (r.ok ? `cliquez pour construire${extra} (Maj : en placer plusieurs)` : r.reason);
     }
   });
   window.addEventListener('keydown', (e) => {

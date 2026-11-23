@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/MapControls.js';
 import { RoundedBoxGeometry } from 'three/addons/RoundedBoxGeometry.js';
-import { cityModel, buildingModel, unitModel } from './models.js';
+import { cityModel, buildingModel, unitModel, luxuryModel } from './models.js';
 
 const FOG_COLOR = new THREE.Color('#e4dcd6');
 const BG = '#efe8e4';
@@ -125,9 +125,14 @@ export class Renderer {
       this.tiles.setColorAt(i, c);
     });
     this.tiles.instanceMatrix.needsUpdate = true; this.tiles.instanceColor.needsUpdate = true;
+    const occupied = new Set();
+    for (const b of s.buildings) {
+      const f = s.data.buildingsById[b.type].footprint || 1;
+      for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) occupied.add((b.y + dy) * this.W + b.x + dx);
+    }
     this.treeSlots.forEach((sl, k) => {
       const i = sl.t.y * this.W + sl.t.x;
-      const ex = p.explored[i] === 1 && !s.buildings.some((b) => b.x === sl.t.x && b.y === sl.t.y) && sl.t.road === -1;
+      const ex = p.explored[i] === 1 && sl.t.type === 'forest' && !occupied.has(i) && sl.t.road === -1;
       const k0 = ex ? sl.s : 0.0001;
       m.compose(v.set(this.wx(sl.t.x) + sl.dx, this.heights[i] + 0.11 * sl.s, this.wz(sl.t.y) + sl.dz), q, sc.setScalar(k0));
       this.trunks.setMatrixAt(k, m);
@@ -271,12 +276,24 @@ export class Renderer {
       const o = place(`c${c.id}:${Math.min(c.pop, 5)}:${c.capital}`, () => cityModel(s.players[c.owner].color, c.pop, c.capital), c.x, c.y);
       this.label(c, o);
     }
-    for (const b of s.buildings) place(`b${b.id}:${b.turnsLeft > 0}`, () => buildingModel(b.type, b.turnsLeft > 0), b.x, b.y);
+    for (const b of s.buildings) {
+      const f = s.data.buildingsById[b.type].footprint || 1;
+      if (f === 1) { place(`b${b.id}:${b.turnsLeft > 0}`, () => buildingModel(b.type, b.turnsLeft > 0, b.luxury), b.x, b.y); continue; }
+      // Quartier 2×2 : centré sur son empreinte, posé sur la case la plus haute.
+      let top = 0;
+      for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) top = Math.max(top, this.heights[(b.y + dy) * this.W + b.x + dx]);
+      const o = place(`b${b.id}:${b.turnsLeft > 0}`, () => buildingModel(b.type, b.turnsLeft > 0), b.x, b.y);
+      o.position.set(this.wx(b.x) + (f - 1) / 2, top, this.wz(b.y) + (f - 1) / 2);
+    }
+    s.map.tiles.forEach((t, i) => {
+      if (!t.luxury || s.buildings.some((b) => b.x === t.x && b.y === t.y)) return;
+      place(`lux${i}`, () => luxuryModel(t.luxury), t.x, t.y);
+    });
     for (const u of s.units) {
       const stack = s.units.filter((o) => o.x === u.x && o.y === u.y);
       const k = stack.indexOf(u);
       const city = s.cities.some((c) => c.x === u.x && c.y === u.y);
-      const off = new THREE.Vector3((k - (stack.length - 1) / 2) * 0.28 + (city ? 0.3 : 0), 0, city ? 0.3 : 0);
+      const off = new THREE.Vector3((k - (stack.length - 1) / 2) * 0.28 + (city ? 0.3 : 0), s.data.unitsById[u.type].flying ? 0.7 : 0, city ? 0.3 : 0);
       place(`u${u.id}`, () => { const g = unitModel(u.type, s.players[u.owner].color, u.owner); g.userData.isUnit = true; return g; }, u.x, u.y, city ? 0.05 : 0, off);
     }
     for (const [key, obj] of this.entityObjs) {

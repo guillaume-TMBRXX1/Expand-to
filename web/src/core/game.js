@@ -4,6 +4,9 @@ import { makeRng } from './rng.js';
 import { generateMap } from './mapgen.js';
 
 export const RES = ['gold', 'food', 'wood', 'stone'];
+export const GOODS = ['planks', 'tools', 'goods'];
+export const LUXURIES = ['spices', 'marble', 'crystal'];
+export const STOCK = [...RES, ...GOODS, ...LUXURIES];
 export const YIELDS = ['gold', 'food', 'wood', 'stone', 'science', 'culture'];
 export const PLAYER_COLORS = ['#ff6b4a', '#8b5cf6', '#f5b700', '#14b8a6', '#ec4899'];
 const AI_NAMES = ['Aurélia', 'Borvane', 'Cassilde', 'Dunmor'];
@@ -39,7 +42,16 @@ export const hasTech = (s, pid, id) => s.players[pid].techs.includes(id);
 export const citiesOf = (s, pid) => s.cities.filter((c) => c.owner === pid);
 export const cityAt = (s, x, y) => s.cities.find((c) => c.x === x && c.y === y) || null;
 export const unitsAt = (s, x, y) => s.units.filter((u) => u.x === x && u.y === y);
-export const buildingAt = (s, x, y) => s.buildings.find((b) => b.x === x && b.y === y) || null;
+export const footprintOf = (s, type) => buildingDef(s, type).footprint || 1;
+export const buildingAt = (s, x, y) => s.buildings.find((b) => {
+  const f = footprintOf(s, b.type);
+  return x >= b.x && x < b.x + f && y >= b.y && y < b.y + f;
+}) || null;
+export function footprintTiles(s, type, x, y) {
+  const f = footprintOf(s, type), out = [];
+  for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) out.push(tileAt(s, x + dx, y + dy));
+  return out;
+}
 
 export function log(s, text, who = null, kind = 'info') {
   s.log.push({ turn: s.turn, text, who, kind });
@@ -97,13 +109,15 @@ export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profi
   if (!starts) throw new Error('Impossible de générer une carte jouable');
   rng.shuffle(starts);
 
+  placeLuxuries(s, rng, starts);
   const aiProfiles = rng.shuffle(data.profiles.map((p) => p.id)).slice(0, aiCount);
   s.players = [];
   s.cities = []; s.units = []; s.buildings = [];
   for (let i = 0; i <= aiCount; i++) {
     const prof = i === 0 ? profile : aiProfiles[i - 1];
     const mods = data.profilesById[prof].mods;
-    const res = { ...rules.startStock };
+    const res = Object.fromEntries(STOCK.map((k) => [k, 0]));
+    Object.assign(res, rules.startStock);
     for (const [k, v] of Object.entries(mods.startRes || {})) res[k] = (res[k] || 0) + v;
     s.players.push({
       id: i, isHuman: i === 0, name: i === 0 ? name : AI_NAMES[i - 1], color: PLAYER_COLORS[i], profile: prof,
@@ -127,11 +141,33 @@ export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profi
   return s;
 }
 
+// Ressources rares : épices (prairies, forêts), marbre (collines), cristal (au pied des montagnes).
+function placeLuxuries(s, rng, starts) {
+  const L = s.rules.luxuries;
+  const placed = [];
+  const nearMountain = (t) => neighbors(s, t.x, t.y).some((n) => n.type === 'mountain' || n.type === 'snow');
+  const rule = {
+    spices: (t) => t.type === 'grass' || t.type === 'forest',
+    marble: (t) => t.type === 'hills' && !nearMountain(t),
+    crystal: (t) => ['hills', 'plains', 'grass', 'forest'].includes(t.type) && nearMountain(t),
+  };
+  for (const lux of LUXURIES) {
+    const cands = rng.shuffle(s.map.tiles.filter(rule[lux]));
+    let n = 0;
+    for (const t of cands) {
+      if (n >= L.perType) break;
+      if (placed.some((o) => cheb(o.x, o.y, t.x, t.y) < L.minSpacing)) continue;
+      if (starts.some((o) => cheb(o.x, o.y, t.x, t.y) < 2)) continue;
+      t.luxury = lux; placed.push(t); n++;
+    }
+  }
+}
+
 // ------------------------------------------------------------ modificateurs
 
 export function playerMods(s, pid) {
   const p = s.players[pid];
-  const m = { yieldPct: {}, cityYield: {}, costPct: 0, wonderCostPct: 0, tradePrestige: 0, buildingPrestigePer: 0, discoveryPrestige: 0, popCap: 0, relationPerTurn: 0, moveBonus: 0, visionBonus: 0 };
+  const m = { yieldPct: {}, cityYield: {}, costPct: 0, wonderCostPct: 0, tradePrestige: 0, buildingPrestigePer: 0, discoveryPrestige: 0, techPrestige: 0, popCap: 0, relationPerTurn: 0, moveBonus: 0, visionBonus: 0 };
   const apply = (e) => {
     if (!e) return;
     for (const [k, v] of Object.entries(e.yieldPct || {})) m.yieldPct[k] = (m.yieldPct[k] || 0) + v;
@@ -141,6 +177,7 @@ export function playerMods(s, pid) {
     m.tradePrestige += e.tradePrestige || 0;
     if (e.buildingPrestigePer) m.buildingPrestigePer = e.buildingPrestigePer;
     m.discoveryPrestige += e.discoveryPrestige || 0;
+    m.techPrestige += e.techPrestige || 0;
     m.popCap += e.popCap || 0;
     m.relationPerTurn += e.relationPerTurn || 0;
     m.moveBonus += e.moveBonus || 0;
@@ -148,8 +185,16 @@ export function playerMods(s, pid) {
   };
   apply(s.data.profilesById[p.profile].mods);
   for (const t of p.techs) apply(techDef(s, t).effects);
+  for (const lux of activeLuxuries(s, pid)) apply(LUXURY_EFFECTS[lux]);
   return m;
 }
+
+export const LUXURY_EFFECTS = {
+  spices: { yieldPct: { food: 0.1 }, cityYield: { culture: 1 } },
+  marble: { yieldPct: { culture: 0.15 }, wonderCostPct: -0.15 },
+  crystal: { yieldPct: { science: 0.15 } },
+};
+export const activeLuxuries = (s, pid) => LUXURIES.filter((k) => (s.players[pid].res[k] || 0) >= 1);
 
 export function costOf(s, pid, def, isBuilding = true) {
   const mods = playerMods(s, pid);
@@ -176,7 +221,8 @@ export const isExplored = (s, pid, x, y) => s.players[pid].explored[idx(s, x, y)
 
 export function cityPopCap(s, city) {
   const extra = s.buildings.filter((b) => b.cityId === city.id && !b.turnsLeft).reduce((a, b) => a + (buildingDef(s, b.type).popCap || 0), 0);
-  return s.rules.basePopCap + extra + playerMods(s, city.owner).popCap;
+  const tiers = s.rules.tiers.slice(1, (city.tier || 0) + 1).reduce((a, t) => a + (t.popCap || 0), 0);
+  return s.rules.basePopCap + extra + tiers + playerMods(s, city.owner).popCap;
 }
 
 function claimTerritory(s, city) {
@@ -227,9 +273,15 @@ export function canBuild(s, pid, type, x, y) {
   const t = tileAt(s, x, y);
   if (!def || !t) return { ok: false, reason: 'Invalide.' };
   if (def.tech && !hasTech(s, pid, def.tech)) return { ok: false, reason: `Nécessite ${techDef(s, def.tech).name}.` };
-  if (t.owner !== pid) return { ok: false, reason: 'Hors de votre territoire.' };
-  if (cityAt(s, x, y) || buildingAt(s, x, y)) return { ok: false, reason: 'Case occupée.' };
-  if (!def.terrain.includes(t.type)) return { ok: false, reason: `Terrain requis : ${def.terrain.map((k) => s.data.terrain[k].name).join(', ')}.` };
+  const tiles = footprintTiles(s, type, x, y);
+  if (tiles.some((c) => !c)) return { ok: false, reason: 'Pas assez de place (2×2 cases).' };
+  for (const c of tiles) {
+    if (c.owner !== pid) return { ok: false, reason: tiles.length > 1 ? 'Les 4 cases doivent être dans votre territoire.' : 'Hors de votre territoire.' };
+    if (cityAt(s, c.x, c.y) || buildingAt(s, c.x, c.y)) return { ok: false, reason: 'Case occupée.' };
+    if (!def.terrain.includes(c.type)) return { ok: false, reason: `Terrain requis : ${def.terrain.map((k) => s.data.terrain[k].name).join(', ')}.` };
+    if (def.luxuryOnly && !c.luxury) return { ok: false, reason: 'À placer sur une ressource rare.' };
+    if (!def.luxuryOnly && c.luxury) return { ok: false, reason: 'Case réservée au Comptoir (ressource rare).' };
+  }
   if (def.coastal && !isCoastal(s, t)) return { ok: false, reason: "Doit toucher l'eau." };
   if (def.wonder) {
     if (s.wonders[type] !== undefined) return { ok: false, reason: 'Merveille déjà construite.' };
@@ -240,6 +292,41 @@ export function canBuild(s, pid, type, x, y) {
   return { ok: true };
 }
 
+// Bonus d'adjacence façon Anno : voisins (bâtiments, villes, terrains) autour de l'empreinte.
+export function adjacencyBonus(s, pid, type, x, y) {
+  const def = buildingDef(s, type);
+  const out = {};
+  if (!def.adjacency) return out;
+  const f = footprintOf(s, type);
+  const ring = [];
+  for (let dy = -1; dy <= f; dy++) for (let dx = -1; dx <= f; dx++) {
+    if (dx >= 0 && dx < f && dy >= 0 && dy < f) continue;
+    const t = tileAt(s, x + dx, y + dy);
+    if (t) ring.push(t);
+  }
+  for (const r of def.adjacency) {
+    let count = 0;
+    if (r.terrain) {
+      const list = [].concat(r.terrain);
+      count = ring.filter((t) => list.includes(t.type)).length;
+    } else {
+      const list = [].concat(r.near);
+      const seen = new Set();
+      for (const t of ring) {
+        const c = cityAt(s, t.x, t.y);
+        if (c && list.includes('city') && c.owner === pid) { count++; continue; }
+        const b = buildingAt(s, t.x, t.y);
+        if (!b || b.owner !== pid || seen.has(b.id) || (b.x === x && b.y === y && b.type === type)) continue;
+        const bd = buildingDef(s, b.type);
+        if (list.includes(b.type) || (bd.wonder && list.includes('wonder'))) { seen.add(b.id); count++; }
+      }
+    }
+    count = Math.min(count, r.max ?? Infinity);
+    for (const [k, v] of Object.entries(r.yields)) out[k] = (out[k] || 0) + v * count;
+  }
+  return out;
+}
+
 export function build(s, pid, type, x, y) {
   const chk = canBuild(s, pid, type, x, y);
   if (!chk.ok) return chk;
@@ -247,8 +334,9 @@ export function build(s, pid, type, x, y) {
   pay(s, pid, costOf(s, pid, def));
   const t = tileAt(s, x, y);
   const b = { id: s.nextId++, owner: pid, type, x, y, cityId: t.cityId, turnsLeft: def.turns };
+  if (def.luxuryOnly) b.luxury = t.luxury;
   s.buildings.push(b);
-  if (t.road === pid) t.road = -1;
+  for (const c of footprintTiles(s, type, x, y)) if (c.road === pid) c.road = -1;
   if (def.wonder) log(s, `${s.players[pid].name} entame ${def.name}.`, null, 'info');
   return { ok: true, building: b };
 }
@@ -292,6 +380,9 @@ export function canTrain(s, pid, cityId, type) {
   if (city.trained) return { ok: false, reason: 'Une unité par ville et par tour.' };
   if (def.tech && !hasTech(s, pid, def.tech)) return { ok: false, reason: `Nécessite ${techDef(s, def.tech).name}.` };
   if (def.popCost && city.pop <= def.popCost) return { ok: false, reason: 'Population insuffisante (min. 2).' };
+  if (def.requiresBuilding && !s.buildings.some((b) => b.cityId === city.id && b.type === def.requiresBuilding && !b.turnsLeft)) {
+    return { ok: false, reason: `Nécessite un ${buildingDef(s, def.requiresBuilding).name} terminé dans cette ville.` };
+  }
   if (!canAfford(s, pid, costOf(s, pid, def, false))) return { ok: false, reason: 'Ressources insuffisantes.' };
   return { ok: true };
 }
@@ -304,15 +395,28 @@ export function train(s, pid, cityId, type) {
   pay(s, pid, costOf(s, pid, def, false));
   if (def.popCost) city.pop -= def.popCost;
   city.trained = true;
-  const u = spawnUnit(s, pid, type, city.x, city.y);
+  let at = { x: city.x, y: city.y };
+  if (def.naval) { // le navire sort du port, sur une case d'eau voisine
+    const harbor = s.buildings.find((b) => b.cityId === city.id && b.type === def.requiresBuilding && !b.turnsLeft);
+    const water = harbor && neighbors(s, harbor.x, harbor.y).find((n) => terrainOf(s, n).water);
+    if (water) at = { x: water.x, y: water.y };
+  }
+  const u = spawnUnit(s, pid, type, at.x, at.y);
   return { ok: true, unit: u };
 }
 
+const VISITORS = ['caravan', 'ship', 'emissary']; // unités autorisées à entrer dans une ville étrangère (destination)
 export function enterCost(s, u, t, isTarget = false) {
   const ter = terrainOf(s, t);
-  if (!ter.passable) return Infinity;
+  const def = unitDef(s, u.type);
   const c = cityAt(s, t.x, t.y);
-  if (c && c.owner !== u.owner && !(u.type === 'caravan' && isTarget)) return Infinity;
+  if (c && c.owner !== u.owner && !(VISITORS.includes(u.type) && isTarget)) return Infinity;
+  if (def.flying) return 1;
+  if (def.naval) {
+    if (ter.water) return 1;
+    return c && neighbors(s, t.x, t.y).some((n) => terrainOf(s, n).water) ? 1 : Infinity;
+  }
+  if (!ter.passable) return Infinity;
   if (t.road !== -1 || c) return s.rules.road.moveCost;
   return ter.move;
 }
@@ -366,7 +470,8 @@ export function advanceUnit(s, u) {
   if (u.x === u.target.x && u.y === u.target.y) {
     u.target = null;
     const c = cityAt(s, u.x, u.y);
-    if (u.type === 'caravan' && c && c.owner !== u.owner) establishTradeRoute(s, u, c);
+    if ((u.type === 'caravan' || u.type === 'ship') && c && c.owner !== u.owner) establishTradeRoute(s, u, c);
+    if (u.type === 'emissary' && c && c.owner !== u.owner) openEmbassy(s, u, c);
   }
   return steps;
 }
@@ -380,15 +485,74 @@ export function orderMove(s, uid, x, y) {
   return { ok: true, steps, unit: u };
 }
 
+export const tradeRouteCap = (s, pid) => citiesOf(s, pid).length + 1
+  + s.buildings.filter((b) => b.owner === pid && !b.turnsLeft).reduce((a, b) => a + (buildingDef(s, b.type).tradeRoutes || 0), 0);
+
+export const seaRouteCap = (s, pid) => s.buildings.filter((b) => b.owner === pid && b.type === 'harbor' && !b.turnsLeft).length;
+
 function establishTradeRoute(s, u, city) {
-  const max = citiesOf(s, u.owner).length + 1;
-  const mine = s.tradeRoutes.filter((r) => r.a === u.owner).length;
+  const isSea = u.type === 'ship';
+  const max = isSea ? seaRouteCap(s, u.owner) : tradeRouteCap(s, u.owner);
+  const mine = s.tradeRoutes.filter((r) => r.a === u.owner && !!r.sea === isSea).length;
   if (mine >= max) { log(s, `Limite de routes commerciales atteinte (${max}).`, [u.owner], 'bad'); return; }
   if (s.tradeRoutes.some((r) => r.a === u.owner && r.cityId === city.id)) { log(s, `Une route vers ${city.name} existe déjà.`, [u.owner], 'bad'); return; }
-  s.tradeRoutes.push({ a: u.owner, b: city.owner, cityId: city.id });
-  addRel(s, u.owner, city.owner, s.rules.tradeRoute.relation);
+  const sea = u.type === 'ship';
+  s.tradeRoutes.push({ a: u.owner, b: city.owner, cityId: city.id, sea });
+  addRel(s, u.owner, city.owner, (sea ? s.rules.seaRoute : s.rules.tradeRoute).relation);
   s.units = s.units.filter((v) => v.id !== u.id);
-  log(s, `Route commerciale ouverte entre ${s.players[u.owner].name} et ${city.name} (${s.players[city.owner].name}).`, [u.owner, city.owner], 'good');
+  log(s, `Route ${sea ? 'maritime' : 'commerciale'} ouverte entre ${s.players[u.owner].name} et ${city.name} (${s.players[city.owner].name}).`, [u.owner, city.owner], 'good');
+}
+
+function openEmbassy(s, u, city) {
+  s.embassies = s.embassies || [];
+  if (s.embassies.some((e) => e.from === u.owner && e.to === city.owner)) {
+    log(s, `Vous avez déjà une ambassade chez ${s.players[city.owner].name}.`, [u.owner], 'bad');
+    return;
+  }
+  s.embassies.push({ from: u.owner, to: city.owner, cityId: city.id });
+  addRel(s, u.owner, city.owner, s.rules.embassy.relation);
+  for (const t of s.map.tiles) if (t.owner === city.owner) s.players[u.owner].explored[idx(s, t.x, t.y)] = 1;
+  s.units = s.units.filter((v) => v.id !== u.id);
+  log(s, `${s.players[u.owner].name} ouvre une ambassade à ${city.name} (${s.players[city.owner].name}, +${s.rules.embassy.relation} relation).`, [u.owner, city.owner], 'good');
+}
+export const hasEmbassy = (s, from, to) => (s.embassies || []).some((e) => e.from === from && e.to === to);
+
+// Ingénieur : route n'importe où (hors territoire étranger) et défrichage.
+export function canEngineerRoad(s, u) {
+  if (!u || u.type !== 'engineer') return { ok: false, reason: 'Réservé à l\'Ingénieur.' };
+  const t = tileAt(s, u.x, u.y);
+  if (u.movesLeft < 1) return { ok: false, reason: 'Plus de mouvement ce tour.' };
+  if (!terrainOf(s, t).passable || t.road !== -1 || cityAt(s, t.x, t.y) || buildingAt(s, t.x, t.y)) return { ok: false, reason: 'Impossible ici.' };
+  if (t.owner !== -1 && t.owner !== u.owner) return { ok: false, reason: 'Territoire étranger.' };
+  if (!canAfford(s, u.owner, s.rules.engineer.roadCost)) return { ok: false, reason: 'Bois insuffisant.' };
+  return { ok: true };
+}
+export function engineerRoad(s, uid) {
+  const u = s.units.find((v) => v.id === uid);
+  const chk = canEngineerRoad(s, u);
+  if (!chk.ok) return chk;
+  pay(s, u.owner, s.rules.engineer.roadCost);
+  tileAt(s, u.x, u.y).road = u.owner;
+  u.movesLeft -= 1;
+  return { ok: true };
+}
+export function canClearForest(s, u) {
+  if (!u || u.type !== 'engineer') return { ok: false, reason: 'Réservé à l\'Ingénieur.' };
+  const t = tileAt(s, u.x, u.y);
+  if (t.type !== 'forest') return { ok: false, reason: 'Pas de forêt ici.' };
+  if (t.owner !== -1 && t.owner !== u.owner) return { ok: false, reason: 'Territoire étranger.' };
+  if (buildingAt(s, t.x, t.y)) return { ok: false, reason: 'Case occupée.' };
+  if (u.movesLeft < 1) return { ok: false, reason: 'Plus de mouvement ce tour.' };
+  return { ok: true };
+}
+export function clearForest(s, uid) {
+  const u = s.units.find((v) => v.id === uid);
+  const chk = canClearForest(s, u);
+  if (!chk.ok) return chk;
+  tileAt(s, u.x, u.y).type = 'plains';
+  s.players[u.owner].res.wood += s.rules.engineer.clearWood;
+  u.movesLeft = 0;
+  return { ok: true };
 }
 
 // ------------------------------------------------------------- recherche
@@ -464,7 +628,11 @@ export function diplomacyPct(s, pid) {
   return { pct, reasons };
 }
 
-export const tradeValue = (s, bundle) => Object.entries(bundle).reduce((a, [k, v]) => a + v * (s.data.resources[k].tradeValue || 0), 0);
+export const tradeValue = (s, bundle, receiver = null) => Object.entries(bundle).reduce((a, [k, v]) => {
+  const base = s.data.resources[k].tradeValue || 0;
+  const scarce = receiver !== null && LUXURIES.includes(k) && (s.players[receiver].res[k] || 0) < 1 ? 1.5 : 1;
+  return a + v * base * scarce;
+}, 0);
 
 // Évaluation d'une proposition par un joueur IA (utilisée pour les propositions humain→IA et IA→IA).
 export function evaluateProposal(s, from, to, kind, payload = {}) {
@@ -486,7 +654,7 @@ export function evaluateProposal(s, from, to, kind, payload = {}) {
       if (!canAfford(s, to, want)) return { accept: false, reason: `${target.name} n'a pas ces ressources.` };
       if (rel <= R.malus.hostileBelow) return { accept: false, reason: 'Refus : relations hostiles.' };
       const factor = 1 + rel / 200;
-      const ok = tradeValue(s, give) * factor >= tradeValue(s, want) * 1.05;
+      const ok = tradeValue(s, give, to) * factor >= tradeValue(s, want) * 1.05;
       return ok ? { accept: true } : { accept: false, reason: "L'offre n'est pas assez avantageuse." };
     }
     default: return { accept: false, reason: 'Inconnu.' };
@@ -594,22 +762,37 @@ export function computeYields(s, pid) {
   const R = s.rules;
   const mods = playerMods(s, pid);
   const gross = Object.fromEntries(YIELDS.map((k) => [k, 0]));
-  const add = (bundle, mul = 1) => { for (const [k, v] of Object.entries(bundle || {})) gross[k] += v * mul; };
+  const add = (bundle, mul = 1) => { for (const [k, v] of Object.entries(bundle || {})) if (k in gross) gross[k] += v * mul; };
   let pop = 0;
+  const needs = {};
   for (const c of citiesOf(s, pid)) {
     add(R.cityBaseYield); add(mods.cityYield); add(R.perPop, c.pop); pop += c.pop;
+    for (const tier of R.tiers.slice(1, (c.tier || 0) + 1)) add(tier.yields);
+    const tier = R.tiers[c.tier || 0];
+    for (const [k, v] of Object.entries(tier.needs || {})) needs[k] = (needs[k] || 0) + v;
   }
   let upkeep = 0;
-  const wonderRel = [];
+  const processes = [];
+  const extra = {}; // biens et luxes produits directement (comptoirs)
   for (const b of s.buildings) {
     if (b.owner !== pid || b.turnsLeft > 0) continue;
     const def = buildingDef(s, b.type);
-    add(def.yields); upkeep += def.upkeep || 0;
+    const adj = adjacencyBonus(s, pid, b.type, b.x, b.y);
+    upkeep += def.upkeep || 0;
+    if (def.process) {
+      const out = { ...def.process.out };
+      for (const [k, v] of Object.entries(adj)) out[k] = (out[k] || 0) + v;
+      processes.push({ id: b.id, type: b.type, in: def.process.in, out });
+      continue;
+    }
+    add(def.yields); add(adj);
+    if (b.luxury) extra[b.luxury] = (extra[b.luxury] || 0) + 1;
   }
   const connected = connectedToCapital(s, pid).length;
   gross.gold += connected * R.road.connectedCityGold;
-  const routes = s.tradeRoutes.filter((r) => r.a === pid || r.b === pid).length;
-  gross.gold += routes * R.tradeRoute.gold;
+  const myRoutes = s.tradeRoutes.filter((r) => r.a === pid || r.b === pid);
+  const routes = myRoutes.length;
+  gross.gold += myRoutes.reduce((a, r) => a + (r.sea ? R.seaRoute.gold : R.tradeRoute.gold), 0);
   const agreements = s.agreements.filter((r) => r.a === pid || r.b === pid).length;
   gross.gold += agreements * R.tradeAgreement.gold;
   const dip = diplomacyPct(s, pid);
@@ -619,8 +802,36 @@ export function computeYields(s, pid) {
     yields[k] = gross[k] * mult[k];
   }
   const consumption = pop * R.foodPerPop;
-  const net = { ...yields, gold: yields.gold - upkeep, food: yields.food - consumption };
-  return { gross, mult, yields, net, upkeep, consumption, connected, routes, agreements, reasons: dip.reasons, wonderRel };
+  // « base » : ce qui est versé avant les transformations et les besoins de la population.
+  const base = { ...yields, gold: yields.gold - upkeep, food: yields.food - consumption };
+  for (const k of [...GOODS, ...LUXURIES]) base[k] = extra[k] || 0;
+  const luxUse = R.luxuries.consumptionPerCity * citiesOf(s, pid).length;
+  for (const k of activeLuxuries(s, pid)) base[k] -= luxUse;
+  const net = { ...base };
+  for (const pr of processes) {
+    for (const [k, v] of Object.entries(pr.in)) net[k] -= v;
+    for (const [k, v] of Object.entries(pr.out)) net[k] = (net[k] || 0) + v;
+  }
+  for (const [k, v] of Object.entries(needs)) net[k] -= v;
+  return { gross, mult, yields, base, net, needs, processes, upkeep, consumption, connected, routes, agreements, reasons: dip.reasons };
+}
+
+// Paliers de population : une ville monte de palier si elle est assez peuplée ET si ses besoins sont couverts.
+function updateTiers(s, pid) {
+  const p = s.players[pid];
+  const tiers = s.rules.tiers;
+  for (const c of citiesOf(s, pid).sort((a, b) => b.pop - a.pop)) {
+    let target = 0;
+    for (let t = 1; t < tiers.length; t++) if (c.pop >= tiers[t].minPop) target = t;
+    target = Math.min(target, (c.tier || 0) + 1); // un palier à la fois
+    let tier = target;
+    while (tier > 0 && !canAfford(s, pid, tiers[tier].needs)) tier--;
+    if (tier > 0) pay(s, pid, tiers[tier].needs);
+    if (tier !== (c.tier || 0) && p.isHuman) {
+      log(s, tier > (c.tier || 0) ? `${c.name} passe au palier ${tiers[tier].name}.` : `${c.name} redescend au palier ${tiers[tier].name} : besoins non couverts.`, [pid], tier > (c.tier || 0) ? 'good' : 'bad');
+    }
+    c.tier = tier;
+  }
 }
 
 export function computePrestige(s, pid) {
@@ -628,7 +839,7 @@ export function computePrestige(s, pid) {
   const p = s.players[pid];
   const b = {
     villes: citiesOf(s, pid).length * R.perCity,
-    technologies: Math.floor(p.techs.reduce((a, t) => a + techDef(s, t).tier * R.perTechTier, 0)),
+    technologies: Math.floor(p.techs.reduce((a, t) => a + techDef(s, t).tier * (R.perTechTier + playerMods(s, pid).techPrestige), 0)),
     culture: Math.floor(p.cultureTotal / R.culturePerPoint),
     monuments: 0, merveilles: 0,
     diplomatie: s.alliances.filter((r) => r.a === pid || r.b === pid).length * s.rules.alliance.prestige
@@ -641,6 +852,8 @@ export function computePrestige(s, pid) {
     const def = buildingDef(s, bd.type);
     if (def.prestige) b[def.wonder ? 'merveilles' : 'monuments'] += def.prestige;
   }
+  const lux = activeLuxuries(s, pid).length;
+  if (lux) b.luxe = lux * s.rules.luxuries.diversityPrestige;
   const disc = playerMods(s, pid).discoveryPrestige;
   if (disc) b.decouvertes = Math.floor((p.explored.reduce((a, v) => a + v, 0) / p.explored.length) * disc);
   const per = playerMods(s, pid).buildingPrestigePer;
@@ -678,8 +891,13 @@ export function endRound(s) {
   for (const p of s.players) {
     const y = computeYields(s, p.id);
     p.lastYield = y;
-    for (const k of RES) p.res[k] = (p.res[k] || 0) + y.net[k];
-    p.res.gold = Math.max(0, p.res.gold);
+    for (const k of STOCK) p.res[k] = Math.max(k === 'food' ? -Infinity : 0, (p.res[k] || 0) + (y.base[k] || 0));
+    for (const pr of y.processes) {
+      if (!canAfford(s, p.id, pr.in)) { if (p.isHuman) log(s, `${buildingDef(s, pr.type).name} à l'arrêt : matières premières insuffisantes.`, [p.id], 'warn'); continue; }
+      pay(s, p.id, pr.in);
+      for (const [k, v] of Object.entries(pr.out)) p.res[k] = (p.res[k] || 0) + v;
+    }
+    updateTiers(s, p.id);
     p.sciencePool += y.net.science;
     p.cultureTotal += y.net.culture;
     checkResearch(s, p.id);
@@ -712,6 +930,7 @@ export function endRound(s) {
     if (hasAgreement(s, a, b)) d += R.tradeAgreement.relationPerTurn;
     if (isAllied(s, a, b)) d += R.alliance.relationPerTurn;
     d += s.tradeRoutes.filter((r) => pairMatch(r, a, b)).length * 0.5;
+    d += (s.embassies || []).filter((e) => (e.from === a && e.to === b) || (e.from === b && e.to === a)).length * R.embassy.relationPerTurn;
     d += (playerMods(s, a).relationPerTurn + playerMods(s, b).relationPerTurn) / 2;
     for (const [w, owner] of Object.entries(s.wonders)) {
       if (owner === a || owner === b) d += (buildingDef(s, w).relationPerTurn || 0);

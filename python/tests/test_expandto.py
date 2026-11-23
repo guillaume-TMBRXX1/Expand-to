@@ -21,6 +21,24 @@ def test_data_is_consistent():
         assert set(b["terrain"]) <= set(data["terrain"]), b["id"]
     for p in data["profiles"]:
         assert set(p["mods"].get("startTechs", [])) <= tech_ids, p["id"]
+    res = set(data["resources"])
+    building_ids = {b["id"] for b in data["buildings"]}
+    for b in data["buildings"]:
+        assert set(b["cost"]) <= res, b["id"]
+        for proc in (b.get("process") or {}).values():
+            assert set(proc) <= res, b["id"]
+        for rule in b.get("adjacency", []):
+            near = rule.get("near", [])
+            near = [near] if isinstance(near, str) else near
+            assert set(near) <= building_ids | {"city", "wonder"}, b["id"]
+            terrain = rule.get("terrain", [])
+            terrain = [terrain] if isinstance(terrain, str) else terrain
+            assert set(terrain) <= set(data["terrain"]), b["id"]
+    for u in data["units"]:
+        assert set(u["cost"]) <= res, u["id"]
+        assert u.get("requiresBuilding") is None or u["requiresBuilding"] in building_ids, u["id"]
+    for tier in data["rules"]["tiers"]:
+        assert set(tier.get("needs", {})) <= res
 
 
 def test_balance_helpers():

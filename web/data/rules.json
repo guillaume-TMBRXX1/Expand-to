@@ -1,9 +1,23 @@
 {
-  "map": { "width": 36, "height": 26 },
+  "map": {
+    "width": 36,
+    "height": 26
+  },
   "turnLimit": 60,
-  "prestigeTarget": 140,
-  "cityBaseYield": { "food": 3, "gold": 2, "science": 1, "culture": 1, "wood": 1, "stone": 1 },
-  "perPop": { "gold": 1, "science": 0.5, "culture": 0.25 },
+  "prestigeTarget": 160,
+  "cityBaseYield": {
+    "food": 3,
+    "gold": 2,
+    "science": 1,
+    "culture": 1,
+    "wood": 1,
+    "stone": 1
+  },
+  "perPop": {
+    "gold": 1,
+    "science": 0.5,
+    "culture": 0.25
+  },
   "foodPerPop": 1,
   "growthBase": 8,
   "growthPerPop": 4,
@@ -12,14 +26,102 @@
   "cityRadiusBig": 3,
   "bigCityPop": 5,
   "minCityDistance": 4,
-  "road": { "cost": { "gold": 3, "wood": 1 }, "moveCost": 0.5, "connectedCityGold": 2 },
-  "tradeRoute": { "gold": 3, "relation": 10, "prestige": 3 },
-  "tradeAgreement": { "gold": 3, "goldPct": 0.05, "relationPerTurn": 1, "minRelation": 10, "prestige": 4 },
-  "alliance": { "minRelation": 50, "pct": 0.08, "relationPerTurn": 1, "prestige": 10, "breakBelow": 20 },
+  "road": {
+    "cost": {
+      "gold": 3,
+      "wood": 1
+    },
+    "moveCost": 0.5,
+    "connectedCityGold": 2
+  },
+  "tradeRoute": {
+    "gold": 3,
+    "relation": 10,
+    "prestige": 3
+  },
+  "tradeAgreement": {
+    "gold": 3,
+    "goldPct": 0.05,
+    "relationPerTurn": 1,
+    "minRelation": 10,
+    "prestige": 4
+  },
+  "alliance": {
+    "minRelation": 50,
+    "pct": 0.08,
+    "relationPerTurn": 1,
+    "prestige": 10,
+    "breakBelow": 20
+  },
   "borderDistance": 7,
   "borderTension": -1,
   "settleNearPenalty": -15,
-  "malus": { "hostileBelow": -30, "hostilePct": -0.12, "wary": 0, "waryPct": -0.05 },
-  "prestige": { "perCity": 3, "perTechTier": 1.5, "culturePerPoint": 20 },
-  "startStock": { "gold": 50, "food": 10, "wood": 20, "stone": 10 }
+  "malus": {
+    "hostileBelow": -30,
+    "hostilePct": -0.12,
+    "wary": 0,
+    "waryPct": -0.05
+  },
+  "prestige": {
+    "perCity": 3,
+    "perTechTier": 1.5,
+    "culturePerPoint": 20
+  },
+  "startStock": {
+    "gold": 50,
+    "food": 10,
+    "wood": 20,
+    "stone": 10
+  },
+  "tiers": [
+    {
+      "name": "Citoyens"
+    },
+    {
+      "name": "Artisans",
+      "minPop": 4,
+      "needs": {
+        "goods": 1
+      },
+      "yields": {
+        "gold": 2,
+        "culture": 1
+      },
+      "popCap": 2
+    },
+    {
+      "name": "Savants",
+      "minPop": 6,
+      "needs": {
+        "goods": 1,
+        "tools": 1
+      },
+      "yields": {
+        "science": 3,
+        "culture": 2
+      },
+      "popCap": 2
+    }
+  ],
+  "luxuries": {
+    "perType": 6,
+    "minSpacing": 3,
+    "consumptionPerCity": 0.1,
+    "diversityPrestige": 3
+  },
+  "seaRoute": {
+    "gold": 4,
+    "relation": 10,
+    "prestige": 3
+  },
+  "embassy": {
+    "relation": 15,
+    "relationPerTurn": 1
+  },
+  "engineer": {
+    "roadCost": {
+      "wood": 1
+    },
+    "clearWood": 10
+  }
 }
