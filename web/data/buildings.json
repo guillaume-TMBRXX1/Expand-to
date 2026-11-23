@@ -1,0 +1,18 @@
+[
+  {"id": "farm", "name": "Ferme", "cost": {"wood": 10}, "yields": {"food": 3}, "terrain": ["plains", "grass", "sand"], "turns": 1, "desc": "Nourrit la population."},
+  {"id": "lumber", "name": "Scierie", "cost": {"gold": 15}, "yields": {"wood": 3}, "terrain": ["forest"], "turns": 1, "desc": "Exploite une forêt."},
+  {"id": "quarry", "name": "Carrière", "cost": {"wood": 15}, "yields": {"stone": 3}, "terrain": ["hills"], "turns": 1, "desc": "Extrait la pierre des collines."},
+  {"id": "market", "name": "Marché", "cost": {"wood": 20, "stone": 10}, "yields": {"gold": 4}, "terrain": ["plains", "grass", "sand"], "turns": 2, "desc": "Centre d'échanges local."},
+  {"id": "library", "name": "Bibliothèque", "cost": {"wood": 20, "stone": 15}, "yields": {"science": 3}, "terrain": ["plains", "grass", "sand", "hills"], "turns": 2, "tech": "writing", "desc": "Savoir et recherche."},
+  {"id": "theatre", "name": "Théâtre", "cost": {"wood": 25, "stone": 20}, "yields": {"culture": 4}, "terrain": ["plains", "grass", "sand"], "turns": 2, "tech": "arts", "desc": "Rayonnement culturel.", "perCity": 1},
+  {"id": "lab", "name": "Laboratoire", "cost": {"stone": 30, "gold": 40}, "yields": {"science": 6}, "upkeep": 2, "terrain": ["plains", "grass", "hills"], "turns": 3, "tech": "chemistry", "desc": "Recherche avancée (entretien 2 Or).", "perCity": 1},
+  {"id": "harbor", "name": "Port", "cost": {"wood": 30}, "yields": {"gold": 3, "food": 2}, "terrain": ["sand"], "coastal": true, "turns": 2, "tech": "navigation", "desc": "Doit toucher l'eau."},
+  {"id": "district", "name": "Quartier", "cost": {"stone": 25, "gold": 30}, "yields": {"gold": 2}, "popCap": 3, "terrain": ["plains", "grass", "hills"], "turns": 3, "tech": "urbanism", "desc": "+3 population max.", "perCity": 2},
+  {"id": "monument", "name": "Monument", "cost": {"stone": 40, "gold": 30}, "yields": {"culture": 2}, "prestige": 4, "terrain": ["plains", "grass", "hills", "sand"], "turns": 3, "tech": "architecture", "desc": "+4 prestige.", "perCity": 1},
+  {"id": "lighthouse", "name": "Grand Phare", "wonder": true, "cost": {"stone": 50, "wood": 40, "gold": 60}, "yields": {"gold": 8}, "prestige": 15, "terrain": ["sand"], "coastal": true, "turns": 4, "tech": "navigation", "desc": "Merveille commerciale côtière."},
+  {"id": "grandlibrary", "name": "Grande Bibliothèque", "wonder": true, "cost": {"stone": 70, "gold": 80}, "yields": {"science": 10}, "prestige": 20, "terrain": ["plains", "grass", "hills"], "turns": 4, "tech": "method", "desc": "Merveille du savoir."},
+  {"id": "observatory", "name": "Observatoire Céleste", "wonder": true, "cost": {"stone": 100, "gold": 120}, "yields": {"science": 12}, "prestige": 30, "terrain": ["hills"], "turns": 5, "tech": "astronomy", "desc": "Merveille scientifique ultime."},
+  {"id": "amphitheatre", "name": "Amphithéâtre", "wonder": true, "cost": {"stone": 90, "wood": 60, "gold": 80}, "yields": {"culture": 12}, "prestige": 30, "terrain": ["plains", "grass", "hills"], "turns": 5, "tech": "humanism", "desc": "Merveille culturelle ultime."},
+  {"id": "exchange", "name": "Grande Bourse", "wonder": true, "cost": {"stone": 80, "gold": 150}, "yields": {"gold": 18}, "prestige": 30, "terrain": ["plains", "grass", "sand"], "turns": 5, "tech": "stockexchange", "desc": "Merveille économique ultime."},
+  {"id": "nations", "name": "Palais des Nations", "wonder": true, "cost": {"stone": 90, "gold": 120}, "yields": {"culture": 4}, "prestige": 30, "relationPerTurn": 2, "terrain": ["plains", "grass", "hills"], "turns": 5, "tech": "federation", "desc": "Merveille diplomatique : +2 relation/tour avec tous."}
+]

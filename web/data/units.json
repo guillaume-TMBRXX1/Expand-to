@@ -1,0 +1,5 @@
+[
+  { "id": "explorer", "name": "Explorateur", "cost": { "gold": 20 },              "moves": 4, "vision": 3, "desc": "Révèle la carte." },
+  { "id": "settler",  "name": "Colon",       "cost": { "gold": 40, "food": 15 },  "moves": 2, "vision": 2, "popCost": 1, "desc": "Fonde une nouvelle ville (coûte 1 pop.)." },
+  { "id": "caravan",  "name": "Caravane",    "cost": { "gold": 30, "wood": 10 },  "moves": 3, "vision": 2, "tech": "commerce", "desc": "Véhicule : entre dans une ville étrangère pour ouvrir une route commerciale." }
+]

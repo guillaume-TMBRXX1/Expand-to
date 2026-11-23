@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Expand-to</title>
+  <meta name="description" content="Expand-to — stratégie, gestion, exploration et diplomatie au tour par tour.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <div id="viewport"></div>
+
+    <header id="topbar" hidden>
+      <div class="brand">Expand<span>-to</span></div>
+      <div id="resources" class="resources"></div>
+      <div class="top-actions">
+        <div id="turn" class="turn"></div>
+        <button class="btn" data-action="tech" title="Technologies (T)">Technologies</button>
+        <button class="btn" data-action="diplo" title="Diplomatie (D)">Diplomatie</button>
+        <button class="btn primary" data-action="end-turn" title="Fin du tour (Entrée)">Finir le tour</button>
+      </div>
+    </header>
+
+    <aside id="side" hidden>
+      <section class="card" id="scoreboard"></section>
+      <section id="proposals"></section>
+      <section class="card" id="journal"></section>
+    </aside>
+
+    <section id="selection" class="card" hidden></section>
+    <nav id="buildbar" class="card" hidden></nav>
+    <div id="hint" hidden></div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <div id="modal" hidden></div>
+
+    <div id="start" class="overlay"></div>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
