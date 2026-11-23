@@ -31,8 +31,15 @@ export class Renderer {
     this.controls.maxDistance = 45;
     this.controls.zoomToCursor = true;
 
-    this.scene.add(new THREE.HemisphereLight('#fff8f0', '#c9b8ad', 1.9));
+    this.hemi = new THREE.HemisphereLight('#fff8f0', '#c9b8ad', 1.9);
+    this.scene.add(this.hemi);
     const sun = new THREE.DirectionalLight('#fff1dc', 2.0);
+    this.sun = sun;
+    this.reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
+    this.dayNight = true;
+    try { this.dayNight = localStorage.getItem('expandto.daynight') !== '0'; } catch { /* ignore */ }
+    this.time = 0;
+    this.waterUniform = { value: 0 };
     sun.position.set(-14, 26, 12);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -79,7 +86,7 @@ export class Renderer {
   setState(state, viewer = 0) {
     this.state = state; this.viewer = viewer;
     this.W = state.map.width; this.H = state.map.height;
-    if (this.tiles) { this.scene.remove(this.tiles, this.trees, this.trunks, this.peaks, this.base); }
+    if (this.tiles) { this.scene.remove(this.tiles, this.trees, this.trunks, this.peaks, this.base, this.water, ...(this.decor || [])); }
     for (const o of this.entityObjs.values()) this.entities.remove(o);
     this.entityObjs.clear();
     for (const l of this.labels.values()) l.remove();
@@ -88,6 +95,13 @@ export class Renderer {
     const n = state.map.tiles.length;
     this.heights = new Float32Array(n);
     const tileMat = new THREE.MeshStandardMaterial({ roughness: 0.75 });
+    // Falaises : les flancs des cases s'assombrissent vers le bas (relief plus lisible).
+    tileMat.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vLocalY;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvLocalY = position.y;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vLocalY;')
+        .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= mix(0.62, 1.0, smoothstep(-0.5, 0.48, vLocalY));');
+    };
     this.tiles = new THREE.InstancedMesh(new RoundedBoxGeometry(0.97, 1, 0.97, 2, 0.07), tileMat, n);
     this.tiles.receiveShadow = true; this.tiles.castShadow = true;
 
@@ -108,12 +122,102 @@ export class Renderer {
     this.base.rotation.x = -Math.PI / 2; this.base.position.y = 0.02;
     this.base.receiveShadow = true;
     this.scene.add(this.base, this.tiles, this.trunks, this.trees, this.peaks);
+    this.buildWater(state);
+    this.buildDecor(state);
     this.refresh();
+  }
+
+  // Surface de l'eau animée : vaguelettes et reflets.
+  buildWater(state) {
+    const waters = state.map.tiles.filter((t) => state.data.terrain[t.type].water);
+    this.waterTiles = waters;
+    const mat = new THREE.MeshStandardMaterial({ color: '#9fd8f2', roughness: 0.25, metalness: 0.05, transparent: true, opacity: 0.55, depthWrite: false });
+    const u = this.waterUniform;
+    mat.onBeforeCompile = (sh) => {
+      sh.uniforms.uTime = u;
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime;\nvarying vec3 vWPos;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvec4 wp0 = instanceMatrix * vec4(position, 1.0);\ntransformed.z += sin(wp0.x * 2.1 + uTime * 1.3) * 0.012 + cos(wp0.y * 1.7 + uTime) * 0.012;')
+        .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uTime;\nvarying vec3 vWPos;')
+        .replace('#include <color_fragment>', '#include <color_fragment>\nfloat gl1 = sin(vWPos.x * 6.0 + uTime * 1.6) * sin(vWPos.z * 5.0 - uTime * 1.2);\ndiffuseColor.rgb += smoothstep(0.82, 1.0, gl1) * 0.35;');
+    };
+    this.water = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.95, 0.95, 3, 3), mat, Math.max(1, waters.length));
+    this.water.receiveShadow = true;
+    this.water.renderOrder = 1;
+    this.scene.add(this.water);
+  }
+
+  // Décor de terrain : fleurs, touffes d'herbe, rochers, coquillages (déterministe par case).
+  buildDecor(state) {
+    const hash = (x, y, k) => (((x * 73856093) ^ (y * 19349663) ^ (k * 83492791)) >>> 0) / 4294967296;
+    const slots = { flower: [], tuft: [], rock: [], shell: [] };
+    for (const t of state.map.tiles) {
+      const n = 3;
+      for (let k = 0; k < n; k++) {
+        const r = hash(t.x, t.y, k + 11);
+        const dx = (hash(t.x, t.y, k + 21) - 0.5) * 0.8, dz = (hash(t.x, t.y, k + 31) - 0.5) * 0.8;
+        const sc = 0.7 + hash(t.x, t.y, k + 41) * 0.6;
+        if ((t.type === 'grass' || t.type === 'plains') && r < 0.45) slots[r < 0.18 ? 'flower' : 'tuft'].push({ t, dx, dz, sc, c: ['#ffffff', '#ffd23f', '#ff8fab', '#c4a7ff'][Math.floor(r * 40) % 4] });
+        if (t.type === 'hills' && r < 0.6) slots.rock.push({ t, dx, dz, sc: sc * 1.2 });
+        if (t.type === 'mountain' && r < 0.4) slots.rock.push({ t, dx: dx * 1.1, dz: dz * 1.1, sc: sc * 1.6 });
+        if (t.type === 'sand' && r < 0.3) slots.shell.push({ t, dx, dz, sc });
+      }
+    }
+    const make = (geo, mat, list) => { const m = new THREE.InstancedMesh(geo, mat, Math.max(1, list.length)); m.userData.slots = list; m.castShadow = false; m.receiveShadow = true; return m; };
+    this.decor = [
+      make(new THREE.SphereGeometry(0.022, 8, 6), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.6 }), slots.flower),
+      make(new THREE.ConeGeometry(0.025, 0.07, 5), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.8 }), slots.tuft),
+      make(new THREE.DodecahedronGeometry(0.04, 0), new THREE.MeshStandardMaterial({ color: '#b3aba3', roughness: 0.9, flatShading: true }), slots.rock),
+      make(new THREE.SphereGeometry(0.018, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#fbe9d7', roughness: 0.5 }), slots.shell),
+    ];
+    this.decor[0].userData.kind = 'flower'; this.decor[1].userData.kind = 'tuft';
+    this.scene.add(...this.decor);
+  }
+
+  refreshDecor(occupied, visible) {
+    const s = this.state, p = s.players[this.viewer];
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), c = new THREE.Color();
+    for (const mesh of this.decor) {
+      mesh.userData.slots.forEach((sl, k) => {
+        const i = sl.t.y * this.W + sl.t.x;
+        const show = p.explored[i] === 1 && !occupied.has(i) && sl.t.road === -1 && !s.cities.some((ct) => ct.x === sl.t.x && ct.y === sl.t.y);
+        const h = this.heights[i];
+        m.compose(v.set(this.wx(sl.t.x) + sl.dx, h + 0.012, this.wz(sl.t.y) + sl.dz), q, sc.setScalar(show ? sl.sc : 0.0001));
+        mesh.setMatrixAt(k, m);
+        if (mesh.userData.kind) {
+          c.set(mesh.userData.kind === 'flower' ? sl.c : (k % 2 ? '#6fb85a' : '#89c766'));
+          if (!visible[i]) c.lerp(new THREE.Color('#9a948f'), 0.35);
+          mesh.setColorAt(k, c);
+        }
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }
+  }
+
+  // Cases actuellement vues (unités, villes, bâtiments) : le reste de l'exploré est « en mémoire ».
+  computeVisible() {
+    const s = this.state, vis = new Uint8Array(s.map.tiles.length);
+    const mark = (x, y, r) => {
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (dx * dx + dy * dy > r * r + r) continue;
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && ny >= 0 && nx < this.W && ny < this.H) vis[ny * this.W + nx] = 1;
+      }
+    };
+    for (const c of s.cities) if (c.owner === this.viewer) mark(c.x, c.y, c.radius + 2);
+    for (const u of s.units) if (u.owner === this.viewer) mark(u.x, u.y, (s.data.unitsById[u.type].vision || 2) + 0);
+    for (const b of s.buildings) if (b.owner === this.viewer) mark(b.x, b.y, 1);
+    for (const e of s.embassies || []) if (e.from === this.viewer) { const c = s.cities.find((x) => x.id === e.cityId); if (c) mark(c.x, c.y, 2); }
+    this.visible = vis;
+    return vis;
   }
 
   refreshTerrain() {
     const s = this.state, p = s.players[this.viewer];
     const m = new THREE.Matrix4(), c = new THREE.Color(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+    const vis = this.computeVisible();
+    const memo = new THREE.Color('#a59e98');
     s.map.tiles.forEach((t, i) => {
       const ex = p.explored[i] === 1;
       const h = this.tileHeight(t, ex);
@@ -122,6 +226,7 @@ export class Renderer {
       this.tiles.setMatrixAt(i, m);
       c.set(ex ? s.data.terrain[t.type].color : FOG_COLOR);
       if (ex && !s.data.terrain[t.type].water) c.offsetHSL(0, 0, ((t.x * 7 + t.y * 13) % 5) * 0.006 - 0.012);
+      if (ex && !vis[i]) c.lerp(memo, 0.38);
       this.tiles.setColorAt(i, c);
     });
     this.tiles.instanceMatrix.needsUpdate = true; this.tiles.instanceColor.needsUpdate = true;
@@ -130,6 +235,15 @@ export class Renderer {
       const f = s.data.buildingsById[b.type].footprint || 1;
       for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) occupied.add((b.y + dy) * this.W + b.x + dx);
     }
+    this.refreshDecor(occupied, vis);
+    const wq = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+    this.waterTiles.forEach((t, k) => {
+      const i = t.y * this.W + t.x;
+      const ex = p.explored[i] === 1;
+      m.compose(v.set(this.wx(t.x), this.heights[i] + 0.008, this.wz(t.y)), wq, sc.set(ex ? 1 : 0.0001, ex ? 1 : 0.0001, 1));
+      this.water.setMatrixAt(k, m);
+    });
+    this.water.instanceMatrix.needsUpdate = true;
     this.treeSlots.forEach((sl, k) => {
       const i = sl.t.y * this.W + sl.t.x;
       const ex = p.explored[i] === 1 && sl.t.type === 'forest' && !occupied.has(i) && sl.t.road === -1;
@@ -139,6 +253,7 @@ export class Renderer {
       m.compose(v.set(this.wx(sl.t.x) + sl.dx, this.heights[i] + 0.3 * sl.s, this.wz(sl.t.y) + sl.dz), q, sc.set(k0, k0 * 1.1, k0));
       this.trees.setMatrixAt(k, m);
       this.trees.setColorAt(k, c.set(k % 3 === 0 ? '#86c96a' : k % 3 === 1 ? '#5fae5a' : '#4f9e55'));
+      if (!vis[i]) this.trees.setColorAt(k, c.lerp(memo, 0.35));
     });
     this.trees.instanceMatrix.needsUpdate = true; this.trunks.instanceMatrix.needsUpdate = true;
     if (this.trees.instanceColor) this.trees.instanceColor.needsUpdate = true;
@@ -263,6 +378,9 @@ export class Renderer {
       if (off) target.add(off);
       if (!obj) {
         obj = make(); obj.position.copy(target); obj.userData.path = [];
+        const anims = [];
+        obj.traverse((o) => { if (o.userData.anim) { o.userData.base = o.position.clone(); o.userData.phase0 = Math.random() * 6.28; anims.push(o); } });
+        obj.userData.anims = anims;
         this.entityObjs.set(key, obj); this.entities.add(obj);
       } else if (obj.userData.isUnit) {
         const path = obj.userData.path;
@@ -294,7 +412,8 @@ export class Renderer {
       const k = stack.indexOf(u);
       const city = s.cities.some((c) => c.x === u.x && c.y === u.y);
       const off = new THREE.Vector3((k - (stack.length - 1) / 2) * 0.28 + (city ? 0.3 : 0), s.data.unitsById[u.type].flying ? 0.7 : 0, city ? 0.3 : 0);
-      place(`u${u.id}`, () => { const g = unitModel(u.type, s.players[u.owner].color, u.owner); g.userData.isUnit = true; return g; }, u.x, u.y, city ? 0.05 : 0, off);
+      const uo = place(`u${u.id}`, () => { const g = unitModel(u.type, s.players[u.owner].color, u.owner); g.userData.isUnit = true; return g; }, u.x, u.y, city ? 0.05 : 0, off);
+      if (u.owner !== this.viewer && this.visible) uo.visible = uo.visible && this.visible[u.y * this.W + u.x] === 1; // unités étrangères : seulement si vues
     }
     for (const [key, obj] of this.entityObjs) {
       if (!seen.has(key)) { this.entities.remove(obj); this.entityObjs.delete(key); }
@@ -353,6 +472,42 @@ export class Renderer {
     this.focusAnim = { delta, left: 1 };
   }
 
+  // Animations légères : fumée, rotations, drapeaux, balancement.
+  animate(dt) {
+    const t = this.time;
+    for (const obj of this.entityObjs.values()) {
+      if (!obj.visible || !obj.userData.anims?.length) continue;
+      for (const o of obj.userData.anims) {
+        const a = o.userData.anim, ph = o.userData.phase0;
+        if (a.type === 'spin') o[a.axis === 'z' ? 'rotateZ' : a.axis === 'x' ? 'rotateX' : 'rotateY'](a.speed * dt);
+        else if (a.type === 'flag') o.rotation.y = Math.sin(t * 3 + ph) * 0.35;
+        else if (a.type === 'bob') o.position.y = o.userData.base.y + Math.sin(t * a.speed + ph) * a.amp;
+        else if (a.type === 'smoke') {
+          o.children.forEach((c) => {
+            const f = (t * 0.35 + c.userData.phase + ph) % 1;
+            c.position.set(Math.sin((f + ph) * 6) * 0.02, f * 0.32, 0);
+            c.scale.setScalar(0.6 + f * 1.4);
+            c.visible = f < 0.92;
+          });
+        }
+      }
+    }
+  }
+
+  resetLight() {
+    this.sun.position.set(-14, 26, 12); this.sun.intensity = 2.0; this.sun.color.set('#fff1dc'); this.hemi.intensity = 1.9;
+  }
+
+  // Cycle jour / nuit très doux : le soleil tourne lentement, la lumière se réchauffe puis se refroidit.
+  updateLight() {
+    const k = (Math.sin(this.time * (2 * Math.PI / 240)) + 1) / 2; // 0 = soir doré, 1 = plein jour
+    const ang = -0.9 + k * 0.6;
+    this.sun.position.set(Math.cos(ang) * 18, 20 + k * 8, Math.sin(ang) * 18 + 6);
+    this.sun.intensity = 1.7 + k * 0.5;
+    this.sun.color.setRGB(1, 0.86 + k * 0.1, 0.72 + k * 0.18);
+    this.hemi.intensity = 1.75 + k * 0.25;
+  }
+
   tick() {
     const dt = Math.min(0.05, this.clock.getDelta());
     if (this.focusAnim) {
@@ -369,6 +524,10 @@ export class Renderer {
       if (cx || cz) { tg.x += cx; tg.z += cz; this.camera.position.x += cx; this.camera.position.z += cz; }
     }
     this.controls.update();
+    this.time += dt;
+    this.waterUniform.value = this.time;
+    if (!this.reducedMotion) this.animate(dt);
+    if (this.dayNight && !this.reducedMotion) this.updateLight();
     for (const obj of this.entityObjs.values()) {
       if (!obj.userData.isUnit) continue;
       const path = obj.userData.path;

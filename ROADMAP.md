@@ -75,12 +75,14 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 ## Phase 4 — Présentation (v0.5) · ~2 à 3 semaines
 
 - [x] Direction artistique « jouet en argile » : modèles arrondis sur socles-dioramas, personnages toy, portraits SVG, palette chaude (voir DESIGN.md).
-- [ ] **Affiner le design du prototype**, jugé trop sobre : davantage de détails sur les bâtiments, les unités et le terrain (retour de revue v0.1).
-- [ ] Animations légères (fumée, drapeaux, roues) et modèles glTF faits main dans le même style.
-- [ ] Brouillard en deux niveaux (exploré / visible), eau animée, cycle jour/nuit subtil.
-- [ ] Ambiance sonore et effets.
-- [ ] Interface : info-bulles de rendement par case, panneau de ville complet, encyclopédie.
-- [ ] Accessibilité (contraste, navigation au clavier complète) et prise en charge des tablettes.
+- [x] **Design enrichi** (premier passage) : décor de terrain (fleurs, touffes, rochers, coquillages), flancs de falaise ombrés, eau animée avec reflets, moulin sur les fermes, petits animaux, faisceau du phare, bateau au port, antenne du laboratoire.
+- [x] Animations légères : fumée des cheminées, de la manufacture et de la forge, scies et moulins qui tournent, drapeaux qui flottent, unités qui se balancent. Elles se coupent si le système demande moins d'animations.
+- [x] Brouillard en deux niveaux : les zones explorées mais hors de vue sont grisées, et les unités étrangères y sont masquées. Cycle jour/nuit doux, désactivable.
+- [x] Sons procéduraux (WebAudio, sans fichier) : clic, construction, formation, déplacement, fin de tour, congrès, victoire. Réglages dans le menu (activé/coupé, volume).
+- [x] Interface : infobulle au survol des cases, liste des bâtiments dans le panneau de ville (avec leurs adjacences), encyclopédie (touche E) générée depuis les données.
+- [x] Déplacements : tracé du chemin, nombre de tours et confirmation par un second clic (désactivable dans le menu).
+- [x] Accessibilité : focus piégé dans les fenêtres et rendu à la fermeture, respect du réglage « moins d'animations », boutons plus grands sur tablette.
+- [ ] Deuxième passage design selon vos retours (modèles glTF faits main, plus de variantes de bâtiments, effets de construction).
 
 ## Phase 5 — Version 1.0
 
