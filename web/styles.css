@@ -383,7 +383,7 @@ html.touch .stepper .btn.small { width: 38px; min-height: 36px; }
 .tab.ability { margin-left: auto; color: var(--muted); }
 .tab.ability.ready { color: #fff; background: var(--accent); font-weight: 800; }
 .tab.ability + .adj-toggle { margin-left: 0; }
-.prof-extra { display: block; margin-top: 3px; font-size: 11.5px; color: var(--accent-ink, var(--accent)); font-weight: 700; }
+.prof-extra { display: block; margin-top: 3px; font-size: 11.5px; color: var(--text); font-weight: 700; }
 .proposal.crisis { border-left-color: var(--bad); background: #fff6f4; }
 .crisis-line { border-left: 3px solid var(--bad); }
 .crisis-levels { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -396,3 +396,11 @@ html.touch .stepper .btn.small { width: 38px; min-height: 36px; }
 .league .btn { margin-left: auto; }
 .league-members { flex-basis: 100%; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .league-members .avatar { border-radius: 8px; vertical-align: middle; }
+
+/* ------------------------------------------------- traités et grands rendez-vous */
+.treaty-row { margin-top: 8px; font-size: 13px; }
+.treaty-row summary { cursor: pointer; font-weight: 700; color: var(--text); }
+.treaty-clauses { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; margin: 6px 0; }
+.treaty-row .row { display: flex; align-items: end; gap: 8px; }
+.field.small select { padding: 4px 6px; font-size: 12.5px; }
+.proposal.expo-card { border-left-color: var(--accent); }

@@ -189,11 +189,23 @@ Mesuré sur 100 parties simulées par réglage (`tools/sim.mjs` et scripts de me
 - [x] **IA** : elle vend pendant les bulles, achète la ressource rare qui lui manque quand elle est riche, fonde la ligue (Négociant ou commerçant actif) et invite ses partenaires.
 - Réglage provisoire pour la CI : objectif de prestige porté à 250 (35 à 36 tours en partie normale). À revoir lors de l'équilibrage final, notamment la voie économique : l'IA qui possède la Grande Bourse a déjà des milliers d'Or.
 
-## Phase 10 — Diplomatie et grands rendez-vous · à venir
+## Phase 10 — Diplomatie et grands rendez-vous ✅
 
-- [ ] **Traités à clauses**, inspirés du Congrès de Vienne : durée limitée, clauses au choix (pas de ville près de la frontière, libre passage, partage de technologie, tarifs préférentiels), renégociation à l'échéance. Ils prolongent les promesses actuelles.
-- [ ] **Expositions universelles et Jeux**, environ tous les 15 tours, à tour de rôle. Les joueurs se portent candidats et un vote désigne l'hôte, qui investit et gagne du prestige. Les participants envoient leurs meilleurs produits pour un concours.
-- [ ] **Normes communes**, inspirées de l'Union postale universelle et du système métrique : elles sont votées au Congrès, et chaque signataire en tire un bonus (par exemple +10 % sur les routes entre signataires).
+Module `web/src/core/summits.js`, réglages `treaties`, `expos` et `standards` dans `rules.json`.
+
+- [x] **Traités à clauses** : 10 ou 20 tours, clauses au choix.
+  - Les clauses : Frontières respectées, Partage de technologie (−30 %), Tarifs préférentiels (+2 Or par route), Échanges culturels (+2 Culture).
+  - Effets : +0,4 relation par tour et +2 prestige par traité.
+  - Rupture anticipée : −20 relation. Fonder une ville près d'un signataire de « Frontières respectées » rompt aussi le traité.
+  - À l'échéance, deux IA en bons termes le renouvellent, et une IA propose au joueur de le renouveler.
+  - Une IA qui manque de place refuse la clause « Frontières respectées ».
+- [x] **Expositions universelles et Jeux mondiaux**, en alternance, tous les 15 tours environ.
+  - Candidature deux tours avant, avec une caution remboursée aux perdants. L'hôte est élu par un vote pondéré.
+  - L'hôte gagne +12 prestige et +40 Culture. Concours : +8 et +4 prestige.
+  - L'Exposition récompense l'industrie, les ressources rares et la science ; les Jeux, la population et la culture. La participation (stand ou grand pavillon) ajoute des points.
+- [x] **Normes communes** (Système métrique, Union postale, Brevets internationaux, Heure universelle) : une norme est proposée à chaque Congrès. Elle entre en vigueur dès 2 signataires, et l'on peut y adhérer à un Congrès suivant.
+- [x] Interface : traités dans Diplomatie, carte et fenêtre de l'événement, norme dans la fenêtre du Congrès, normes en vigueur dans le panneau Prestige, encyclopédie.
+- Correction au passage : le prestige est toujours arrondi à l'entier.
 
 ## Phase 11 — Science, culture et tourisme · à venir
 

@@ -126,7 +126,9 @@ Sur l'écran d'accueil, vous choisissez :
 - **Contrats commerciaux** : une IA vous demande une livraison (par exemple 15 planches en 6 tours) contre de l'Or, de la relation et du prestige. Un contrat accepté puis non honoré coûte de la relation.
 - **Influence culturelle** : votre culture s'accumule en influence et agrandit votre territoire d'une case neutre à la fois. Avec une culture bien plus forte qu'un voisin, vous pouvez attirer une case de sa frontière, ce qui le fâche. Le détail s'affiche au survol de la Culture.
 - **Crise mondiale** : vers le milieu de la partie, une crise frappe tous les pays (épidémie, krach, tempêtes). Un Congrès extraordinaire réunit les contributions en Or. Si l'objectif est atteint, la crise s'arrête et les contributeurs gagnent du prestige. Sinon, elle dure 8 tours, et personne ne paie.
-- **Congrès mondial** (tous les 10 tours) : votez la résolution et élisez le Secrétaire. Le poids de votre vote grandit avec vos alliances, accords et ambassades.
+- **Congrès mondial** (tous les 10 tours) : votez la résolution, élisez le Secrétaire et décidez d'adhérer à une **norme commune** : Système métrique, Union postale, Brevets internationaux ou Heure universelle. Une norme entre en vigueur dès 2 signataires. Le poids de votre vote grandit avec vos alliances, accords et ambassades.
+- **Traités** (Diplomatie) : un traité de 10 ou 20 tours avec les clauses de votre choix (Frontières respectées, Partage de technologie, Tarifs préférentiels, Échanges culturels). Il apporte de la relation et du prestige. Le rompre avant l'échéance coûte cher, et on le renégocie à la fin.
+- **Expositions universelles et Jeux mondiaux** (tous les 15 tours environ) : deux tours avant, on peut se porter candidat pour accueillir l'événement et choisir sa participation au concours. L'hôte et les deux premiers du concours gagnent du prestige.
 - **Personnalités** : chaque IA est loyale, opportuniste ou isolationniste, et se souvient de vos actes (fiche Diplomatie).
 
 ## Structure
