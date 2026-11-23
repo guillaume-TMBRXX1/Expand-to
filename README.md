@@ -82,11 +82,20 @@ Sur l'écran d'accueil, vous choisissez :
 - **Merveilles** : chacune est unique dans la partie. Le premier qui l'achève la garde, et les autres chantiers sont remboursés à 50 %. Si un rival en construit une, sa carte dans l'onglet Merveilles affiche son nom et le nombre de tours restants (et les vôtres si vous êtes en course). Le journal vous prévient dès qu'une course commence.
 - **Ressources rares** : épices, marbre et cristal s'exploitent avec un Comptoir. Le bouton **Entrepôt** affiche vos stocks et vos bonus actifs.
 - **Diplomatie** : les voisins méfiants ou hostiles réduisent votre productivité. Accords et alliances la renforcent.
-- **Victoire** : la première voie complétée l'emporte. Les voies sont Science, Culture, Économie et Diplomatie ; sinon, la victoire va au premier à 200 points de prestige, ou au meilleur score après 60 tours. Le bouton « Voies de victoire » (panneau Prestige) suit votre progression.
+- **Victoire** : la première voie complétée l'emporte. Les voies sont Science, Culture, Économie et Diplomatie ; sinon, la victoire va au premier à 210 points de prestige, ou au meilleur score après 60 tours. Le bouton « Voies de victoire » (panneau Prestige) suit votre progression.
 - **Politiques** (touche `P`) : vous adoptez jusqu'à 3 politiques (1 au départ, 2 à 4 technologies, 3 à 9). Remplir un emplacement libre est gratuit ; remplacer une politique coûte 30 Or. Chaque branche de l'arbre technologique en débloque de nouvelles.
 - **Événements** : tous les 4 à 6 tours environ, un événement vous propose un choix (sécheresse, comète, savant exilé…). La carte s'affiche dans le panneau de droite. Sans réponse au bout de 3 tours, le choix le plus raisonnable est fait pour vous.
 - **Merveilles naturelles** : six sites uniques (Grandes Chutes, Mont Braise, Récif de corail, Arbre millénaire, Canyon rouge, Oasis). Les découvrir rapporte du prestige (davantage au premier). Dans votre territoire, elles produisent et rapportent du prestige, et les bâtiments voisins gagnent +1 Culture.
 - **Ruines antiques** : la première unité qui y entre les fouille et y trouve de l'Or, de la Science, de la Culture, des matériaux ou une carte de la région.
+- **Profils** : chacun a son bâtiment propre (onglet à son nom dans la barre de construction) et une capacité active, avec un temps de recharge (bouton ★ à côté des onglets) :
+  - Négociant : Maison des Guildes, et la Grande foire (+30 % Or pendant 3 tours) ;
+  - Érudit : Académie royale, et la Percée (la moitié de la recherche en cours) ;
+  - Bâtisseur : Atelier des maîtres, et le Chantier éclair (tous les chantiers avancent de 2 tours) ;
+  - Diplomate : Chancellerie, et le Sommet (+6 relation avec tous) ;
+  - Explorateur : Relais des cartographes, et la Grande expédition (carte révélée autour des unités, +2 mouvements).
+- **Contrats commerciaux** : une IA vous demande une livraison (par exemple 15 planches en 6 tours) contre de l'Or, de la relation et du prestige. Un contrat accepté puis non honoré coûte de la relation.
+- **Influence culturelle** : votre culture s'accumule en influence et agrandit votre territoire d'une case neutre à la fois. Avec une culture bien plus forte qu'un voisin, vous pouvez attirer une case de sa frontière, ce qui le fâche. Le détail s'affiche au survol de la Culture.
+- **Crise mondiale** : vers le milieu de la partie, une crise frappe tous les pays (épidémie, krach, tempêtes). Un Congrès extraordinaire réunit les contributions en Or. Si l'objectif est atteint, la crise s'arrête et les contributeurs gagnent du prestige. Sinon, elle dure 8 tours, et personne ne paie.
 - **Congrès mondial** (tous les 10 tours) : votez la résolution et élisez le Secrétaire. Le poids de votre vote grandit avec vos alliances, accords et ambassades.
 - **Personnalités** : chaque IA est loyale, opportuniste ou isolationniste, et se souvient de vos actes (fiche Diplomatie).
 

@@ -501,6 +501,58 @@ BUILDERS.outpost = (lux = 'spices') => {
   return p;
 };
 
+// Bâtiments propres à chaque profil : silhouettes reconnaissables, accent doré.
+BUILDERS.guildhall = () => { // Négociant : halle à colombages, enseigne, tonneaux
+  const p = [plinth(PAL.paving)];
+  p.push(rbox(0.5, 0.2, 0.34, '#f3d9c4', 0, Y0, -0.08, 0.02), rbox(0.54, 0.03, 0.38, PAL.woodDark, 0, Y0 + 0.2, -0.08, 0.01));
+  for (const x of [-0.24, -0.08, 0.08, 0.24]) p.push(rbox(0.02, 0.2, 0.012, PAL.woodDark, x, Y0, 0.092, 0.004));
+  p.push(rbox(0.5, 0.16, 0.3, '#f6ead6', 0, Y0 + 0.23, -0.08, 0.02), rotY(gable(0.56, 0.16, 0.36, PAL.terracotta, 0, Y0 + 0.39, -0.08), 0));
+  p.push(door(0, Y0, 0.093, PAL.woodDark), ...windowAt(-0.16, Y0 + 0.08, 0.092), ...windowAt(0.16, Y0 + 0.08, 0.092), ...windowAt(-0.12, Y0 + 0.28, 0.072), ...windowAt(0.12, Y0 + 0.28, 0.072));
+  p.push(cyl(0.008, 0.008, 0.08, PAL.ink, 0.28, Y0 + 0.28, 0.12, 6), rbox(0.1, 0.08, 0.012, PAL.gold, 0.28, Y0 + 0.2, 0.15, 0.006));
+  for (const [x, z] of [[-0.3, 0.26], [-0.2, 0.3], [0.32, 0.3]]) p.push(cyl(0.04, 0.04, 0.08, PAL.wood, x, Y0, z, 12), torus(0.04, 0.006, PAL.steelDark, x, Y0 + 0.02, z), torus(0.04, 0.006, PAL.steelDark, x, Y0 + 0.06, z));
+  p.push(flag(PAL.gold, -0.3, Y0 + 0.36, -0.22, 0.2));
+  return p;
+};
+BUILDERS.academy = () => { // Érudit : rotonde à colonnes et coupole bleue, télescope
+  const p = [plinth(PAL.paving)];
+  p.push(cyl(0.26, 0.28, 0.05, PAL.creamDark, 0, Y0, -0.04, 24), cyl(0.2, 0.2, 0.2, PAL.cream, 0, Y0 + 0.05, -0.04, 24));
+  for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; p.push(cyl(0.016, 0.018, 0.2, PAL.white, Math.cos(a) * 0.235, Y0 + 0.05, -0.04 + Math.sin(a) * 0.235, 10)); }
+  p.push(cyl(0.255, 0.255, 0.03, PAL.white, 0, Y0 + 0.25, -0.04, 24), dome(0.19, PAL.roofBlue, 0, Y0 + 0.28, -0.04), sph(0.025, PAL.gold, 0, Y0 + 0.47, -0.04));
+  const scope = cyl(0.018, 0.026, 0.16, PAL.steelDark, 0.3, Y0 + 0.12, 0.26, 10); scope.rotation.z = 0.7; p.push(cyl(0.006, 0.006, 0.12, PAL.ink, 0.3, Y0, 0.26, 6), scope);
+  p.push(...lamp(-0.3, 0.28), bench(-0.12, 0.33), ...bush(0.33, -0.3));
+  return p;
+};
+BUILDERS.workshop = () => { // Bâtisseur : atelier en pierre, grand pignon, établi, blocs taillés
+  const p = [plinth(PAL.stoneLight)];
+  p.push(rbox(0.46, 0.24, 0.32, PAL.stone, -0.04, Y0, -0.1, 0.03), rotY(gable(0.52, 0.16, 0.36, PAL.roofBlue, -0.04, Y0 + 0.24, -0.1), 0));
+  p.push(rbox(0.16, 0.16, 0.014, PAL.woodDark, -0.04, Y0, 0.065, 0.008), rbox(0.05, 0.3, 0.05, PAL.brick, 0.13, Y0 + 0.2, -0.18, 0.01), smoke(0.13, Y0 + 0.52, -0.18, 1));
+  p.push(rbox(0.2, 0.06, 0.08, PAL.wood, 0.24, Y0 + 0.05, 0.22, 0.01), rbox(0.012, 0.05, 0.012, PAL.woodDark, 0.16, Y0, 0.2, 0.003), rbox(0.012, 0.05, 0.012, PAL.woodDark, 0.32, Y0, 0.24, 0.003));
+  p.push(rbox(0.04, 0.012, 0.012, PAL.steel, 0.22, Y0 + 0.115, 0.22, 0.003), cyl(0.006, 0.006, 0.06, PAL.woodDark, 0.27, Y0 + 0.11, 0.23, 6));
+  for (const [x, z, h] of [[-0.3, 0.2, 0.07], [-0.22, 0.24, 0.07], [-0.26, 0.22, 0.07]]) p.push(rbox(0.08, h, 0.08, PAL.stoneLight, x, Y0 + (x === -0.26 ? 0.07 : 0), z, 0.012));
+  p.push(rbox(0.12, 0.012, 0.08, PAL.gold, -0.04, Y0 + 0.2, 0.072, 0.004));
+  return p;
+};
+BUILDERS.chancery = () => { // Diplomate : palais blanc, perron, rangée de drapeaux
+  const p = [plinth(PAL.paving)];
+  p.push(rbox(0.56, 0.05, 0.38, PAL.white, 0, Y0, -0.08, 0.02), rbox(0.5, 0.22, 0.3, '#eef3f8', 0, Y0 + 0.05, -0.1, 0.02), rbox(0.54, 0.035, 0.34, PAL.white, 0, Y0 + 0.27, -0.1, 0.01));
+  p.push(rbox(0.2, 0.08, 0.2, '#eef3f8', 0, Y0 + 0.3, -0.1, 0.02), dome(0.08, '#14b8a6', 0, Y0 + 0.38, -0.1));
+  for (const x of [-0.18, -0.06, 0.06, 0.18]) p.push(...windowAt(x, Y0 + 0.13, 0.052));
+  p.push(door(0, Y0 + 0.05, 0.053, '#14b8a6'), rbox(0.2, 0.025, 0.06, PAL.white, 0, Y0, 0.12, 0.008), rbox(0.16, 0.025, 0.04, PAL.white, 0, Y0 + 0.025, 0.11, 0.008));
+  ['#ff6b4a', '#8b5cf6', '#f5b700', '#14b8a6', '#2f6fde'].forEach((c, k) => p.push(flag(c, -0.28 + k * 0.14, Y0, 0.3, 0.24)));
+  return p;
+};
+BUILDERS.lodge = () => { // Explorateur : chalet en rondins, tour de guet, globe et longue-vue
+  const p = [plinth('#d9e8c4')];
+  p.push(rbox(0.36, 0.18, 0.28, PAL.wood, -0.1, Y0, -0.12, 0.02), rotY(gable(0.42, 0.14, 0.34, PAL.roofGreen, -0.1, Y0 + 0.18, -0.12), 0));
+  for (let k = 0; k < 4; k++) p.push(rbox(0.37, 0.012, 0.012, PAL.woodDark, -0.1, Y0 + 0.03 + k * 0.045, 0.022, 0.004));
+  p.push(door(-0.1, Y0, 0.024, PAL.woodDark));
+  for (const [x, z] of [[0.18, -0.08], [0.32, -0.08], [0.18, -0.24], [0.32, -0.24]]) p.push(rbox(0.018, 0.36, 0.018, PAL.woodDark, x, Y0, z, 0.004));
+  p.push(rbox(0.2, 0.02, 0.2, PAL.wood, 0.25, Y0 + 0.36, -0.16, 0.008), cone(0.15, 0.12, PAL.roofRed, 0.25, Y0 + 0.38, -0.16, 4));
+  p.push(cyl(0.012, 0.016, 0.08, PAL.woodDark, 0.2, Y0, 0.24, 8), sph(0.055, '#6fb3e0', 0.2, Y0 + 0.13, 0.24), torus(0.06, 0.005, PAL.gold, 0.2, Y0 + 0.13, 0.24));
+  p.push(...lollipopTree(-0.32, 0.26, 0.8), ...lollipopTree(0.36, 0.3, 0.6));
+  return p;
+};
+
 const NO_ROTATE = new Set(['harbor', 'lighthouse', 'campus', 'artsquarter', 'merchantquarter', 'outpost']);
 // variant : 0..3 (déterministe selon la case) ; progress : 0..1 pour un chantier.
 export function buildingModel(type, wip, lux, variant = 0, progress = 0) {
