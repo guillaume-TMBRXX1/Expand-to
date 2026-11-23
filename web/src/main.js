@@ -3,6 +3,7 @@ import * as G from './core/game.js';
 import { playAITurns } from './core/ai.js';
 import { makeRng } from './core/rng.js';
 import { Renderer } from './render/renderer.js';
+import { avatarSVG } from './ui/avatar.js';
 
 const $ = (sel) => document.querySelector(sel);
 const SAVE_KEY = 'expandto.save.v1';
@@ -34,6 +35,7 @@ const resColor = (k) => data.resources[k].color;
 const chips = (bundle, cls = '') => Object.entries(bundle || {}).map(([k, v]) => `<span class="chip ${cls}"><i style="background:${resColor(k)}"></i>${cls ? '+' : ''}${v} ${data.resources[k].name}</span>`).join('');
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const me = () => s.players[0];
+const avatar = (p, size = 28) => avatarSVG({ color: p.color, profile: p.profile, skin: p.id, size, title: p.name });
 
 function toast(text, tone = '') {
   const el = document.createElement('div');
@@ -70,7 +72,7 @@ function showStart() {
       <p class="lead">Explorez, bâtissez, commercez et négociez. Aucune armée : la victoire se gagne par le <b>prestige</b> — culture, science, commerce et alliances. Premier à ${data.rules.prestigeTarget} points, ou meilleur score après ${data.rules.turnLimit} tours.</p>
       <div class="section-title">Profil de départ</div>
       <div class="profiles" role="radiogroup" aria-label="Profil de départ">
-        ${data.profiles.map((p) => `<button class="profile" role="radio" aria-checked="${p.id === profile}" data-profile="${p.id}"><b>${p.name}</b><span>${p.desc}</span></button>`).join('')}
+        ${data.profiles.map((p) => `<button class="profile" role="radio" aria-checked="${p.id === profile}" data-profile="${p.id}">${avatarSVG({ color: G.PLAYER_COLORS[0], profile: p.id, skin: 0, size: 48, title: p.name })}<div><b>${p.name}</b><span>${p.desc}</span></div></button>`).join('')}
       </div>
       <div class="start-row">
         <label class="field">Nom du dirigeant<input id="f-name" value="Vous" maxlength="18"></label>
@@ -138,7 +140,7 @@ function renderSide() {
   const ranked = [...s.players].sort((a, b) => b.prestige - a.prestige);
   $('#scoreboard').innerHTML = `<div class="section-title"><span>Prestige</span><span>${data.rules.prestigeTarget}</span></div>` + ranked.map((p) => `
     <div class="score-row" title="${Object.entries(p.prestigeBreakdown).map(([k, v]) => `${k} : ${v}`).join(' · ')}">
-      <span class="dot" style="background:${p.color}"></span><span>${esc(p.name)} <span class="muted">· ${data.profilesById[p.profile].name}</span></span><b>${p.prestige}</b>
+      ${avatar(p, 28)}<span>${esc(p.name)} <span class="muted">· ${data.profilesById[p.profile].name}</span></span><b>${p.prestige}</b>
       <div class="bar"><div style="width:${Math.min(100, (p.prestige / data.rules.prestigeTarget) * 100)}%;background:${p.color}"></div></div>
     </div>`).join('');
   const props = s.proposals.filter((p) => p.to === 0);
@@ -150,7 +152,7 @@ function renderSide() {
       exchange: `<b>${esc(from.name)}</b> offre ${G.fmtBundle(s, pr.payload.give || {})} contre ${G.fmtBundle(s, pr.payload.want || {})}.`,
       request: `<b>${esc(from.name)}</b> vous demande ${G.fmtBundle(s, pr.payload.want || {})}. Refuser dégradera vos relations.`,
     }[pr.kind];
-    return `<div class="card proposal" style="border-left-color:${from.color}"><p>${text}</p><div class="row">
+    return `<div class="card proposal" style="border-left-color:${from.color}"><div class="proposal-head">${avatar(from, 34)}<p>${text}</p></div><div class="row">
       <button class="btn small primary" data-action="accept" data-id="${pr.id}">${pr.kind === 'request' ? 'Donner' : 'Accepter'}</button>
       <button class="btn small" data-action="decline" data-id="${pr.id}">Refuser</button></div></div>`;
   }).join('');
@@ -378,7 +380,7 @@ function showDiplo() {
     const st = G.relStatus(rel);
     const agr = G.hasAgreement(s, 0, q.id), all = G.isAllied(s, 0, q.id), nb = G.areNeighbors(s, 0, q.id);
     const routes = s.tradeRoutes.filter((r) => (r.a === 0 && r.b === q.id) || (r.a === q.id && r.b === 0)).length;
-    return `<div class="card civ"><h3><span class="dot" style="background:${q.color}"></span>${esc(q.name)} <span class="muted" style="font-weight:400;font-size:13px">· ${data.profilesById[q.profile].name} · ${q.prestige} prestige</span></h3>
+    return `<div class="card civ"><h3>${avatar(q, 44)}${esc(q.name)} <span class="muted" style="font-weight:400;font-size:13px">· ${data.profilesById[q.profile].name} · ${q.prestige} prestige</span></h3>
       <div class="rel" aria-label="Relation ${rel}"><span style="left:${(rel + 100) / 2}%"></span></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:12px"><span class="tag ${st.tone}">${st.label} (${rel})</span>
         ${all ? '<span class="tag good">Alliance</span>' : ''}${agr ? '<span class="tag good">Accord commercial</span>' : ''}

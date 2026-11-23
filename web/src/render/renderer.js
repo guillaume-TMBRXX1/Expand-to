@@ -1,10 +1,11 @@
 // Rendu Three.js : terrain en relief (cases rectangulaires), territoires, routes, bâtiments et unités 3D.
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/MapControls.js';
+import { RoundedBoxGeometry } from 'three/addons/RoundedBoxGeometry.js';
 import { cityModel, buildingModel, unitModel } from './models.js';
 
-const FOG_COLOR = new THREE.Color('#d9e0e7');
-const BG = '#e8edf2';
+const FOG_COLOR = new THREE.Color('#e4dcd6');
+const BG = '#efe8e4';
 
 export class Renderer {
   constructor(container) {
@@ -30,13 +31,15 @@ export class Renderer {
     this.controls.maxDistance = 45;
     this.controls.zoomToCursor = true;
 
-    this.scene.add(new THREE.HemisphereLight('#ffffff', '#aab7c4', 1.7));
-    const sun = new THREE.DirectionalLight('#fff6e8', 2.2);
+    this.scene.add(new THREE.HemisphereLight('#fff8f0', '#c9b8ad', 1.9));
+    const sun = new THREE.DirectionalLight('#fff1dc', 2.0);
     sun.position.set(-14, 26, 12);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 22, bottom: -22, near: 1, far: 80 });
-    sun.shadow.bias = -0.0008;
+    sun.shadow.bias = -0.0006;
+    sun.shadow.normalBias = 0.02;
+    sun.shadow.radius = 4;
     this.scene.add(sun);
 
     this.dynamic = new THREE.Group();   // territoires, routes, surlignages (reconstruits)
@@ -76,7 +79,7 @@ export class Renderer {
   setState(state, viewer = 0) {
     this.state = state; this.viewer = viewer;
     this.W = state.map.width; this.H = state.map.height;
-    if (this.tiles) { this.scene.remove(this.tiles, this.trees, this.peaks, this.base); }
+    if (this.tiles) { this.scene.remove(this.tiles, this.trees, this.trunks, this.peaks, this.base); }
     for (const o of this.entityObjs.values()) this.entities.remove(o);
     this.entityObjs.clear();
     for (const l of this.labels.values()) l.remove();
@@ -84,8 +87,8 @@ export class Renderer {
 
     const n = state.map.tiles.length;
     this.heights = new Float32Array(n);
-    const tileMat = new THREE.MeshStandardMaterial({ roughness: 0.92, flatShading: true });
-    this.tiles = new THREE.InstancedMesh(new THREE.BoxGeometry(0.98, 1, 0.98), tileMat, n);
+    const tileMat = new THREE.MeshStandardMaterial({ roughness: 0.75 });
+    this.tiles = new THREE.InstancedMesh(new RoundedBoxGeometry(0.97, 1, 0.97, 2, 0.07), tileMat, n);
     this.tiles.receiveShadow = true; this.tiles.castShadow = true;
 
     const forests = state.map.tiles.filter((t) => t.type === 'forest');
@@ -94,16 +97,17 @@ export class Renderer {
       const r = ((t.x * 73856093) ^ (t.y * 19349663) ^ (k * 83492791)) >>> 0;
       this.treeSlots.push({ t, dx: ((r % 100) / 100 - 0.5) * 0.55, dz: (((r >> 8) % 100) / 100 - 0.5) * 0.55, s: 0.8 + ((r >> 16) % 40) / 100 });
     }
-    this.trees = new THREE.InstancedMesh(new THREE.ConeGeometry(0.13, 0.42, 6), new THREE.MeshStandardMaterial({ color: '#3f8a4c', flatShading: true, roughness: 0.9 }), this.treeSlots.length);
-    this.trees.castShadow = true;
+    this.trees = new THREE.InstancedMesh(new THREE.SphereGeometry(0.15, 14, 10), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.7 }), this.treeSlots.length);
+    this.trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.025, 0.035, 0.22, 8), new THREE.MeshStandardMaterial({ color: '#8a5634', roughness: 0.8 }), this.treeSlots.length);
+    this.trees.castShadow = true; this.trunks.castShadow = true;
     const highs = state.map.tiles.filter((t) => t.type === 'mountain' || t.type === 'snow');
-    this.peaks = new THREE.InstancedMesh(new THREE.ConeGeometry(0.42, 0.5, 4), new THREE.MeshStandardMaterial({ vertexColors: false, flatShading: true, roughness: 0.9 }), highs.length);
+    this.peaks = new THREE.InstancedMesh(new THREE.SphereGeometry(0.42, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ roughness: 0.8 }), highs.length);
     this.peakTiles = highs;
     this.peaks.castShadow = true;
-    this.base = new THREE.Mesh(new THREE.PlaneGeometry(this.W + 60, this.H + 60), new THREE.MeshStandardMaterial({ color: '#d9e0e7', roughness: 1 }));
+    this.base = new THREE.Mesh(new THREE.PlaneGeometry(this.W + 60, this.H + 60), new THREE.MeshStandardMaterial({ color: '#e4dcd6', roughness: 1 }));
     this.base.rotation.x = -Math.PI / 2; this.base.position.y = 0.02;
     this.base.receiveShadow = true;
-    this.scene.add(this.base, this.tiles, this.trees, this.peaks);
+    this.scene.add(this.base, this.tiles, this.trunks, this.trees, this.peaks);
     this.refresh();
   }
 
@@ -124,17 +128,22 @@ export class Renderer {
     this.treeSlots.forEach((sl, k) => {
       const i = sl.t.y * this.W + sl.t.x;
       const ex = p.explored[i] === 1 && !s.buildings.some((b) => b.x === sl.t.x && b.y === sl.t.y) && sl.t.road === -1;
-      m.compose(v.set(this.wx(sl.t.x) + sl.dx, this.heights[i] + 0.2 * sl.s, this.wz(sl.t.y) + sl.dz), q, sc.setScalar(ex ? sl.s : 0.0001));
+      const k0 = ex ? sl.s : 0.0001;
+      m.compose(v.set(this.wx(sl.t.x) + sl.dx, this.heights[i] + 0.11 * sl.s, this.wz(sl.t.y) + sl.dz), q, sc.setScalar(k0));
+      this.trunks.setMatrixAt(k, m);
+      m.compose(v.set(this.wx(sl.t.x) + sl.dx, this.heights[i] + 0.3 * sl.s, this.wz(sl.t.y) + sl.dz), q, sc.set(k0, k0 * 1.1, k0));
       this.trees.setMatrixAt(k, m);
+      this.trees.setColorAt(k, c.set(k % 3 === 0 ? '#86c96a' : k % 3 === 1 ? '#5fae5a' : '#4f9e55'));
     });
-    this.trees.instanceMatrix.needsUpdate = true;
+    this.trees.instanceMatrix.needsUpdate = true; this.trunks.instanceMatrix.needsUpdate = true;
+    if (this.trees.instanceColor) this.trees.instanceColor.needsUpdate = true;
     this.peakTiles.forEach((t, k) => {
       const i = t.y * this.W + t.x;
       const ex = p.explored[i] === 1;
       const rot = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 4);
-      m.compose(v.set(this.wx(t.x), this.heights[i] + 0.25, this.wz(t.y)), rot, sc.set(ex ? 1.05 : 0.0001, ex ? 0.9 : 0.0001, ex ? 1.05 : 0.0001));
+      m.compose(v.set(this.wx(t.x), this.heights[i] - 0.02, this.wz(t.y)), rot, sc.set(ex ? 1.0 : 0.0001, ex ? 1.1 : 0.0001, ex ? 1.0 : 0.0001));
       this.peaks.setMatrixAt(k, m);
-      this.peaks.setColorAt(k, c.set(t.type === 'snow' ? '#ffffff' : '#b5afa8'));
+      this.peaks.setColorAt(k, c.set(t.type === 'snow' ? '#ffffff' : '#c3bbb2'));
     });
     this.peaks.instanceMatrix.needsUpdate = true;
     if (this.peaks.instanceColor) this.peaks.instanceColor.needsUpdate = true;
@@ -188,7 +197,7 @@ export class Renderer {
       }
     });
     if (segs.length) {
-      const roads = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.03, 0.12), new THREE.MeshStandardMaterial({ color: '#efe6d2', roughness: 1 }), segs.length);
+      const roads = new THREE.InstancedMesh(new RoundedBoxGeometry(1, 0.03, 0.14, 1, 0.012), new THREE.MeshStandardMaterial({ color: '#f4ead8', roughness: 0.9 }), segs.length);
       roads.receiveShadow = true;
       segs.forEach((sg, k) => {
         const ia = sg.a.y * this.W + sg.a.x, ib = sg.b.y * this.W + sg.b.x;
@@ -268,7 +277,7 @@ export class Renderer {
       const k = stack.indexOf(u);
       const city = s.cities.some((c) => c.x === u.x && c.y === u.y);
       const off = new THREE.Vector3((k - (stack.length - 1) / 2) * 0.28 + (city ? 0.3 : 0), 0, city ? 0.3 : 0);
-      place(`u${u.id}`, () => { const g = unitModel(u.type, s.players[u.owner].color); g.userData.isUnit = true; return g; }, u.x, u.y, city ? 0.05 : 0, off);
+      place(`u${u.id}`, () => { const g = unitModel(u.type, s.players[u.owner].color, u.owner); g.userData.isUnit = true; return g; }, u.x, u.y, city ? 0.05 : 0, off);
     }
     for (const [key, obj] of this.entityObjs) {
       if (!seen.has(key)) { this.entities.remove(obj); this.entityObjs.delete(key); }

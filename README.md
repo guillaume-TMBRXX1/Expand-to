@@ -66,4 +66,4 @@ notebooks/           notebook Google Colab
 tools/sim.mjs        simulation headless IA contre IA
 ```
 
-Voir [ROADMAP.md](ROADMAP.md) pour la suite.
+Voir [ROADMAP.md](ROADMAP.md) pour la suite et [DESIGN.md](DESIGN.md) pour la direction artistique. La planche de style des modèles 3D est sur `/gallery.html`.
