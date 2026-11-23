@@ -6,6 +6,7 @@ import { avatarSVG } from './ui/avatar.js';
 import * as Saves from './ui/saves.js';
 import * as Tuto from './ui/tutorial.js';
 import * as Sound from './ui/sound.js';
+import { lineChart } from './ui/charts.js';
 
 const $ = (sel) => document.querySelector(sel);
 const BRANCHES = { economy: 'Économie', science: 'Science', culture: 'Culture', diplomacy: 'Diplomatie' };
@@ -57,7 +58,8 @@ const fmtDate = (iso) => { try { return new Date(iso).toLocaleString('fr-FR', { 
 function saveMeta(m) {
   if (!m) return '';
   const prof = data.profilesById[m.profile]?.name || '';
-  return [m.turn ? `Tour ${m.turn}` : '', prof, m.prestige !== undefined ? `${m.prestige} prestige` : '', m.savedAt ? fmtDate(m.savedAt) : ''].filter(Boolean).join(' · ');
+  const st = m.settings ? [data.rules.mapSizes[m.settings.size]?.name, data.rules.mapTypes[m.settings.mapType]?.name].filter(Boolean).join(' · ') : '';
+  return [m.turn ? `Tour ${m.turn}` : '', prof, st, m.prestige !== undefined ? `${m.prestige} prestige` : '', m.savedAt ? fmtDate(m.savedAt) : ''].filter(Boolean).join(' · ');
 }
 async function importGame() {
   try { startGame(Saves.deserialize(await Saves.pickFile(), data)); closeModal(); toast('Partie importée.', 'good'); }
@@ -72,14 +74,17 @@ function showStart() {
   el.innerHTML = `
     <div class="card start">
       <h1>Expand<span>-to</span></h1>
-      <p class="lead">Explorez, bâtissez, commercez et négociez. Aucune armée : la victoire se gagne par le <b>prestige</b> — culture, science, commerce et alliances. Premier à ${data.rules.prestigeTarget} points, ou meilleur score après ${data.rules.turnLimit} tours.</p>
+      <p class="lead">Explorez, bâtissez, commercez et négociez. Aucune armée : la victoire se gagne par le <b>prestige</b> — culture, science, commerce et alliances. Premier à atteindre l'objectif de prestige ou à compléter une voie de victoire, sinon meilleur score à la fin des tours.</p>
       <div class="section-title">Profil de départ</div>
       <div class="profiles" role="radiogroup" aria-label="Profil de départ">
         ${data.profiles.map((p) => `<button class="profile" role="radio" aria-checked="${p.id === profile}" data-profile="${p.id}">${avatarSVG({ color: G.PLAYER_COLORS[0], profile: p.id, skin: 0, size: 48, title: p.name })}<div><b>${p.name}</b><span>${p.desc}</span></div></button>`).join('')}
       </div>
       <div class="start-row">
         <label class="field">Nom du dirigeant<input id="f-name" value="Vous" maxlength="18"></label>
-        <label class="field">Adversaires IA<select id="f-ai"><option>2</option><option selected>3</option><option>4</option></select></label>
+        <label class="field">Taille de carte<select id="f-size">${Object.entries(data.rules.mapSizes).map(([k, v]) => `<option value="${k}" ${k === 'medium' ? 'selected' : ''}>${v.name} (${v.width}×${v.height})</option>`).join('')}</select></label>
+        <label class="field">Type de carte<select id="f-type">${Object.entries(data.rules.mapTypes).map(([k, v]) => `<option value="${k}" title="${esc(v.desc)}">${v.name}</option>`).join('')}</select></label>
+        <label class="field">Durée<select id="f-length">${Object.entries(data.rules.gameLengths).map(([k, v]) => `<option value="${k}" ${k === 'normal' ? 'selected' : ''}>${v.name}</option>`).join('')}</select></label>
+        <label class="field">Adversaires IA<select id="f-ai"></select></label>
         <label class="field">Difficulté<select id="f-diff">${Object.entries(data.ai.difficulty).map(([k, d]) => `<option value="${k}" ${k === 'normal' ? 'selected' : ''}>${d.name}</option>`).join('')}</select></label>
         <label class="field">Graine de carte (optionnel)<input id="f-seed" inputmode="numeric" placeholder="ex. 4242"></label>
       </div>
@@ -88,11 +93,19 @@ function showStart() {
         <label class="check"><input type="checkbox" id="f-tuto" checked> Tutoriel guidé</label>
       </div>
       ${renderSaveList()}
+      ${renderFinishedGames()}
       <div class="help">
         <b>Commandes</b> — clic gauche : sélectionner / déplacer · glisser : déplacer la caméra · clic droit glissé : pivoter · molette : zoom ·
         <kbd>Entrée</kbd> finir le tour · <kbd>Échap</kbd> annuler · <kbd>Espace</kbd> unité suivante · <kbd>F</kbd> fonder · <kbd>R</kbd> route · <kbd>T</kbd> technologies · <kbd>D</kbd> diplomatie · <kbd>M</kbd> menu · <kbd>E</kbd> encyclopédie · <kbd>A</kbd> bonus d'adjacence
       </div>
     </div>`;
+  const fillAI = () => {
+    const sz = data.rules.mapSizes[$('#f-size').value];
+    const cur = Number($('#f-ai').value) || sz.defaultAI;
+    $('#f-ai').innerHTML = Array.from({ length: sz.maxAI - 1 }, (_, k) => k + 2).map((n) => `<option ${n === Math.min(cur, sz.maxAI) ? 'selected' : ''}>${n}</option>`).join('');
+  };
+  $('#f-size').addEventListener('change', () => { $('#f-ai').value = ''; fillAI(); });
+  fillAI();
   el.querySelectorAll('.profile').forEach((b) => b.addEventListener('click', () => {
     profile = b.dataset.profile;
     el.querySelectorAll('.profile').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
@@ -100,10 +113,18 @@ function showStart() {
   $('#start-go').addEventListener('click', () => {
     const seedTxt = $('#f-seed').value.trim();
     const seed = seedTxt ? (Number(seedTxt) || [...seedTxt].reduce((a, c) => a * 31 + c.charCodeAt(0), 7)) >>> 0 : undefined;
-    const game = G.createGame({ data, seed, profile, name: $('#f-name').value.trim() || 'Vous', aiCount: Number($('#f-ai').value), difficulty: $('#f-diff').value });
+    const game = G.createGame({ data, seed, profile, name: $('#f-name').value.trim() || 'Vous', aiCount: Number($('#f-ai').value), difficulty: $('#f-diff').value,
+      size: $('#f-size').value, mapType: $('#f-type').value, length: $('#f-length').value });
     Tuto.initTutorial(game, $('#f-tuto').checked);
     startGame(game);
   });
+}
+
+function renderFinishedGames() {
+  const list = Saves.finishedGames();
+  if (!list.length) return '';
+  return `<div class="saves"><div class="section-title"><span>Dernières parties</span></div>${list.map((g) => `<div class="save-row"><div><b>${g.won ? 'Victoire' : 'Défaite'}</b> <span class="muted">· ${esc(g.reason || '')}</span>
+    <div class="muted">${esc([data.profilesById[g.profile]?.name, g.size && data.rules.mapSizes[g.size]?.name, g.mapType && data.rules.mapTypes[g.mapType]?.name, `${g.turns} tours`, `${g.prestige} prestige`, `${g.rank}${g.rank === 1 ? 'er' : 'e'} sur ${g.players}`, fmtDate(g.date)].filter(Boolean).join(' · '))}</div></div></div>`).join('')}</div>`;
 }
 
 function renderSaveList() {
@@ -213,12 +234,12 @@ function renderTop() {
   });
   const research = p.research ? G.techDef(s, p.research) : null;
   items.push(`<span class="res" title="Science accumulée / coût de la recherche en cours"><i style="background:${resColor('science')}"></i><b>${research ? `${research.name} ${fmt(p.sciencePool)}/${research.cost}` : `${fmt(p.sciencePool)} · à choisir`}</b><small>${sign(y.net.science)}</small></span>`);
-  items.push(`<span class="res" title="Culture totale (1 prestige / ${data.rules.prestige.culturePerPoint})"><i style="background:${resColor('culture')}"></i><b>${fmt(p.cultureTotal)}</b><small>${sign(y.net.culture)}</small></span>`);
+  items.push(`<span class="res" title="Culture totale (1 prestige / ${s.rules.prestige.culturePerPoint})"><i style="background:${resColor('culture')}"></i><b>${fmt(p.cultureTotal)}</b><small>${sign(y.net.culture)}</small></span>`);
   const stockTotal = [...G.GOODS, ...G.LUXURIES].reduce((a, k) => a + Math.floor(p.res[k] || 0), 0);
   items.push(`<button class="res res-btn" data-action="stock" title="Entrepôt : biens transformés et ressources rares" aria-expanded="${!$('#stock').hidden}"><i style="background:${resColor('goods')}"></i><b>Entrepôt</b><small>${stockTotal}</small></button>`);
-  items.push(`<span class="res" title="Prestige — objectif de victoire"><i style="background:var(--accent)"></i><b>${p.prestige} / ${data.rules.prestigeTarget}</b><small>prestige</small></span>`);
+  items.push(`<span class="res" title="Prestige — objectif de victoire"><i style="background:var(--accent)"></i><b>${p.prestige} / ${s.rules.prestigeTarget}</b><small>prestige</small></span>`);
   $('#resources').innerHTML = items.join('');
-  $('#turn').textContent = `Tour ${s.turn} / ${data.rules.turnLimit}`;
+  $('#turn').textContent = `Tour ${s.turn} / ${s.rules.turnLimit}`;
 }
 
 function renderStock() {
@@ -229,7 +250,7 @@ function renderStock() {
   const active = new Set(G.activeLuxuries(s, 0));
   const canSell = G.hallCount(s, 0) > 0;
   const auto = p.autoSell || {};
-  const keep = data.rules.market.autoSellKeep;
+  const keep = s.rules.market.autoSellKeep;
   const sellBar = (k) => {
     if (!canSell) return '';
     const stock = Math.floor(p.res[k] || 0);
@@ -246,29 +267,29 @@ function renderStock() {
     <div class="stock-group">Biens transformés</div>${G.GOODS.map(row).join('')}
     ${canSell ? `<div class="stock-group">Matériaux</div>${['wood', 'stone', 'food'].map(row).join('')}` : ''}
     <div class="stock-group">Ressources rares</div>${G.LUXURIES.map((k) => row(k) + `<div class="stock-desc ${active.has(k) ? 'good' : ''}">${active.has(k) ? 'Actif : ' : ''}${data.resources[k].desc}</div>`).join('')}
-    <p class="muted" style="font-size:12px;margin:8px 0 0">Chaque ressource rare active rapporte aussi ${data.rules.luxuries.diversityPrestige} prestige. Échangez-les en Diplomatie.</p>`;
+    <p class="muted" style="font-size:12px;margin:8px 0 0">Chaque ressource rare active rapporte aussi ${s.rules.luxuries.diversityPrestige} prestige. Échangez-les en Diplomatie.</p>`;
 }
 
 function renderSide() {
   const ranked = [...s.players].sort((a, b) => b.prestige - a.prestige);
-  const resol = G.activeResolutions(s).map((r) => `<div class="resolution">${esc(data.rules.congress.resolutions[r.id].name)}${r.target !== null && r.target !== undefined ? ` · ${esc(s.players[r.target].name)}` : ''} <span class="muted">jusqu'au tour ${r.until}</span></div>`).join('');
+  const resol = G.activeResolutions(s).map((r) => `<div class="resolution">${esc(s.rules.congress.resolutions[r.id].name)}${r.target !== null && r.target !== undefined ? ` · ${esc(s.players[r.target].name)}` : ''} <span class="muted">jusqu'au tour ${r.until}</span></div>`).join('');
   const congressOpen = s.congress?.status === 'open' && s.congress.votes[0] === undefined;
-  $('#scoreboard').innerHTML = `<div class="section-title"><span>Prestige</span><span>${data.rules.prestigeTarget}</span></div>
+  $('#scoreboard').innerHTML = `<div class="section-title"><span>Prestige</span><span>${s.rules.prestigeTarget}</span></div>
     <div class="score-actions"><button class="btn small" data-action="victory">Voies de victoire</button>
-    <button class="btn small ${congressOpen ? 'primary' : ''}" data-action="congress" title="Congrès mondial tous les ${data.rules.congress.every} tours">${congressOpen ? 'Voter au Congrès' : `Congrès · tour ${Math.ceil((s.turn + (s.turn % data.rules.congress.every === 0 ? 1 : 0)) / data.rules.congress.every) * data.rules.congress.every}`}</button></div>
+    <button class="btn small ${congressOpen ? 'primary' : ''}" data-action="congress" title="Congrès mondial tous les ${s.rules.congress.every} tours">${congressOpen ? 'Voter au Congrès' : `Congrès · tour ${Math.ceil((s.turn + (s.turn % s.rules.congress.every === 0 ? 1 : 0)) / s.rules.congress.every) * s.rules.congress.every}`}</button></div>
     ${s.secretary !== null && s.secretary !== undefined ? `<div class="resolution">Secrétaire du Congrès : <b>${esc(s.players[s.secretary].name)}</b></div>` : ''}${resol}` + ranked.map((p) => `
     <div class="score-row" title="${Object.entries(p.prestigeBreakdown).map(([k, v]) => `${k} : ${v}`).join(' · ')}">
       ${avatar(p, 28)}<span>${esc(p.name)} <span class="muted">· ${data.profilesById[p.profile].name}</span></span><b>${p.prestige}</b>
-      <div class="bar"><div style="width:${Math.min(100, (p.prestige / data.rules.prestigeTarget) * 100)}%;background:${p.color}"></div></div>
+      <div class="bar"><div style="width:${Math.min(100, (p.prestige / s.rules.prestigeTarget) * 100)}%;background:${p.color}"></div></div>
     </div>`).join('');
   const props = s.proposals.filter((p) => p.to === 0);
   $('#proposals').innerHTML = props.map((pr) => {
     const from = s.players[pr.from];
     const text = {
-      promise: `<b>${esc(from.name)}</b> vous demande de <b>promettre</b> de ne plus fonder de ville près de ses frontières. Rompre une promesse coûte très cher (${data.rules.promise.breakPenalty} relation, et les autres l'apprennent).`,
-      project: `<b>${esc(from.name)}</b>, votre allié, propose un <b>projet commun</b> : ${G.fmtBundle(s, data.rules.jointProject.cost)} chacun, puis +${data.rules.jointProject.prestige} prestige et ${chipsText(data.rules.jointProject.yields)} par tour pour les deux.`,
-      agreement: `<b>${esc(from.name)}</b> propose un accord commercial (+${data.rules.tradeAgreement.gold} Or/tour chacun, relation +${data.rules.tradeAgreement.relationPerTurn}/tour).`,
-      alliance: `<b>${esc(from.name)}</b> propose une alliance (+${Math.round(data.rules.alliance.pct * 100)}% Or, Science et Culture).`,
+      promise: `<b>${esc(from.name)}</b> vous demande de <b>promettre</b> de ne plus fonder de ville près de ses frontières. Rompre une promesse coûte très cher (${s.rules.promise.breakPenalty} relation, et les autres l'apprennent).`,
+      project: `<b>${esc(from.name)}</b>, votre allié, propose un <b>projet commun</b> : ${G.fmtBundle(s, s.rules.jointProject.cost)} chacun, puis +${s.rules.jointProject.prestige} prestige et ${chipsText(s.rules.jointProject.yields)} par tour pour les deux.`,
+      agreement: `<b>${esc(from.name)}</b> propose un accord commercial (+${s.rules.tradeAgreement.gold} Or/tour chacun, relation +${s.rules.tradeAgreement.relationPerTurn}/tour).`,
+      alliance: `<b>${esc(from.name)}</b> propose une alliance (+${Math.round(s.rules.alliance.pct * 100)}% Or, Science et Culture).`,
       exchange: `<b>${esc(from.name)}</b> offre ${G.fmtBundle(s, pr.payload.give || {})} contre ${G.fmtBundle(s, pr.payload.want || {})}.`,
       request: `<b>${esc(from.name)}</b> vous demande ${G.fmtBundle(s, pr.payload.want || {})}. Refuser dégradera vos relations.`,
     }[pr.kind];
@@ -299,7 +320,7 @@ function renderSelection() {
       ${u.owner === 0 ? `<div class="actions">
         ${u.type === 'settler' ? `<button class="btn primary small" data-action="found" ${found.ok ? '' : 'disabled'}>Fonder une ville (F)</button>` : ''}
         ${u.type === 'engineer' ? (() => { const a = G.canEngineerRoad(s, u), b2 = G.canClearForest(s, u);
-          return `<button class="btn small" data-action="eng-road" ${a.ok ? '' : 'disabled'} title="${esc(a.reason || '')}">Route ici (1 Bois)</button><button class="btn small" data-action="eng-clear" ${b2.ok ? '' : 'disabled'} title="${esc(b2.reason || '')}">Défricher (+${data.rules.engineer.clearWood} Bois)</button>`; })() : ''}
+          return `<button class="btn small" data-action="eng-road" ${a.ok ? '' : 'disabled'} title="${esc(a.reason || '')}">Route ici (1 Bois)</button><button class="btn small" data-action="eng-clear" ${b2.ok ? '' : 'disabled'} title="${esc(b2.reason || '')}">Défricher (+${s.rules.engineer.clearWood} Bois)</button>`; })() : ''}
         ${pendingMove && pendingMove.uid === u.id ? '<button class="btn primary small" data-action="confirm-move">Confirmer le déplacement</button><button class="btn small" data-action="cancel-move">Annuler</button>' : ''}
         ${u.target ? '<button class="btn small" data-action="cancel-order">Annuler l\'ordre</button>' : ''}
         <button class="btn small ghost" data-action="next-unit">Unité suivante (Espace)</button>
@@ -313,13 +334,13 @@ function renderSelection() {
     if (!c) { sel = null; el.hidden = true; return; }
     const owner = s.players[c.owner];
     const cap = G.cityPopCap(s, c);
-    const need = data.rules.growthBase + data.rules.growthPerPop * c.pop;
+    const need = s.rules.growthBase + s.rules.growthPerPop * c.pop;
     const blds = s.buildings.filter((b) => b.cityId === c.id);
     const mine = c.owner === 0;
     el.innerHTML = `<h3><span class="dot" style="background:${owner.color}"></span>${esc(c.name)}${c.capital ? ' <span class="tag">Capitale</span>' : ''}${!mine ? ` <span class="muted">· ${esc(owner.name)}</span>` : ''}</h3>
       <dl class="kv"><dt>Population</dt><dd>${c.pop} / ${cap}</dd>
       ${mine ? `<dt>Croissance</dt><dd>${fmt(me().res.food)} / ${need} Nourriture</dd>` : `<dt>Relation</dt><dd>${Math.round(G.getRel(s, 0, c.owner))} · ${G.relStatus(G.getRel(s, 0, c.owner)).label}</dd>`}
-      <dt>Palier</dt><dd>${data.rules.tiers[c.tier || 0].name}</dd>
+      <dt>Palier</dt><dd>${s.rules.tiers[c.tier || 0].name}</dd>
       <dt>Rayon du territoire</dt><dd>${c.radius}</dd><dt>Bâtiments</dt><dd>${blds.length}</dd></dl>
       ${mine ? tierHint(c) : ''}
       ${mine ? `<div class="section-title" style="margin-top:12px"><span>Former une unité</span><span>${c.trained ? '1 / tour — fait' : '1 / tour'}</span></div>
@@ -341,7 +362,7 @@ function renderSelection() {
   const bdef = b && G.buildingDef(s, b.type);
   el.innerHTML = `<h3>${ter.name}</h3>
     <dl class="kv"><dt>Coordonnées</dt><dd>${t.x}, ${t.y}</dd><dt>Propriétaire</dt><dd>${t.owner === -1 ? '—' : esc(s.players[t.owner].name)}</dd>
-    <dt>Déplacement</dt><dd>${ter.passable ? (t.road !== -1 ? `${data.rules.road.moveCost} (route)` : ter.move) : 'impraticable'}</dd>
+    <dt>Déplacement</dt><dd>${ter.passable ? (t.road !== -1 ? `${s.rules.road.moveCost} (route)` : ter.move) : 'impraticable'}</dd>
     ${t.luxury ? `<dt>Ressource rare</dt><dd>${data.resources[t.luxury].name}</dd>` : ''}</dl>
     ${t.luxury && !bdef ? `<div class="reason">${data.resources[t.luxury].desc} Construisez un <b>Comptoir</b> ici (onglet Industrie) pour l'exploiter.</div>` : ''}
     ${bdef ? `<div class="section-title" style="margin-top:10px"><span>${bdef.name}</span><span>${b.turnsLeft > 0 ? `${b.turnsLeft} tour(s)` : 'actif'}</span></div>
@@ -351,7 +372,7 @@ function renderSelection() {
 }
 
 function tierHint(c) {
-  const tiers = data.rules.tiers;
+  const tiers = s.rules.tiers;
   const cur = tiers[c.tier || 0], next = tiers[(c.tier || 0) + 1];
   const needs = Object.keys(cur.needs || {}).length ? `Consomme ${G.fmtBundle(s, cur.needs)} par tour.` : '';
   const up = next ? `Palier suivant, <b>${next.name}</b> : ${next.minPop} habitants et ${G.fmtBundle(s, next.needs)} par tour → ${chipsText(next.yields)}${next.popCap ? `, +${next.popCap} pop. max` : ''}.` : 'Palier maximal atteint.';
@@ -366,7 +387,7 @@ function renderBuildbar() {
   const items = tab.ids.map((id) => {
     if (id === 'road') {
       const pressed = mode?.type === 'road';
-      return `<button class="build-item" data-action="mode-road" aria-pressed="${pressed}" title="Prolonge votre réseau ; relier vos villes à la capitale rapporte +${data.rules.road.connectedCityGold} Or par ville."><b>Route (R)</b><div class="chips">${chips(data.rules.road.cost)}</div><div class="line"><span class="chip yield">Déplacement ${data.rules.road.moveCost}</span></div></button>`;
+      return `<button class="build-item" data-action="mode-road" aria-pressed="${pressed}" title="Prolonge votre réseau ; relier vos villes à la capitale rapporte +${s.rules.road.connectedCityGold} Or par ville."><b>Route (R)</b><div class="chips">${chips(s.rules.road.cost)}</div><div class="line"><span class="chip yield">Déplacement ${s.rules.road.moveCost}</span></div></button>`;
     }
     const def = G.buildingDef(s, id);
     const locked = def.tech && !G.hasTech(s, 0, def.tech);
@@ -520,8 +541,8 @@ function showTileTip(i, x, y) {
   const c = G.cityAt(s, t.x, t.y);
   const units = s.units.filter((u) => u.x === t.x && u.y === t.y && (u.owner === 0 || renderer.visible?.[i]));
   const lines = [`<b>${c ? esc(c.name) : ter.name}</b>${t.owner !== -1 ? ` <span class="muted">· ${esc(s.players[t.owner].name)}</span>` : ''}`];
-  if (c) lines.push(`<span class="muted">Ville · ${c.pop} hab. · ${data.rules.tiers[c.tier || 0].name}</span>`);
-  if (!c) lines.push(`<span class="muted">${ter.passable ? `Déplacement ${t.road !== -1 ? data.rules.road.moveCost : ter.move}` : 'Impraticable'}${t.road !== -1 ? ' · route' : ''}</span>`);
+  if (c) lines.push(`<span class="muted">Ville · ${c.pop} hab. · ${s.rules.tiers[c.tier || 0].name}</span>`);
+  if (!c) lines.push(`<span class="muted">${ter.passable ? `Déplacement ${t.road !== -1 ? s.rules.road.moveCost : ter.move}` : 'Impraticable'}${t.road !== -1 ? ' · route' : ''}</span>`);
   if (t.luxury && !b) lines.push(`<span class="chip yield"><i style="background:${resColor(t.luxury)}"></i>${data.resources[t.luxury].name} (ressource rare)</span>`);
   if (b) {
     const def = G.buildingDef(s, b.type);
@@ -616,7 +637,7 @@ function showEncyclopedia(tab = 'buildings') {
     body = Object.entries(data.resources).map(([k, r]) => `<div class="enc-item"><div class="vhead"><b><i class="dot" style="display:inline-block;background:${r.color}"></i> ${r.name}</b><span class="muted">valeur d'échange ${r.tradeValue}</span></div>${r.desc ? `<div class="muted">${r.desc}</div>` : ''}</div>`).join('')
       + `<div class="stock-group">Terrains</div>` + Object.values(data.terrain).map((t) => `<div class="enc-item"><b>${t.name}</b> <span class="muted">· ${t.passable ? `déplacement ${t.move}` : 'impraticable'}</span></div>`).join('');
   } else {
-    const R = data.rules;
+    const R = s.rules;
     body = `<div class="enc-item"><b>Victoire</b><div class="muted">Premier à ${R.prestigeTarget} prestige, ou une voie complète : Science (Observatoire Céleste + ${R.victory.scienceTechs} technologies), Culture (Amphithéâtre + ${R.victory.cultureTotal} culture), Économie (Grande Bourse + ${R.victory.economyGold} Or), Diplomatie (élu ${R.victory.secretaryWins} fois Secrétaire avec un allié, ou allié de tous). Sinon, meilleur prestige au tour ${R.turnLimit}.</div></div>
       <div class="enc-item"><b>Paliers de population</b><div class="muted">${R.tiers.map((t) => `${t.name}${t.minPop ? ` (${t.minPop} hab., ${G.fmtBundle(s, t.needs)} / tour)` : ''}`).join(' → ')}</div></div>
       <div class="enc-item"><b>Diplomatie</b><div class="muted">Voisins méfiants : ${Math.round(R.malus.waryPct * 100)} % de productivité, hostiles : ${Math.round(R.malus.hostilePct * 100)} %. Alliance : +${Math.round(R.alliance.pct * 100)} % Or, Science, Culture. Accord commercial : +${R.tradeAgreement.gold} Or/tour.</div></div>
@@ -644,7 +665,7 @@ function showTech() {
       <div class="meta"><span>${done ? 'Acquise' : cur ? `En cours · ${eta} tour(s)` : `${cost} science${cost < t.cost ? ' (allié −25 %)' : ''}`}</span><span>${!done && req ? `Requiert ${req}` : `Palier ${t.tier}`}</span></div></button>`;
   }).join('');
   openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Technologies"><header><div><h2>Technologies</h2>
-    <div class="muted" style="font-size:13px;margin-top:2px">Science disponible : ${fmt(p.sciencePool)} · ${sign(y)} / tour · chaque technologie rapporte ${data.rules.prestige.perTechTier} prestige par palier</div></div>
+    <div class="muted" style="font-size:13px;margin-top:2px">Science disponible : ${fmt(p.sciencePool)} · ${sign(y)} / tour · chaque technologie rapporte ${s.rules.prestige.perTechTier} prestige par palier</div></div>
     <button class="btn" data-action="close">Fermer</button></header>
     <div class="tech-grid">${Object.entries(BRANCHES).map(([k, v]) => `<div class="branch"><h4>${v}</h4>${col(k)}</div>`).join('')}</div></div>`);
 }
@@ -673,9 +694,9 @@ function showDiplo() {
       ${mem.length ? `<div class="memories"><div class="stock-group" style="margin-top:8px">Ce qu'il retient de vous</div>${mem.map((m) => `<div class="mem ${m.value < 0 ? 'bad' : 'good'}"><span>${esc(m.text)}</span><b>${m.value > 0 ? '+' : ''}${m.value}</b></div>`).join('')}</div>` : ''}
       <div class="actions">
         <button class="btn small" data-action="gift" data-id="${q.id}" ${me().res.gold < 25 ? 'disabled' : ''}>Offrir 25 Or</button>
-        ${agr ? `<button class="btn small" data-action="cancel-agr" data-id="${q.id}">Rompre l'accord</button>` : `<button class="btn small" data-action="agreement" data-id="${q.id}" title="Requiert Protocole et relation ≥ ${data.rules.tradeAgreement.minRelation}">Accord commercial</button>`}
-        ${all ? `<button class="btn small" data-action="project" data-id="${q.id}" ${nProj >= data.rules.jointProject.maxPerPair ? 'disabled' : ''} title="Coûte ${G.fmtBundle(s, data.rules.jointProject.cost)} à chacun : +${data.rules.jointProject.prestige} prestige et ${chipsText(data.rules.jointProject.yields)} par tour pour les deux">Projet commun</button>`
-          : `<button class="btn small" data-action="alliance" data-id="${q.id}" title="Requiert Ambassades et relation ≥ ${pers?.allianceMin ?? data.rules.alliance.minRelation}">Alliance</button>`}
+        ${agr ? `<button class="btn small" data-action="cancel-agr" data-id="${q.id}">Rompre l'accord</button>` : `<button class="btn small" data-action="agreement" data-id="${q.id}" title="Requiert Protocole et relation ≥ ${s.rules.tradeAgreement.minRelation}">Accord commercial</button>`}
+        ${all ? `<button class="btn small" data-action="project" data-id="${q.id}" ${nProj >= s.rules.jointProject.maxPerPair ? 'disabled' : ''} title="Coûte ${G.fmtBundle(s, s.rules.jointProject.cost)} à chacun : +${s.rules.jointProject.prestige} prestige et ${chipsText(s.rules.jointProject.yields)} par tour pour les deux">Projet commun</button>`
+          : `<button class="btn small" data-action="alliance" data-id="${q.id}" title="Requiert Ambassades et relation ≥ ${pers?.allianceMin ?? s.rules.alliance.minRelation}">Alliance</button>`}
       </div>
       <div class="form-row">
         <label class="field">Je donne<span style="display:flex;gap:4px"><input type="number" min="1" value="20" id="give-amt-${q.id}" aria-label="Quantité donnée"><select id="give-res-${q.id}">${resOpts('wood')}</select></span></label>
@@ -692,8 +713,8 @@ function showDiplo() {
 
 function showCongress() {
   const c = s.congress;
-  const R = data.rules.congress;
-  if (!c) { openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Congrès" style="width:min(520px,100%)"><header><h2>Congrès mondial</h2><button class="btn" data-action="close">Fermer</button></header><p>Le premier Congrès se réunira au tour ${R.every}. Une résolution y est votée et un Secrétaire élu (+${R.secretaryPrestige} prestige). Être élu ${data.rules.victory.secretaryWins} fois, avec au moins un allié, donne la victoire diplomatique.</p></div>`); return; }
+  const R = s.rules.congress;
+  if (!c) { openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Congrès" style="width:min(520px,100%)"><header><h2>Congrès mondial</h2><button class="btn" data-action="close">Fermer</button></header><p>Le premier Congrès se réunira au tour ${R.every}. Une résolution y est votée et un Secrétaire élu (+${R.secretaryPrestige} prestige). Être élu ${s.rules.victory.secretaryWins} fois, avec au moins un allié, donne la victoire diplomatique.</p></div>`); return; }
   const def = R.resolutions[c.id];
   const open = c.status === 'open' && c.votes[0] === undefined;
   const w = (pid) => G.voteWeight(s, pid).toFixed(1).replace('.0', '');
@@ -716,7 +737,7 @@ function showVictory() {
   const paths = ['prestige', 'science', 'culture', 'economy', 'diplomacy'];
   const bestRival = (k) => rivals.map((q) => ({ q, v: G.victoryProgress(s, q.id)[k] })).sort((a, b) => b.v.pct - a.v.pct)[0];
   openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Voies de victoire" style="width:min(680px,100%)">
-    <header><div><h2>Voies de victoire</h2><div class="muted" style="font-size:13px">La première voie complétée l'emporte ; sinon, le meilleur prestige au tour ${data.rules.turnLimit}.</div></div><button class="btn" data-action="close">Fermer</button></header>
+    <header><div><h2>Voies de victoire</h2><div class="muted" style="font-size:13px">La première voie complétée l'emporte ; sinon, le meilleur prestige au tour ${s.rules.turnLimit}.</div></div><button class="btn" data-action="close">Fermer</button></header>
     ${paths.map((k) => { const v = mine[k], r = bestRival(k); return `<div class="vpath"><div class="vhead"><b>${v.label}</b><span class="muted">${esc(v.text)}</span></div>
       <div class="bar big"><div style="width:${Math.round(v.pct * 100)}%;background:var(--accent)"></div></div>
       ${r ? `<div class="muted vrival">Meilleur rival : ${esc(r.q.name)} — ${esc(r.v.text)}</div><div class="bar"><div style="width:${Math.round(r.v.pct * 100)}%;background:${r.q.color}"></div></div>` : ''}</div>`; }).join('')}
@@ -743,15 +764,44 @@ function showMenu() {
     <p class="muted" style="font-size:12.5px;margin:14px 0 0">La partie est aussi sauvegardée automatiquement à chaque tour dans ce navigateur.</p></div>`);
 }
 
-function showEnd() {
-  if (s.winner?.pid === 0) Sound.sfx.victory();
-  const ranked = [...s.players].sort((a, b) => b.prestige - a.prestige);
+const METRICS = { prestige: 'Prestige', culture: 'Culture', pop: 'Population', techs: 'Technologies', cities: 'Villes' };
+function showEnd(metric = 'prestige') {
+  if (s.winner?.pid === 0 && metric === 'prestige' && !showEnd.played) { Sound.sfx.victory(); showEnd.played = true; }
   const won = s.winner.pid === 0;
-  openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Fin de partie" style="width:min(520px,100%)">
-    <header><h2>${won ? 'Victoire !' : 'Partie terminée'}</h2></header>
-    <p>${esc(s.winner.reason)}</p>
-    ${ranked.map((p, k) => `<div class="score-row"><span class="dot" style="background:${p.color}"></span><span>${k + 1}. ${esc(p.name)} <span class="muted">· ${data.profilesById[p.profile].name}</span></span><b>${p.prestige}</b></div>`).join('')}
+  const stats = G.finalStats(s).sort((a, b) => b.prestige - a.prestige);
+  recordResult();
+  const legend = s.players.map((p) => `<span class="legend-item"><i style="background:${p.color}"></i>${esc(p.name)}</span>`).join('');
+  const cols = [['prestige', 'Prestige'], ['cities', 'Villes'], ['pop', 'Pop.'], ['techs', 'Techno.'], ['culture', 'Culture'], ['buildings', 'Bâtiments'], ['wonders', 'Merveilles'], ['routes', 'Routes'], ['alliances', 'Alliances'], ['secretary', 'Secrétaire']];
+  openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Fin de partie" style="width:min(820px,100%)">
+    <header><div><h2>${won ? 'Victoire !' : 'Partie terminée'}</h2><div class="muted" style="font-size:13.5px;margin-top:2px">${esc(s.winner.reason)} · ${s.turn - 1} tours</div></div></header>
+    <div class="tabs" role="tablist">${Object.entries(METRICS).map(([k, v]) => `<button class="tab" role="tab" aria-selected="${k === metric}" data-action="end-metric" data-metric="${k}">${v}</button>`).join('')}</div>
+    <div class="legend">${legend}</div>
+    <div id="end-chart" class="chart-wrap"></div>
+    <div class="table-wrap"><table class="stats"><caption class="muted">Bilan final</caption><thead><tr><th scope="col">Joueur</th>${cols.map(([, l]) => `<th scope="col">${l}</th>`).join('')}</tr></thead>
+      <tbody>${stats.map((r, k) => `<tr class="${r.id === 0 ? 'me' : ''}"><th scope="row"><i class="dot" style="display:inline-block;background:${r.color}"></i> ${k + 1}. ${esc(r.name)}</th>${cols.map(([c]) => `<td>${r[c]}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
     <div class="actions" style="margin-top:16px"><button class="btn primary" data-action="new-game">Nouvelle partie</button><button class="btn" data-action="close">Voir la carte</button></div></div>`);
+  const hist = s.history || [];
+  if (hist.length) {
+    lineChart($('#end-chart'), {
+      label: METRICS[metric],
+      turns: hist.map((h) => h.turn),
+      series: s.players.map((p) => ({ name: p.name, color: p.color, strong: p.id === 0, values: hist.map((h) => h.players[p.id]?.[metric] ?? 0) })),
+    });
+  } else {
+    $('#end-chart').innerHTML = '<p class="muted">Pas d\'historique pour cette partie (sauvegarde antérieure à la phase 5).</p>';
+  }
+}
+
+function recordResult() {
+  if (s.resultRecorded) return;
+  s.resultRecorded = true;
+  const ranked = [...s.players].sort((a, b) => b.prestige - a.prestige);
+  Saves.recordFinishedGame({
+    date: new Date().toISOString(), won: s.winner.pid === 0, reason: s.winner.reason, profile: me().profile,
+    size: s.settings?.size, mapType: s.settings?.mapType, turns: s.turn - 1, prestige: me().prestige,
+    rank: ranked.findIndex((p) => p.id === 0) + 1, players: s.players.length,
+  });
+  save();
 }
 
 // ---------------------------------------------------------------- événements
@@ -800,6 +850,7 @@ function onAction(e) {
       showDiplo(); renderAll(); save(); break;
     }
     case 'victory': showVictory(); break;
+    case 'end-metric': showEnd(b.dataset.metric); break;
     case 'congress': showCongress(); break;
     case 'vote': {
       const cand = $('input[name="secretary"]:checked');
@@ -833,7 +884,7 @@ function onAction(e) {
       renderTop(); renderStock(); save(); break;
     }
     case 'autosell': {
-      G.setAutoSell(s, 0, b.dataset.res, b.checked ? data.rules.market.autoSellKeep : null);
+      G.setAutoSell(s, 0, b.dataset.res, b.checked ? s.rules.market.autoSellKeep : null);
       renderStock(); save(); break;
     }
     case 'stock': $('#stock').hidden = !$('#stock').hidden; renderTop(); renderStock(); break;

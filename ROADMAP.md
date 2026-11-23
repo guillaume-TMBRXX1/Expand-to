@@ -86,10 +86,12 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 
 ## Phase 5 — Version 1.0
 
-- [ ] Tailles de carte (petite / moyenne / grande) et types de carte (continent, archipel, pangée).
-- [ ] Choix du nombre de tours (30 / 45 / 60) pour moduler la durée.
-- [ ] Statistiques de fin de partie et historique des parties.
-- [ ] Optionnel : multijoueur asynchrone (sauvegarde partagée), ce qui demanderait un petit backend.
+- [x] Tailles de carte : petite (28×20, jusqu'à 3 IA), moyenne (36×26, jusqu'à 5 IA), grande (46×32, jusqu'à 7 IA). Types : continent, pangée, archipel. Les cartes Python et JS restent identiques (test pour chaque type).
+- [x] Embarquement : avec la Navigation, les unités terrestres traversent les lagunes peu profondes (indispensable en archipel).
+- [x] Durée au choix : rapide (40 tours), normale (60), longue (80). Les objectifs de prestige et de victoire s'adaptent (fins moyennes simulées : environ 32, 40 et 47 tours).
+- [x] Statistiques de fin de partie : courbes par tour (prestige, culture, population, technologies, villes) avec étiquettes directes et infobulle, tableau du bilan final, historique des 10 dernières parties sur l'écran d'accueil.
+- [x] Performances : modèles fusionnés en un seul maillage à couleurs de sommets (grande carte à 8 joueurs : 3 800 → 1 000 appels de dessin, −45 % de triangles).
+- [ ] Plus tard (pas prévu pour l'instant) : multijoueur asynchrone (sauvegarde partagée), ce qui demanderait un petit backend.
 
 ---
 

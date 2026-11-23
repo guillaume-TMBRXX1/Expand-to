@@ -33,9 +33,9 @@ function place(geo, color, x, y, z, opts) {
 }
 // Toutes les primitives sont posées « sur » y (leur base est à y).
 export const rbox = (w, h, d, c, x = 0, y = 0, z = 0, r = 0.025) =>
-  place(cached(`rb${w},${h},${d},${r}`, () => new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2.1, h / 2.1, d / 2.1))), c, x, y + h / 2, z);
-const cyl = (rt, rb, h, c, x = 0, y = 0, z = 0, seg = 16) => place(cached(`cy${rt},${rb},${h},${seg}`, () => new THREE.CylinderGeometry(rt, rb, h, seg)), c, x, y + h / 2, z);
-const sph = (r, c, x = 0, y = 0, z = 0, sy = 1) => { const m = place(cached(`sp${r}`, () => new THREE.SphereGeometry(r, 16, 12)), c, x, y, z); m.scale.y = sy; return m; };
+  place(cached(`rb${w},${h},${d},${r}`, () => new RoundedBoxGeometry(w, h, d, Math.min(w, h, d) > 0.12 ? 2 : 1, Math.min(r, w / 2.1, h / 2.1, d / 2.1))), c, x, y + h / 2, z);
+const cyl = (rt, rb, h, c, x = 0, y = 0, z = 0, seg = 16) => { const sg = Math.max(rt, rb) < 0.03 ? Math.min(seg, 8) : seg; return place(cached(`cy${rt},${rb},${h},${sg}`, () => new THREE.CylinderGeometry(rt, rb, h, sg)), c, x, y + h / 2, z); };
+const sph = (r, c, x = 0, y = 0, z = 0, sy = 1) => { const m = place(cached(`sp${r}`, () => new THREE.SphereGeometry(r, r > 0.06 ? 14 : 9, r > 0.06 ? 10 : 7)), c, x, y, z); m.scale.y = sy; return m; };
 const dome = (r, c, x = 0, y = 0, z = 0) => place(cached(`do${r}`, () => new THREE.SphereGeometry(r, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2)), c, x, y, z);
 const cone = (r, h, c, x = 0, y = 0, z = 0, seg = 12) => place(cached(`co${r},${h},${seg}`, () => new THREE.ConeGeometry(r, h, seg)), c, x, y + h / 2, z);
 const torus = (r, t, c, x, y, z) => { const m = place(cached(`to${r},${t}`, () => new THREE.TorusGeometry(r, t, 8, 20)), c, x, y, z); m.rotation.x = Math.PI / 2; return m; };
@@ -146,9 +146,13 @@ function shop({ w = 0.42, h = 0.26, d = 0.34, wall = PAL.cream, roof = PAL.roofG
 
 // ------------------------------------------------------------------ fusion
 // Fusionne les maillages d'un groupe par matériau : un modèle = quelques draw calls.
+// Matériau partagé : couleurs portées par les sommets → un seul appel de dessin par modèle.
+const BAKED = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0 });
+const isPlain = (m) => !m.transparent && !m.metalness && m.emissive.getHex() === 0 && Math.abs(m.roughness - 0.62) < 1e-6;
 function bake(root) {
   root.updateMatrixWorld(true);
-  const byMat = new Map();
+  const plain = [];
+  const special = new Map();
   const keep = [];
   const kept = (o) => { for (let a = o; a && a !== root; a = a.parent) if (a.userData.keep) return true; return false; };
   root.traverse((o) => { if (o.userData.keep && !kept(o.parent)) keep.push(o); });
@@ -157,16 +161,25 @@ function bake(root) {
     let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
     for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
     g.applyMatrix4(o.matrixWorld);
-    if (!byMat.has(o.material)) byMat.set(o.material, []);
-    byMat.get(o.material).push(g);
+    if (isPlain(o.material)) {
+      const n = g.attributes.position.count, c = o.material.color, arr = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b; }
+      g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+      plain.push(g);
+    } else {
+      if (!special.has(o.material)) special.set(o.material, []);
+      special.get(o.material).push(g);
+    }
   });
   const out = new THREE.Group();
-  for (const [m, geos] of byMat) {
+  const add = (geos, m) => {
     const mesh = new THREE.Mesh(mergeGeometries(geos, false), m);
     mesh.castShadow = true; mesh.receiveShadow = true;
     out.add(mesh);
     geos.forEach((g) => g.dispose());
-  }
+  };
+  if (plain.length) add(plain, BAKED);
+  for (const [m, geos] of special) add(geos, m);
   for (const k of keep) {
     const mw = k.matrixWorld.clone();
     k.removeFromParent();
