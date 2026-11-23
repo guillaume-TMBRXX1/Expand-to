@@ -168,7 +168,8 @@ Mesuré sur 100 parties simulées par réglage (`tools/sim.mjs` et scripts de me
   - Une ville riveraine gagne +2 Nourriture et +1 Or. Un bâtiment sur une rivière gagne +1 Or (+1 Nourriture pour une ferme).
   - Les déplacements le long d'une rivière coûtent 1.
   - Nouveau Moulin à eau (avec sa roue qui tourne) et port fluvial. Les navires exigent toutefois un port au bord de la mer.
-  - Rendu 3D avec de petites cascades entre les terrasses.
+  - Rendu 3D : un ruban fin et courbe qui s'élargit avec le débit, avec des reflets qui s'écoulent et de petites chutes entre les terrasses.
+- [x] Nuages retirés.
 - [x] **Génération identique en JavaScript et en Python** (terrain, régions et rivières), testée sur 4 cartes.
 - Équilibrage reporté après les phases 8 à 12, comme convenu. La CI passe toujours (36 tours en moyenne en partie normale).
 
