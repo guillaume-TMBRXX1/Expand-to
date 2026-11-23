@@ -247,6 +247,20 @@ function renderTop() {
   if (short) short.textContent = `Fin du tour ${s.turn}/${s.rules.turnLimit}`;
 }
 
+// Seuil de vente automatique choisi par ressource (gardé même quand la vente auto est coupée).
+// Les ressources rares gardent au moins 1 unité, sinon leur bonus s'arrête.
+const sellMin = (k) => (G.LUXURIES.includes(k) ? 1 : 0);
+function sellKeep(k) {
+  const p = me();
+  return p.autoSell?.[k] ?? p.autoSellPref?.[k] ?? s.rules.market.autoSellKeep;
+}
+function setSellKeep(k, v) {
+  const p = me();
+  v = Math.max(sellMin(k), Math.min(995, v));
+  p.autoSellPref = { ...(p.autoSellPref || {}), [k]: v };
+  if (p.autoSell?.[k] !== undefined) G.setAutoSell(s, 0, k, v);
+}
+
 function renderStock() {
   const el = $('#stock');
   if (el.hidden) return;
@@ -255,7 +269,6 @@ function renderStock() {
   const active = new Set(G.activeLuxuries(s, 0));
   const canSell = G.hallCount(s, 0) > 0;
   const auto = p.autoSell || {};
-  const keep = s.rules.market.autoSellKeep;
   const sellBar = (k) => {
     if (!canSell) return '';
     const stock = Math.floor(p.res[k] || 0);
@@ -264,7 +277,11 @@ function renderStock() {
     return `<div class="sell-row"><span class="muted">${price.toFixed(1).replace('.', ',')} Or/u</span>
       <button class="btn small" data-action="sell" data-res="${k}" data-qty="5" ${stock >= 1 ? '' : 'disabled'} title="Vendre 5 : +${q5} Or">−5 · +${q5}</button>
       <button class="btn small" data-action="sell" data-res="${k}" data-qty="10" ${stock >= 1 ? '' : 'disabled'} title="Vendre 10 : +${q10} Or">−10 · +${q10}</button>
-      <label class="check small" title="Chaque fin de tour, vendre tout ce qui dépasse ${keep}"><input type="checkbox" data-action="autosell" data-res="${k}" ${auto[k] !== undefined ? 'checked' : ''}> auto &gt; ${keep}</label></div>`;
+      <span class="auto-sell"><label class="check small" title="Chaque fin de tour, vendre tout ce qui dépasse le seuil"><input type="checkbox" data-action="autosell" data-res="${k}" ${auto[k] !== undefined ? 'checked' : ''}> auto au-delà de</label>
+      <span class="stepper" role="group" aria-label="Seuil de vente automatique de ${data.resources[k].name}">
+        <button class="btn small" data-action="autosell-step" data-res="${k}" data-step="-5" aria-label="Baisser le seuil">−</button>
+        <b class="stepper-val">${sellKeep(k)}</b>
+        <button class="btn small" data-action="autosell-step" data-res="${k}" data-step="5" aria-label="Monter le seuil">+</button></span></span></div>`;
   };
   const row = (k) => `<div class="stock-row"><span><i style="background:${resColor(k)}"></i>${data.resources[k].name}</span><b>${fmt(p.res[k] || 0)}</b><small class="${(y.net[k] || 0) < 0 ? 'neg' : ''}">${sign(y.net[k] || 0)}</small></div>${sellBar(k)}`;
   el.innerHTML = `<div class="section-title"><span>Entrepôt</span><button class="btn small ghost" data-action="stock">Fermer</button></div>
@@ -928,7 +945,12 @@ function onAction(e) {
       renderTop(); renderStock(); save(); break;
     }
     case 'autosell': {
-      G.setAutoSell(s, 0, b.dataset.res, b.checked ? s.rules.market.autoSellKeep : null);
+      G.setAutoSell(s, 0, b.dataset.res, b.checked ? sellKeep(b.dataset.res) : null);
+      renderStock(); save(); break;
+    }
+    case 'autosell-step': {
+      const k = b.dataset.res;
+      setSellKeep(k, sellKeep(k) + Number(b.dataset.step));
       renderStock(); save(); break;
     }
     case 'stock': $('#stock').hidden = !$('#stock').hidden; renderTop(); renderStock(); break;
