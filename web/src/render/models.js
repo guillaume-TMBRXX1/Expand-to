@@ -37,6 +37,7 @@ export const rbox = (w, h, d, c, x = 0, y = 0, z = 0, r = 0.025) =>
 const cyl = (rt, rb, h, c, x = 0, y = 0, z = 0, seg = 16) => place(cached(`cy${rt},${rb},${h},${seg}`, () => new THREE.CylinderGeometry(rt, rb, h, seg)), c, x, y + h / 2, z);
 const sph = (r, c, x = 0, y = 0, z = 0, sy = 1) => { const m = place(cached(`sp${r}`, () => new THREE.SphereGeometry(r, 16, 12)), c, x, y, z); m.scale.y = sy; return m; };
 const dome = (r, c, x = 0, y = 0, z = 0) => place(cached(`do${r}`, () => new THREE.SphereGeometry(r, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2)), c, x, y, z);
+const cone = (r, h, c, x = 0, y = 0, z = 0, seg = 12) => place(cached(`co${r},${h},${seg}`, () => new THREE.ConeGeometry(r, h, seg)), c, x, y + h / 2, z);
 const torus = (r, t, c, x, y, z) => { const m = place(cached(`to${r},${t}`, () => new THREE.TorusGeometry(r, t, 8, 20)), c, x, y, z); m.rotation.x = Math.PI / 2; return m; };
 
 // Toit à deux pans arrondi (prisme extrudé avec biseau).
@@ -55,6 +56,28 @@ function gable(w, h, d, c, x = 0, y = 0, z = 0, rotY = 0) {
 
 const group = (...children) => { const g = new THREE.Group(); children.flat().forEach((c) => c && g.add(c)); return g; };
 const rotY = (o, a) => { o.rotation.y = a; return o; };
+
+// ------------------------------------------------------------- animations
+// Les pièces animées ne sont pas fusionnées (userData.keep) ; le renderer les anime via userData.anim.
+const anim = (o, a) => { o.userData.keep = true; o.userData.anim = a; o.traverse((c) => { if (c.isMesh) c.castShadow = false; }); return o; };
+const smokeMat = new THREE.MeshStandardMaterial({ color: '#f4f1ee', roughness: 1, transparent: true, opacity: 0.75, depthWrite: false });
+function smoke(x, y, z, s = 1) {
+  const g = new THREE.Group();
+  for (let k = 0; k < 3; k++) {
+    const m = new THREE.Mesh(cached('puff', () => new THREE.SphereGeometry(0.03, 10, 8)), smokeMat);
+    m.userData.phase = k / 3;
+    g.add(m);
+  }
+  g.position.set(x, y, z); g.scale.setScalar(s);
+  return anim(g, { type: 'smoke' });
+}
+const spin = (o, axis = 'y', speed = 2) => anim(o, { type: 'spin', axis, speed });
+function flag(color, x, y, z, h = 0.3) {
+  const cloth = new THREE.Group();
+  cloth.add(rbox(0.11, 0.065, 0.008, color, 0.055, -0.0325, 0, 0.004));
+  cloth.position.set(x, y + h - 0.01, z);
+  return group(cyl(0.006, 0.006, h, PAL.ink, x, y, z, 6), anim(cloth, { type: 'flag' }));
+}
 
 // ---------------------------------------------------------------- accessoires
 const plinth = (c = PAL.paving, w = 0.9, d = 0.9) => rbox(w, 0.07, d, c, 0, 0, 0, 0.03);
@@ -109,7 +132,7 @@ function cottage({ w = 0.3, h = 0.2, d = 0.26, wall = PAL.cream, roof = PAL.terr
   parts.push(door(x, y, z + d / 2 + 0.002));
   parts.push(...windowAt(x - w * 0.3, y + h * 0.45, z + d / 2 + 0.002), ...windowAt(x + w * 0.3, y + h * 0.45, z + d / 2 + 0.002));
   parts.push(...windowAt(x + w / 2 + 0.002, y + h * 0.45, z, 'x'));
-  if (chimney) parts.push(rbox(0.04, 0.09, 0.04, PAL.brick, x + w * 0.25, y + h + 0.05, z - d * 0.15, 0.008));
+  if (chimney) parts.push(rbox(0.04, 0.09, 0.04, PAL.brick, x + w * 0.25, y + h + 0.05, z - d * 0.15, 0.008), smoke(x + w * 0.25, y + h + 0.16, z - d * 0.15, 0.8));
   return parts;
 }
 // Bâtiment à toit plat avec acrotère (style boutique).
@@ -127,9 +150,10 @@ function bake(root) {
   root.updateMatrixWorld(true);
   const byMat = new Map();
   const keep = [];
+  const kept = (o) => { for (let a = o; a && a !== root; a = a.parent) if (a.userData.keep) return true; return false; };
+  root.traverse((o) => { if (o.userData.keep && !kept(o.parent)) keep.push(o); });
   root.traverse((o) => {
-    if (!o.isMesh) return;
-    if (o.userData.keep) { keep.push(o); return; }
+    if (!o.isMesh || kept(o)) return;
     let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
     for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
     g.applyMatrix4(o.matrixWorld);
@@ -143,7 +167,12 @@ function bake(root) {
     out.add(mesh);
     geos.forEach((g) => g.dispose());
   }
-  for (const k of keep) { k.removeFromParent(); out.add(k); }
+  for (const k of keep) {
+    const mw = k.matrixWorld.clone();
+    k.removeFromParent();
+    mw.decompose(k.position, k.quaternion, k.scale);
+    out.add(k);
+  }
   return out;
 }
 
@@ -167,7 +196,7 @@ export function cityModel(color, pop, capital) {
     parts.push(rbox(0.09, 0.22, 0.09, PAL.cream, 0, Y0 + 0.2, -0.02, 0.012), cyl(0.03, 0.03, 0.01, PAL.white, 0, Y0 + 0.36, 0.025, 16));
     parts.push(rotY(gable(0.12, 0.09, 0.12, color, 0, Y0 + 0.42, -0.02), 0));
     parts[parts.length - 2].rotation.x = Math.PI / 2;
-    parts.push(cyl(0.004, 0.004, 0.14, PAL.ink, 0, Y0 + 0.5, -0.02, 6), rbox(0.08, 0.05, 0.008, color, 0.04, Y0 + 0.59, -0.02, 0.004));
+    parts.push(flag(color, 0, Y0 + 0.5, -0.02, 0.16));
   }
   parts.push(...lollipopTree(0.33, 0.33, 0.8), ...lollipopTree(-0.34, 0.34, 0.7), ...lamp(0.12, 0.2), ...lamp(-0.12, 0.2));
   return bake(group(parts));
@@ -181,6 +210,15 @@ const BUILDERS = {
     p.push(rbox(0.07, 0.2, 0.07, PAL.white, -0.05, Y0, -0.24, 0.02), dome(0.045, PAL.roofRed, -0.05, Y0 + 0.2, -0.24));
     for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) p.push(sph(0.028, r % 2 ? PAL.hay : PAL.leafLight, -0.3 + c * 0.08, Y0 + 0.02, 0.05 + r * 0.1, 0.8));
     p.push(rbox(0.1, 0.06, 0.06, PAL.hay, 0.25, Y0, 0.15, 0.02), rbox(0.1, 0.06, 0.06, PAL.hay, 0.25, Y0 + 0.06, 0.15, 0.02), rbox(0.1, 0.06, 0.06, PAL.hay, 0.25, Y0, 0.24, 0.02));
+    // Moulin à vent
+    p.push(cyl(0.045, 0.07, 0.3, PAL.cream, -0.3, Y0, -0.28, 10), cone(0.06, 0.08, PAL.roofRed, -0.3, Y0 + 0.3, -0.28, 10));
+    const blades = new THREE.Group();
+    for (let k = 0; k < 4; k++) { const b = rbox(0.022, 0.16, 0.006, PAL.white, 0, 0, 0, 0.004); b.position.y = 0.08; const arm = new THREE.Group(); arm.add(b); arm.rotation.z = (k * Math.PI) / 2; blades.add(arm); }
+    blades.add(sph(0.018, PAL.woodDark, 0, 0, 0));
+    blades.position.set(-0.3, Y0 + 0.26, -0.22);
+    p.push(spin(blades, 'z', 1.6));
+    // Petits animaux
+    p.push(sph(0.025, PAL.white, -0.05, Y0 + 0.03, 0.3), sph(0.014, PAL.ink, -0.025, Y0 + 0.04, 0.3), sph(0.022, '#f3d2b5', 0.08, Y0 + 0.025, 0.32));
     return p;
   },
   lumber: () => {
@@ -190,7 +228,7 @@ const BUILDERS = {
       const l = cyl(0.032, 0.032, 0.26, '#c89462', 0.18, Y0 + 0.032 + i * 0.058, 0.02 + j * 0.065 + i * 0.032 - 0.065, 12);
       l.rotation.x = Math.PI / 2; l.position.y = Y0 + 0.032 + i * 0.056; p.push(l);
     }
-    const saw = cyl(0.07, 0.07, 0.01, PAL.steel, -0.14, Y0 + 0.1, 0.22, 20); saw.rotation.x = Math.PI / 2; p.push(rbox(0.16, 0.08, 0.06, PAL.roofBlue, -0.14, Y0, 0.22, 0.015), saw);
+    const saw = cyl(0.07, 0.07, 0.01, PAL.steel, -0.14, Y0 + 0.1, 0.22, 20); saw.rotation.x = Math.PI / 2; p.push(rbox(0.16, 0.08, 0.06, PAL.roofBlue, -0.14, Y0, 0.22, 0.015), spin(saw, 'y', 6));
     p.push(...lollipopTree(0.3, -0.3), cyl(0.04, 0.045, 0.04, PAL.woodDark, 0.32, Y0, 0.3, 12));
     return p;
   },
@@ -241,7 +279,8 @@ const BUILDERS = {
     p.push(dome(0.1, PAL.glassLight, -0.08, Y0 + 0.28, -0.06));
     p.push(cyl(0.07, 0.07, 0.24, PAL.steel, 0.26, Y0, -0.12, 18), dome(0.07, PAL.steel, 0.26, Y0 + 0.24, -0.12), torus(0.071, 0.008, PAL.roofBlue, 0.26, Y0 + 0.08, -0.12));
     const pipe = cyl(0.015, 0.015, 0.16, PAL.steelDark, 0.16, Y0 + 0.15, -0.1, 8); pipe.rotation.z = Math.PI / 2; pipe.position.y = Y0 + 0.17; p.push(pipe);
-    p.push(cyl(0.006, 0.006, 0.12, PAL.ink, -0.2, Y0 + 0.3, -0.16, 6), dome(0.035, PAL.white, -0.2, Y0 + 0.42, -0.16));
+    const dish = group(cyl(0.006, 0.006, 0.12, PAL.ink, 0, 0, 0, 6), dome(0.035, PAL.white, 0.0, 0.12, 0)); dish.children[1].rotation.x = 0.6;
+    dish.position.set(-0.2, Y0 + 0.3, -0.16); p.push(spin(dish, 'y', 0.6));
     p.push(...pot(0.3, 0.3), bench(0.1, 0.3));
     return p;
   },
@@ -252,7 +291,8 @@ const BUILDERS = {
     p.push(rbox(0.05, 0.36, 0.05, PAL.gold, -0.22, Y0, -0.2, 0.012), rbox(0.34, 0.04, 0.04, PAL.gold, -0.09, Y0 + 0.34, -0.2, 0.012), cyl(0.004, 0.004, 0.12, PAL.ink, 0.06, Y0 + 0.22, -0.2, 6));
     p.push(crate(-0.25, 0.1, PAL.roofBlue, 0.07), crate(-0.17, 0.1, PAL.roofRed, 0.07), crate(-0.21, 0.1, PAL.gold, 0.07));
     p[p.length - 1].position.y += 0.07;
-    p.push(rbox(0.12, 0.05, 0.2, PAL.white, 0.2, Y0 + 0.01, 0.25, 0.03), rbox(0.06, 0.05, 0.06, PAL.roofBlue, 0.2, Y0 + 0.06, 0.22, 0.012));
+    const boat = group(rbox(0.12, 0.05, 0.2, PAL.white, 0, 0, 0, 0.03), rbox(0.06, 0.05, 0.06, PAL.roofBlue, 0, 0.05, -0.03, 0.012));
+    boat.position.set(0.2, Y0 + 0.01, 0.25); p.push(anim(boat, { type: 'bob', amp: 0.012, speed: 1.6 }), flag(PAL.roofRed, 0.08, Y0, -0.36, 0.26));
     p.push(...lamp(0.03, 0.3));
     return p;
   },
@@ -278,6 +318,8 @@ const BUILDERS = {
     p.push(cyl(0.14, 0.17, 0.05, PAL.white, 0, Y0, -0.05, 20));
     for (let i = 0; i < 4; i++) p.push(cyl(0.12 - i * 0.015, 0.13 - i * 0.015, 0.12, i % 2 ? PAL.roofRed : PAL.white, 0, Y0 + 0.05 + i * 0.12, -0.05, 20));
     p.push(cyl(0.11, 0.11, 0.02, PAL.ink, 0, Y0 + 0.53, -0.05, 20), cyl(0.07, 0.07, 0.09, '#ffe58a', 0, Y0 + 0.55, -0.05, 16), dome(0.09, PAL.roofRed, 0, Y0 + 0.64, -0.05));
+    const beam = group(place(cached('beam', () => new THREE.ConeGeometry(0.06, 0.5, 10, 1, true)), '#fff3b0', 0.27, 0, 0, { transparent: true, opacity: 0.35, emissive: '#fff3b0', emissiveIntensity: 0.6, depthWrite: false }));
+    beam.children[0].rotation.z = Math.PI / 2; beam.position.set(0, Y0 + 0.595, -0.05); p.push(spin(beam, 'y', 1.2));
     p.push(...cottage({ w: 0.18, h: 0.12, d: 0.14, wall: PAL.white, roof: PAL.roofRed, x: 0.26, z: -0.22, chimney: false }));
     return p;
   },
@@ -323,7 +365,7 @@ const BUILDERS = {
     p.push(rbox(0.6, 0.26, 0.4, PAL.white, 0, Y0, -0.08, 0.025), cyl(0.15, 0.16, 0.1, PAL.white, 0, Y0 + 0.26, -0.08, 24), dome(0.15, '#5ccfc0', 0, Y0 + 0.36, -0.08));
     for (let i = 0; i < 4; i++) p.push(...windowAt(-0.21 + i * 0.14, Y0 + 0.13, 0.122));
     const colors = ['#ff6b4a', '#8b5cf6', '#f5b700', '#14b8a6', '#ec4899'];
-    colors.forEach((c, i) => { const x = -0.36 + i * 0.18; p.push(cyl(0.006, 0.006, 0.3, PAL.ink, x, Y0, 0.32, 6), rbox(0.09, 0.05, 0.008, c, x + 0.045, Y0 + 0.24, 0.32, 0.004)); });
+    colors.forEach((c, i) => p.push(flag(c, -0.36 + i * 0.18, Y0, 0.32, 0.3)));
     return p;
   },
   sawmill: () => {
@@ -331,7 +373,7 @@ const BUILDERS = {
     p.push(rbox(0.34, 0.2, 0.26, PAL.wood, -0.12, Y0, -0.12, 0.02), rotY(gable(0.4, 0.12, 0.3, PAL.roofRed, -0.12, Y0 + 0.2, -0.12), 0));
     p.push(door(-0.12, Y0, 0.012, PAL.woodDark), ...windowAt(-0.24, Y0 + 0.1, 0.012));
     for (let i = 0; i < 4; i++) p.push(rbox(0.3, 0.025, 0.09, i % 2 ? '#e2b27a' : PAL.planksLight || '#d9a46a', 0.18, Y0 + i * 0.026, 0.2, 0.006));
-    const saw = cyl(0.08, 0.08, 0.012, PAL.steel, 0.2, Y0 + 0.1, -0.12, 22); saw.rotation.x = Math.PI / 2; p.push(rbox(0.2, 0.08, 0.08, PAL.roofBlue, 0.2, Y0, -0.12, 0.015), saw);
+    const saw = cyl(0.08, 0.08, 0.012, PAL.steel, 0.2, Y0 + 0.1, -0.12, 22); saw.rotation.x = Math.PI / 2; p.push(rbox(0.2, 0.08, 0.08, PAL.roofBlue, 0.2, Y0, -0.12, 0.015), spin(saw, 'y', 6));
     p.push(...lollipopTree(0.34, -0.34, 0.7));
     return p;
   },
@@ -339,7 +381,7 @@ const BUILDERS = {
     const p = [plinth(PAL.paving)];
     p.push(rbox(0.5, 0.24, 0.32, PAL.brick, -0.05, Y0, -0.1, 0.02));
     for (let i = 0; i < 3; i++) p.push(rotY(gable(0.18, 0.08, 0.34, i % 2 ? PAL.white : PAL.roofBlue, -0.22 + i * 0.17, Y0 + 0.24, -0.1), 0));
-    p.push(cyl(0.035, 0.045, 0.32, PAL.brick, 0.26, Y0, -0.24, 12), torus(0.04, 0.008, PAL.white, 0.26, Y0 + 0.3, -0.24), sph(0.04, '#eeeeee', 0.27, Y0 + 0.4, -0.24), sph(0.03, '#f6f6f6', 0.3, Y0 + 0.46, -0.22));
+    p.push(cyl(0.035, 0.045, 0.32, PAL.brick, 0.26, Y0, -0.24, 12), torus(0.04, 0.008, PAL.white, 0.26, Y0 + 0.3, -0.24), smoke(0.26, Y0 + 0.36, -0.24, 1.6));
     p.push(...windowAt(-0.2, Y0 + 0.1, 0.062), ...windowAt(0.1, Y0 + 0.1, 0.062), rbox(0.12, 0.14, 0.014, PAL.gold, -0.05, Y0, 0.062, 0.006));
     p.push(rbox(0.5, 0.025, 0.08, PAL.ink, 0.0, Y0 + 0.02, 0.25, 0.01));
     for (let i = 0; i < 4; i++) p.push(rbox(0.05, 0.05, 0.05, ['#e0677e', PAL.gold, '#e0677e', PAL.roofBlue][i], -0.18 + i * 0.12, Y0 + 0.045, 0.25, 0.01));
@@ -348,7 +390,7 @@ const BUILDERS = {
   forge: () => {
     const p = [plinth(PAL.stoneLight)];
     p.push(rbox(0.4, 0.22, 0.3, PAL.stone, -0.1, Y0, -0.1, 0.03), rotY(gable(0.46, 0.12, 0.34, PAL.terracottaDark, -0.1, Y0 + 0.22, -0.1), 0));
-    p.push(rbox(0.07, 0.34, 0.07, PAL.stone, 0.06, Y0 + 0.08, -0.18, 0.015), sph(0.035, '#d6d6d6', 0.07, Y0 + 0.48, -0.18));
+    p.push(rbox(0.07, 0.34, 0.07, PAL.stone, 0.06, Y0 + 0.08, -0.18, 0.015), smoke(0.07, Y0 + 0.44, -0.18, 1.3));
     p.push(rbox(0.14, 0.12, 0.014, '#ff9a3c', -0.1, Y0, 0.052, 0.01));
     p.push(rbox(0.1, 0.05, 0.06, PAL.ink, 0.22, Y0 + 0.06, 0.2, 0.012), rbox(0.05, 0.06, 0.05, PAL.ink, 0.22, Y0, 0.2, 0.01));
     p.push(...[0, 1, 2].map((i) => rbox(0.03, 0.03, 0.14, PAL.steelDark, -0.3 + i * 0.05, Y0, 0.25, 0.008)));
@@ -507,7 +549,10 @@ export function unitModel(type, color, skinIdx = 0) {
     ];
     for (const [x, z] of [[-0.1, 0.08], [0.1, 0.08], [-0.1, -0.08], [0.1, -0.08]]) { const w = cyl(0.035, 0.035, 0.025, PAL.ink, x, 0, z, 16); w.rotation.x = Math.PI / 2; w.position.y = 0.035; parts.push(w, (() => { const h = cyl(0.015, 0.015, 0.027, PAL.steel, x, 0, z, 10); h.rotation.x = Math.PI / 2; h.position.y = 0.035; return h; })()); }
   }
-  const g = bake(group(parts));
+  const body = bake(group(parts));
+  body.userData.anim = { type: 'bob', amp: type === 'airship' ? 0.04 : type === 'ship' ? 0.012 : 0.012, speed: type === 'airship' ? 1.2 : 2.4 };
+  const g = new THREE.Group();
+  g.add(body);
   const base = new THREE.Mesh(cached('ubase', () => new THREE.CircleGeometry(0.17, 24)), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, depthWrite: false }));
   base.rotation.x = -Math.PI / 2; base.position.y = 0.012;
   g.add(base);

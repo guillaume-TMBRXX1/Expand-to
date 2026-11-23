@@ -51,4 +51,6 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
 
 - Un modèle est un assemblage de primitives, ensuite **fusionnées par matériau** (`bake`) : un bâtiment ne coûte que quelques appels de rendu.
 - Les géométries et matériaux sont mis en cache.
-- Prochaines étapes : animations légères (fumée de cheminée, drapeaux, roues), variantes de bâtiments selon l'époque, et éventuellement des modèles glTF faits main dans le même style.
+- Animations : les pièces animées sont marquées `anim(...)` dans `models.js` (types `spin`, `flag`, `bob`, `smoke`). Elles ne sont pas fusionnées, et le renderer les anime (coupées si `prefers-reduced-motion`).
+- Terrain : flancs assombris par un shader, décor instancié (fleurs, touffes, rochers, coquillages), eau animée (vaguelettes et reflets), zones hors de vue grisées.
+- Prochaines étapes : variantes de bâtiments selon l'époque, effets de construction, et éventuellement des modèles glTF faits main dans le même style.

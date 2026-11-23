@@ -47,9 +47,12 @@ node tools/sim.mjs 10
 | Construire une route | `R` |
 | Technologies | `T` |
 | Diplomatie | `D` |
-| Menu (sauvegardes, export, import) | `M` |
+| Menu (sauvegardes, options, sons) | `M` |
+| Encyclopédie | `E` |
+| Bonus d'adjacence sur la carte | `A` |
 | Annuler | `Échap` |
 
+- **Déplacer** : cliquez une destination pour voir le chemin et le nombre de tours, puis cliquez à nouveau pour confirmer (Échap annule).
 - **Construire** : choisissez un bâtiment dans la barre du bas, puis une case verte de votre territoire. Maintenez `Maj` pour en placer plusieurs.
 - **Caravane** : envoyez-la dans une ville étrangère pour ouvrir une route commerciale. Elle rapporte de l'Or, de la relation et du prestige.
 - **Industrie** : les Menuiseries, Forges et Manufactures transforment vos matières premières en planches, outils et biens. Ces biens font monter vos villes de palier (Artisans, puis Savants).

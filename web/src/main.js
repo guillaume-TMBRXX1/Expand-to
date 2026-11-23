@@ -5,6 +5,7 @@ import { Renderer } from './render/renderer.js';
 import { avatarSVG } from './ui/avatar.js';
 import * as Saves from './ui/saves.js';
 import * as Tuto from './ui/tutorial.js';
+import * as Sound from './ui/sound.js';
 
 const $ = (sel) => document.querySelector(sel);
 const BRANCHES = { economy: 'Économie', science: 'Science', culture: 'Culture', diplomacy: 'Diplomatie' };
@@ -21,6 +22,9 @@ let sel = null;          // { kind: 'unit'|'city'|'tile', id|i }
 let mode = null;         // null | { type: 'build', id } | { type: 'road' }
 let buildTab = 'prod';
 let hoverIdx = null;
+let pendingMove = null; // { uid, x, y, plan } : déplacement en attente de confirmation
+let confirmMoves = true;
+try { confirmMoves = localStorage.getItem('expandto.confirmMoves') !== '0'; } catch { /* ignore */ }
 let showAdjacency = false; // touche A : bonus d'adjacence actifs sur la carte
 
 // ------------------------------------------------------------------ données
@@ -41,6 +45,7 @@ const me = () => s.players[0];
 const avatar = (p, size = 28) => avatarSVG({ color: p.color, profile: p.profile, skin: p.id, size, title: p.name });
 
 function toast(text, tone = '') {
+  if (tone === 'bad') Sound.sfx.bad();
   const el = document.createElement('div');
   el.className = tone; el.textContent = text;
   $('#toast').appendChild(el);
@@ -85,7 +90,7 @@ function showStart() {
       ${renderSaveList()}
       <div class="help">
         <b>Commandes</b> — clic gauche : sélectionner / déplacer · glisser : déplacer la caméra · clic droit glissé : pivoter · molette : zoom ·
-        <kbd>Entrée</kbd> finir le tour · <kbd>Échap</kbd> annuler · <kbd>Espace</kbd> unité suivante · <kbd>F</kbd> fonder · <kbd>R</kbd> route · <kbd>T</kbd> technologies · <kbd>D</kbd> diplomatie · <kbd>M</kbd> menu · <kbd>A</kbd> bonus d'adjacence
+        <kbd>Entrée</kbd> finir le tour · <kbd>Échap</kbd> annuler · <kbd>Espace</kbd> unité suivante · <kbd>F</kbd> fonder · <kbd>R</kbd> route · <kbd>T</kbd> technologies · <kbd>D</kbd> diplomatie · <kbd>M</kbd> menu · <kbd>E</kbd> encyclopédie · <kbd>A</kbd> bonus d'adjacence
       </div>
     </div>`;
   el.querySelectorAll('.profile').forEach((b) => b.addEventListener('click', () => {
@@ -295,6 +300,7 @@ function renderSelection() {
         ${u.type === 'settler' ? `<button class="btn primary small" data-action="found" ${found.ok ? '' : 'disabled'}>Fonder une ville (F)</button>` : ''}
         ${u.type === 'engineer' ? (() => { const a = G.canEngineerRoad(s, u), b2 = G.canClearForest(s, u);
           return `<button class="btn small" data-action="eng-road" ${a.ok ? '' : 'disabled'} title="${esc(a.reason || '')}">Route ici (1 Bois)</button><button class="btn small" data-action="eng-clear" ${b2.ok ? '' : 'disabled'} title="${esc(b2.reason || '')}">Défricher (+${data.rules.engineer.clearWood} Bois)</button>`; })() : ''}
+        ${pendingMove && pendingMove.uid === u.id ? '<button class="btn primary small" data-action="confirm-move">Confirmer le déplacement</button><button class="btn small" data-action="cancel-move">Annuler</button>' : ''}
         ${u.target ? '<button class="btn small" data-action="cancel-order">Annuler l\'ordre</button>' : ''}
         <button class="btn small ghost" data-action="next-unit">Unité suivante (Espace)</button>
       </div>
@@ -321,7 +327,10 @@ function renderSelection() {
         const chk = G.canTrain(s, 0, c.id, d.id);
         return `<button class="btn small unit-btn" data-action="train" data-unit="${d.id}" ${chk.ok ? '' : 'disabled'} title="${esc(chk.reason || d.desc)}">${d.name}<span class="cost">${Object.entries(G.costOf(s, 0, d, false)).map(([k, v]) => `${v} ${data.resources[k].name}`).join(' · ')}</span></button>`;
       }).join('')}</div>
-      <div class="reason">Construisez dans le territoire de la ville avec la barre du bas.</div>` : ''}`;
+      <div class="reason">Construisez dans le territoire de la ville avec la barre du bas.</div>
+      ${blds.length ? `<div class="section-title" style="margin-top:12px"><span>Bâtiments de la ville</span><span>${blds.length}</span></div>
+      <div class="city-blds">${blds.map((bb) => { const d = G.buildingDef(s, bb.type); const adj = G.adjacencyBonus(s, 0, bb.type, bb.x, bb.y);
+        return `<div class="mem"><span>${d.name}${bb.turnsLeft > 0 ? ` <span class="muted">· ${bb.turnsLeft} t.</span>` : ''}</span><span class="muted">${d.process ? `→ ${chipsText(d.process.out)}` : chipsText(d.yields)}${bonusSum(adj) > 0 ? ` <b class="good">${chipsText(Object.fromEntries(Object.entries(adj).filter(([, v]) => v)))}</b>` : ''}</span></div>`; }).join('')}</div>` : ''}` : ''}`;
     return;
   }
   const t = s.map.tiles[sel.i];
@@ -401,9 +410,14 @@ function renderHighlights() {
     s.map.tiles.forEach((t, i) => { if (G.canRoad(s, 0, t.x, t.y).ok) list.push({ i, color: '#f5b700' }); });
   } else if (sel?.kind === 'unit') {
     const u = s.units.find((x) => x.id === sel.id);
-    if (u && u.owner === 0 && u.movesLeft > 0) {
+    if (u && u.owner === 0 && u.movesLeft > 0 && !pendingMove) {
       for (const [i, d] of G.reachable(s, u)) if (d > 0) list.push({ i, color: '#ffffff' });
-      if (u.target) list.push({ i: u.target.y * W + u.target.x, color: '#ff6b4a' });
+    }
+    if (u && u.owner === 0 && u.target && !pendingMove) list.push({ i: u.target.y * W + u.target.x, color: '#ff6b4a' });
+    if (u && pendingMove && pendingMove.uid === u.id) {
+      const last = pendingMove.plan.steps[pendingMove.plan.steps.length - 1];
+      const turns = pendingMove.plan.turns;
+      badges.push({ i: last.i, html: `<span>${turns === 1 ? 'Arrivée ce tour' : `Arrivée dans ${turns} tours`} · cliquez pour confirmer</span>`, lift: 0.75 });
     }
   }
   if (showAdjacency && mode?.type !== 'build') {
@@ -416,6 +430,8 @@ function renderHighlights() {
     }
   }
   renderer.setBadges(badges);
+  const pu = pendingMove && s.units.find((x) => x.id === pendingMove.uid);
+  renderer.setPath(pu ? pendingMove.plan.steps : null, pu ? pu.y * W + pu.x : null);
   renderer.setHighlights(list);
   let selIdx = null;
   if (sel?.kind === 'unit') { const u = s.units.find((x) => x.id === sel.id); if (u) selIdx = u.y * W + u.x; }
@@ -425,11 +441,12 @@ function renderHighlights() {
   const hint = $('#hint');
   if (mode?.type === 'build') { hint.hidden = false; hint.textContent = `${G.buildingDef(s, mode.id).name} : choisissez une case verte${G.footprintOf(s, mode.id) > 1 ? ' (coin nord-ouest du quartier 2×2)' : ''} — survolez pour voir les bonus d'adjacence — Échap pour annuler`; }
   else if (mode?.type === 'road') { hint.hidden = false; hint.textContent = 'Route : cliquez les cases jaunes pour prolonger le réseau — Échap pour terminer'; }
+  else if (pendingMove) { hint.hidden = false; hint.textContent = `Déplacement prévu (${pendingMove.plan.turns === 1 ? 'arrivée ce tour' : `${pendingMove.plan.turns} tours`}) : cliquez à nouveau la destination pour confirmer — Échap pour annuler`; }
   else hint.hidden = true;
 }
 
 // ------------------------------------------------------------- interactions
-function select(next) { sel = next; mode = null; renderAll(); }
+function select(next) { sel = next; mode = null; pendingMove = null; renderAll(); }
 
 function setMode(next) {
   mode = next;
@@ -445,6 +462,7 @@ function handleTileClick(i, shift) {
     const r = G.build(s, 0, mode.id, t.x, t.y);
     if (!r.ok) { toast(r.reason, 'bad'); return; }
     toast(`${G.buildingDef(s, mode.id).name} en construction.`, 'good');
+    Sound.sfx.build();
     if (!shift || !G.canAfford(s, 0, G.costOf(s, 0, G.buildingDef(s, mode.id)))) mode = null;
     sel = { kind: 'tile', i };
     refreshWorld(); save(); return;
@@ -457,13 +475,17 @@ function handleTileClick(i, shift) {
   const u = sel?.kind === 'unit' ? s.units.find((x) => x.id === sel.id) : null;
   if (u && u.owner === 0 && (u.x !== t.x || u.y !== t.y)) {
     if (!G.isExplored(s, 0, t.x, t.y)) { toast('Destination inexplorée.', 'bad'); return; }
-    const r = G.orderMove(s, u.id, t.x, t.y);
-    if (r.ok) Tuto.flag(s, 'moved');
-    if (!r.ok) { toast(r.reason, 'bad'); return; }
-    renderer.animateUnit(u.id, r.steps);
-    if (!s.units.includes(u)) { sel = null; toast('Route commerciale ouverte !', 'good'); }
-    refreshWorld(); save(); return;
+    const confirmed = pendingMove && pendingMove.uid === u.id && pendingMove.x === t.x && pendingMove.y === t.y;
+    if (confirmMoves && !confirmed) {
+      const plan = G.planMove(s, u, t.x, t.y);
+      if (!plan) { toast('Destination inaccessible.', 'bad'); return; }
+      pendingMove = { uid: u.id, x: t.x, y: t.y, plan };
+      renderSelection(); renderHighlights(); return;
+    }
+    executeMove(u, t.x, t.y);
+    return;
   }
+  pendingMove = null;
   const mineHere = s.units.filter((x) => x.x === t.x && x.y === t.y && G.isExplored(s, 0, t.x, t.y));
   if (mineHere.length) {
     const cur = u ? mineHere.findIndex((x) => x.id === u.id) : -1;
@@ -475,6 +497,43 @@ function handleTileClick(i, shift) {
   const city = G.cityAt(s, t.x, t.y);
   if (city && G.isExplored(s, 0, t.x, t.y)) { select({ kind: 'city', id: city.id }); return; }
   select({ kind: 'tile', i });
+}
+
+function executeMove(u, x, y) {
+  pendingMove = null;
+  const r = G.orderMove(s, u.id, x, y);
+  if (!r.ok) { toast(r.reason, 'bad'); return; }
+  Tuto.flag(s, 'moved');
+  renderer.animateUnit(u.id, r.steps);
+  Sound.sfx.move();
+  if (!s.units.includes(u)) { sel = null; toast('Arrivée à destination : mission accomplie !', 'good'); }
+  refreshWorld(); save();
+}
+
+// Infobulle de case au survol : terrain, propriétaire, ressource rare, bâtiment et rendement, unités.
+function showTileTip(i, x, y) {
+  const tip = $('#tiptile');
+  if (i === null || i === undefined || !G.isExplored(s, 0, i % s.map.width, Math.floor(i / s.map.width))) { tip.hidden = true; return; }
+  const t = s.map.tiles[i];
+  const ter = data.terrain[t.type];
+  const b = G.buildingAt(s, t.x, t.y);
+  const c = G.cityAt(s, t.x, t.y);
+  const units = s.units.filter((u) => u.x === t.x && u.y === t.y && (u.owner === 0 || renderer.visible?.[i]));
+  const lines = [`<b>${c ? esc(c.name) : ter.name}</b>${t.owner !== -1 ? ` <span class="muted">· ${esc(s.players[t.owner].name)}</span>` : ''}`];
+  if (c) lines.push(`<span class="muted">Ville · ${c.pop} hab. · ${data.rules.tiers[c.tier || 0].name}</span>`);
+  if (!c) lines.push(`<span class="muted">${ter.passable ? `Déplacement ${t.road !== -1 ? data.rules.road.moveCost : ter.move}` : 'Impraticable'}${t.road !== -1 ? ' · route' : ''}</span>`);
+  if (t.luxury && !b) lines.push(`<span class="chip yield"><i style="background:${resColor(t.luxury)}"></i>${data.resources[t.luxury].name} (ressource rare)</span>`);
+  if (b) {
+    const def = G.buildingDef(s, b.type);
+    const adj = G.adjacencyBonus(s, b.owner, b.type, b.x, b.y);
+    const prod = def.process ? `${G.fmtBundle(s, def.process.in)} → ${G.fmtBundle(s, def.process.out)}` : chipsText(def.yields);
+    lines.push(`${def.name}${b.turnsLeft > 0 ? ` <span class="muted">(${b.turnsLeft} tour(s))</span>` : ''}`);
+    if (prod) lines.push(`<span class="muted">${prod}${bonusSum(adj) > 0 ? ` · adjacence ${chipsText(Object.fromEntries(Object.entries(adj).filter(([, v]) => v)))}` : ''}</span>`);
+  }
+  for (const u of units.slice(0, 3)) lines.push(`<span class="muted">${G.unitDef(s, u.type).name} · ${esc(s.players[u.owner].name)}</span>`);
+  tip.innerHTML = lines.join('<br>');
+  tip.style.left = `${x + 16}px`; tip.style.top = `${y + 16}px`;
+  tip.hidden = false;
 }
 
 function nextUnit() {
@@ -500,6 +559,7 @@ function endTurn() {
   closeModal();
   mode = null;
   const before = snapshot();
+  Sound.sfx.endTurn();
   playAITurns(s);
   G.endRound(s);
   save();
@@ -509,12 +569,64 @@ function endTurn() {
   if (!me().research && G.availableTechs(s, 0).length) toast('Choisissez une recherche (T).');
   const props = s.proposals.filter((p) => p.to === 0).length;
   if (props) toast(`${props} proposition(s) diplomatique(s) en attente.`);
-  if (s.congress?.status === 'open' && s.congress.votes[0] === undefined) showCongress();
+  if (s.congress?.status === 'open' && s.congress.votes[0] === undefined) { Sound.sfx.congress(); showCongress(); }
 }
 
 // ---------------------------------------------------------------- modales
-function openModal(html) { const m = $('#modal'); m.innerHTML = html; m.hidden = false; m.querySelector('button, select, input')?.focus(); }
-function closeModal() { const m = $('#modal'); m.hidden = true; m.innerHTML = ''; if (s) renderTutorial(); }
+let lastFocus = null;
+function openModal(html) {
+  const m = $('#modal');
+  if (m.hidden) lastFocus = document.activeElement;
+  m.innerHTML = html; m.hidden = false; m.querySelector('button, select, input')?.focus();
+}
+function closeModal() {
+  const m = $('#modal'); m.hidden = true; m.innerHTML = '';
+  if (s) renderTutorial();
+  if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+  lastFocus = null;
+}
+// Piège à focus : Tab reste dans la fenêtre ouverte.
+document.addEventListener('keydown', (e) => {
+  const m = $('#modal');
+  if (e.key !== 'Tab' || m.hidden) return;
+  const items = [...m.querySelectorAll('button:not([disabled]), input, select, [tabindex]:not([tabindex="-1"])')];
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
+// ------------------------------------------------------------ encyclopédie
+function showEncyclopedia(tab = 'buildings') {
+  const tabs = { buildings: 'Bâtiments', units: 'Unités', techs: 'Technologies', resources: 'Ressources', rules: 'Règles' };
+  const cost = (c) => Object.entries(c || {}).map(([k, v]) => `${v} ${data.resources[k].name}`).join(', ');
+  let body = '';
+  if (tab === 'buildings') {
+    body = data.buildings.map((d) => `<div class="enc-item"><div class="vhead"><b>${d.name}${d.wonder ? ' <span class="tag warn">Merveille</span>' : ''}${d.footprint ? ' <span class="tag">2×2</span>' : ''}</b><span class="muted">${d.tech ? G.techDef(s, d.tech).name : 'Disponible'}</span></div>
+      <div class="muted">${d.desc}</div><div class="enc-line">Coût : ${cost(d.cost)} · ${d.turns} tour(s)${d.upkeep ? ` · entretien ${d.upkeep} Or` : ''}</div>
+      <div class="enc-line">${d.process ? `Transforme ${G.fmtBundle(s, d.process.in)} en ${G.fmtBundle(s, d.process.out)}` : chipsText(d.yields) || '—'}${d.prestige ? ` · +${d.prestige} prestige` : ''}</div>
+      <div class="enc-line">Terrain : ${d.terrain.map((k) => data.terrain[k].name).join(', ')}${d.coastal ? ' (côtier)' : ''}${d.perCity ? ` · max ${d.perCity} par ville` : ''}</div>
+      ${d.adjacency ? `<div class="enc-line good">Adjacence : ${describeAdjacency(d)}</div>` : ''}</div>`).join('');
+  } else if (tab === 'units') {
+    body = data.units.map((d) => `<div class="enc-item"><div class="vhead"><b>${d.name}</b><span class="muted">${d.tech ? G.techDef(s, d.tech).name : 'Disponible'}</span></div>
+      <div class="muted">${d.desc}</div><div class="enc-line">Coût : ${cost(d.cost)} · ${d.moves} mouvements · vision ${d.vision}${d.naval ? ' · naval' : ''}${d.flying ? ' · aérien' : ''}</div></div>`).join('');
+  } else if (tab === 'techs') {
+    body = Object.entries(BRANCHES).map(([k, v]) => `<div class="stock-group">${v}</div>` + data.techs.filter((t) => t.branch === k).map((t) => `<div class="enc-item"><div class="vhead"><b>${t.name}</b><span class="muted">${t.cost} science · palier ${t.tier}</span></div><div class="muted">${t.desc}${t.requires.length ? ` · requiert ${t.requires.map((r) => G.techDef(s, r).name).join(', ')}` : ''}</div></div>`).join('')).join('');
+  } else if (tab === 'resources') {
+    body = Object.entries(data.resources).map(([k, r]) => `<div class="enc-item"><div class="vhead"><b><i class="dot" style="display:inline-block;background:${r.color}"></i> ${r.name}</b><span class="muted">valeur d'échange ${r.tradeValue}</span></div>${r.desc ? `<div class="muted">${r.desc}</div>` : ''}</div>`).join('')
+      + `<div class="stock-group">Terrains</div>` + Object.values(data.terrain).map((t) => `<div class="enc-item"><b>${t.name}</b> <span class="muted">· ${t.passable ? `déplacement ${t.move}` : 'impraticable'}</span></div>`).join('');
+  } else {
+    const R = data.rules;
+    body = `<div class="enc-item"><b>Victoire</b><div class="muted">Premier à ${R.prestigeTarget} prestige, ou une voie complète : Science (Observatoire Céleste + ${R.victory.scienceTechs} technologies), Culture (Amphithéâtre + ${R.victory.cultureTotal} culture), Économie (Grande Bourse + ${R.victory.economyGold} Or), Diplomatie (élu ${R.victory.secretaryWins} fois Secrétaire avec un allié, ou allié de tous). Sinon, meilleur prestige au tour ${R.turnLimit}.</div></div>
+      <div class="enc-item"><b>Paliers de population</b><div class="muted">${R.tiers.map((t) => `${t.name}${t.minPop ? ` (${t.minPop} hab., ${G.fmtBundle(s, t.needs)} / tour)` : ''}`).join(' → ')}</div></div>
+      <div class="enc-item"><b>Diplomatie</b><div class="muted">Voisins méfiants : ${Math.round(R.malus.waryPct * 100)} % de productivité, hostiles : ${Math.round(R.malus.hostilePct * 100)} %. Alliance : +${Math.round(R.alliance.pct * 100)} % Or, Science, Culture. Accord commercial : +${R.tradeAgreement.gold} Or/tour.</div></div>
+      <div class="enc-item"><b>Congrès mondial</b><div class="muted">Tous les ${R.congress.every} tours : une résolution (durée ${R.congress.duration} tours) et l'élection du Secrétaire (+${R.congress.secretaryPrestige} prestige).</div></div>
+      <div class="enc-item"><b>Marché</b><div class="muted">La Halle marchande vend à ${Math.round(R.market.baseRate * 100)} % de la valeur ; le prix baisse si l'on vend beaucoup et remonte de ${Math.round(R.market.recovery * 100)} points par tour.</div></div>`;
+  }
+  openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Encyclopédie"><header><h2>Encyclopédie</h2><button class="btn" data-action="close">Fermer</button></header>
+    <div class="tabs" role="tablist">${Object.entries(tabs).map(([k, v]) => `<button class="tab" role="tab" aria-selected="${k === tab}" data-action="enc-tab" data-tab="${k}">${v}</button>`).join('')}</div>
+    <div class="enc-body">${body}</div></div>`);
+}
 
 function showTech() {
   const p = me();
@@ -620,12 +732,19 @@ function showMenu() {
       <button class="btn small" data-action="save-slot" data-slot="${x.key}">${x.empty ? 'Sauvegarder' : 'Écraser'}</button></div>`).join('')}
     <div class="section-title" style="margin-top:16px"><span>Fichier</span></div>
     <div class="actions"><button class="btn small" data-action="export">Exporter la partie (.json)</button><button class="btn small" data-action="import">Importer une partie</button></div>
+    <div class="section-title" style="margin-top:16px"><span>Options</span></div>
+    <div class="actions"><button class="btn small" data-action="toggle-confirm" aria-pressed="${confirmMoves}">Confirmation des déplacements : ${confirmMoves ? 'activée' : 'désactivée'}</button>
+      <button class="btn small" data-action="toggle-sound" aria-pressed="${Sound.soundEnabled()}">Sons : ${Sound.soundEnabled() ? 'activés' : 'coupés'}</button>
+      <button class="btn small" data-action="toggle-daynight" aria-pressed="${renderer.dayNight}">Cycle jour / nuit : ${renderer.dayNight ? 'activé' : 'désactivé'}</button></div>
+    <label class="field" style="margin-top:10px;max-width:260px">Volume<input type="range" min="0" max="1" step="0.05" value="${Sound.soundVolume()}" id="f-volume"></label>
+    <div class="actions"><button class="btn small" data-action="encyclopedia">Encyclopédie (E)</button></div>
     <div class="section-title" style="margin-top:16px"><span>Partie</span></div>
     <div class="actions"><button class="btn small" data-action="tuto-restart">${s.tutorial?.active ? 'Recommencer le tutoriel' : 'Relancer le tutoriel'}</button><button class="btn small" data-action="new-game">Retour à l'accueil</button></div>
     <p class="muted" style="font-size:12.5px;margin:14px 0 0">La partie est aussi sauvegardée automatiquement à chaque tour dans ce navigateur.</p></div>`);
 }
 
 function showEnd() {
+  if (s.winner?.pid === 0) Sound.sfx.victory();
   const ranked = [...s.players].sort((a, b) => b.prestige - a.prestige);
   const won = s.winner.pid === 0;
   openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Fin de partie" style="width:min(520px,100%)">
@@ -644,6 +763,7 @@ function onAction(e) {
   }
   const id = Number(b.dataset.id);
   const a = b.dataset.action;
+  if (!['end-turn', 'train', 'sell'].includes(a)) Sound.sfx.click();
   switch (a) {
     case 'end-turn': endTurn(); break;
     case 'tech': showTech(); break;
@@ -653,11 +773,18 @@ function onAction(e) {
     case 'mode-build': setMode(mode?.type === 'build' && mode.id === b.dataset.id ? null : { type: 'build', id: b.dataset.id }); break;
     case 'mode-road': setMode(mode?.type === 'road' ? null : { type: 'road' }); break;
     case 'found': foundSelected(); break;
+    case 'confirm-move': { const u = s.units.find((x) => x.id === pendingMove?.uid); if (u) executeMove(u, pendingMove.x, pendingMove.y); break; }
+    case 'cancel-move': pendingMove = null; renderSelection(); renderHighlights(); break;
+    case 'toggle-sound': Sound.setSound(!Sound.soundEnabled()); showMenu(); break;
+    case 'toggle-daynight': renderer.dayNight = !renderer.dayNight; try { localStorage.setItem('expandto.daynight', renderer.dayNight ? '1' : '0'); } catch { /* ignore */ } if (!renderer.dayNight) renderer.resetLight(); showMenu(); break;
+    case 'encyclopedia': showEncyclopedia(); break;
+    case 'enc-tab': showEncyclopedia(b.dataset.tab); break;
+    case 'toggle-confirm': confirmMoves = !confirmMoves; try { localStorage.setItem('expandto.confirmMoves', confirmMoves ? '1' : '0'); } catch { /* ignore */ } showMenu(); break;
     case 'cancel-order': { const u = s.units.find((x) => x.id === sel.id); if (u) u.target = null; renderAll(); break; }
     case 'next-unit': nextUnit(); break;
     case 'train': {
       const r = G.train(s, 0, sel.id, b.dataset.unit);
-      if (!r.ok) toast(r.reason, 'bad'); else { toast(`${G.unitDef(s, r.unit.type).name} formé.`, 'good'); sel = { kind: 'unit', id: r.unit.id }; }
+      if (!r.ok) toast(r.reason, 'bad'); else { toast(`${G.unitDef(s, r.unit.type).name} formé.`, 'good'); Sound.sfx.train(); sel = { kind: 'unit', id: r.unit.id }; }
       refreshWorld(); save(); break;
     }
     case 'research': { const r = G.setResearch(s, 0, b.dataset.id); if (!r.ok) toast(r.reason, 'bad'); showTech(); renderAll(); save(); break; }
@@ -744,12 +871,18 @@ function bindInput() {
     const i = renderer.pick(e.clientX, e.clientY);
     if (i !== null) handleTileClick(i, e.shiftKey);
   });
+  canvas.addEventListener('pointerleave', () => { $('#tiptile').hidden = true; });
+  canvas.addEventListener('pointerdown', () => { $('#tiptile').hidden = true; });
+  document.addEventListener('input', (e) => { if (e.target.id === 'f-volume') Sound.setVolume(Number(e.target.value)); });
   canvas.addEventListener('pointermove', (e) => {
     if (!s) return;
+    const tip = $('#tiptile');
+    if (!tip.hidden) { tip.style.left = `${e.clientX + 16}px`; tip.style.top = `${e.clientY + 16}px`; }
     const i = renderer.pick(e.clientX, e.clientY);
     if (i === hoverIdx) return;
     hoverIdx = i;
     renderer.setCursor(i, 'hover');
+    showTileTip(i, e.clientX, e.clientY);
     if (mode && i !== null) {
       const t = s.map.tiles[i];
       const r = mode.type === 'build' ? G.canBuild(s, 0, mode.id, t.x, t.y) : G.canRoad(s, 0, t.x, t.y);
@@ -765,7 +898,7 @@ function bindInput() {
   window.addEventListener('keydown', (e) => {
     if (!s || e.target.matches('input, select, textarea')) return;
     const modalOpen = !$('#modal').hidden;
-    if (e.key === 'Escape') { if (modalOpen) closeModal(); else if (mode) setMode(null); else select(null); return; }
+    if (e.key === 'Escape') { if (modalOpen) closeModal(); else if (pendingMove) { pendingMove = null; renderSelection(); renderHighlights(); } else if (mode) setMode(null); else select(null); return; }
     if (modalOpen) return;
     if (e.key === 'Enter') { e.preventDefault(); endTurn(); }
     else if (e.key === ' ') { e.preventDefault(); nextUnit(); }
@@ -774,6 +907,7 @@ function bindInput() {
     else if (e.key === 't' || e.key === 'T') showTech();
     else if (e.key === 'd' || e.key === 'D') showDiplo();
     else if (e.key === 'm' || e.key === 'M') showMenu();
+    else if (e.key === 'e' || e.key === 'E') showEncyclopedia();
     else if (e.key === 'a' || e.key === 'A') { showAdjacency = !showAdjacency; renderBuildbar(); renderHighlights(); }
   });
 }
