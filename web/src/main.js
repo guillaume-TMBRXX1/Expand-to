@@ -3,6 +3,7 @@ import * as G from './core/game.js';
 import * as D from './core/diversity.js';
 import * as W from './core/world.js';
 import * as ECO from './core/economy.js';
+import * as SUM from './core/summits.js';
 import { playAITurns } from './core/ai.js';
 import { Renderer } from './render/renderer.js';
 import { avatarSVG } from './ui/avatar.js';
@@ -336,7 +337,7 @@ function setSide(open) {
 }
 function updateSideBadge() {
   const n = s.proposals.filter((p) => p.to === 0).length + myEvents().length + myContracts().filter((c) => c.status === 'offered').length
-    + (s.congress?.status === 'open' && s.congress.votes[0] === undefined ? 1 : 0) + (crisisPending() ? 1 : 0);
+    + (s.congress?.status === 'open' && s.congress.votes[0] === undefined ? 1 : 0) + (crisisPending() ? 1 : 0) + (expoPending() ? 1 : 0);
   const b = $('#side-badge');
   b.hidden = n === 0; b.textContent = n;
   const free = freePolicySlots();
@@ -361,6 +362,12 @@ function contractCards() {
       <p>Livrer <b>${c.qty} ${r.name}</b> (stock : ${have}). ${reward}.</p>
       <div class="row"><button class="btn small ${have >= c.qty ? 'primary' : ''}" data-action="contract-deliver" data-id="${c.id}" ${have >= c.qty ? '' : 'aria-disabled="true"'}>Livrer</button></div></div>`;
   }).join('');
+}
+const expoPending = () => s.expo && s.expo.status === 'open' && s.expo.entries[0] === undefined;
+function expoCard() {
+  if (!s.expo) return '';
+  const def = SUM.expoDef(s);
+  return `<div class="card proposal expo-card"><div class="event-head"><b>${esc(def.name)}</b><span class="muted">tour ${s.expo.turn}</span></div><p>${s.expo.entries[0] === undefined ? 'Candidatures et inscriptions ouvertes.' : 'Votre participation est enregistrée.'}</p><div class="row"><button class="btn small ${expoPending() ? 'primary' : ''}" data-action="expo">Voir</button></div></div>`;
 }
 function crisisCard() {
   if (!s.crisis) return '';
@@ -394,15 +401,17 @@ function renderSide() {
   $('#scoreboard').innerHTML = `<div class="section-title"><span>Prestige</span><span>${s.rules.prestigeTarget}</span></div>
     <div class="score-actions"><button class="btn small" data-action="victory">Voies de victoire</button>
     <button class="btn small ${congressOpen ? 'primary' : ''}" data-action="congress" title="Congrès mondial tous les ${s.rules.congress.every} tours">${congressOpen ? 'Voter au Congrès' : `Congrès · tour ${Math.ceil((s.turn + (s.turn % s.rules.congress.every === 0 ? 1 : 0)) / s.rules.congress.every) * s.rules.congress.every}`}</button></div>
+    ${(s.standards || []).map((st) => `<div class="resolution" title="${esc(s.rules.standards.find((d) => d.id === st.id).desc)}">Norme : ${esc(s.rules.standards.find((d) => d.id === st.id).name)} <span class="muted">${st.members.includes(0) ? '(signataire)' : `(${st.members.length} pays)`}</span></div>`).join('')}
     ${s.secretary !== null && s.secretary !== undefined ? `<div class="resolution">Secrétaire du Congrès : <b>${esc(s.players[s.secretary].name)}</b></div>` : ''}${resol}` + ranked.map((p) => `
     <div class="score-row" title="${Object.entries(p.prestigeBreakdown).map(([k, v]) => `${k} : ${v}`).join(' · ')}">
       ${avatar(p, 28)}<span>${esc(p.name)} <span class="muted">· ${data.profilesById[p.profile].name}</span></span><b>${p.prestige}</b>
       <div class="bar"><div style="width:${Math.min(100, (p.prestige / s.rules.prestigeTarget) * 100)}%;background:${p.color}"></div></div>
     </div>`).join('');
   const props = s.proposals.filter((p) => p.to === 0);
-  $('#proposals').innerHTML = crisisCard() + eventCards() + contractCards() + props.map((pr) => {
+  $('#proposals').innerHTML = crisisCard() + expoCard() + eventCards() + contractCards() + props.map((pr) => {
     const from = s.players[pr.from];
     const text = {
+      treaty: `<b>${esc(from.name)}</b> propose un <b>traité</b> de ${pr.payload.duration} tours : ${(pr.payload.clauses || []).map((c) => `<b>${s.rules.treaties.clauses[c].name}</b> (${s.rules.treaties.clauses[c].desc})`).join(' ; ')}. +${s.rules.treaties.relationPerTurn} relation par tour, +${s.rules.treaties.prestige} prestige.`,
       league: `<b>${esc(from.name)}</b> vous invite dans la <b>Ligue marchande</b> : cotisation de ${s.rules.league.dues} Or par tour, +${s.rules.league.routeGold} Or et +${s.rules.league.routePrestige} prestige par route entre membres, ventes à la Halle +${Math.round(s.rules.league.sellBonus * 100)} %. Un conflit ouvert avec un membre ou un contrat non honoré vaut l'exclusion.`,
       promise: `<b>${esc(from.name)}</b> vous demande de <b>promettre</b> de ne plus fonder de ville près de ses frontières. Rompre une promesse coûte très cher (${s.rules.promise.breakPenalty} relation, et les autres l'apprennent).`,
       project: `<b>${esc(from.name)}</b>, votre allié, propose un <b>projet commun</b> : ${G.fmtBundle(s, s.rules.jointProject.cost)} chacun, puis +${s.rules.jointProject.prestige} prestige et ${chipsText(s.rules.jointProject.yields)} par tour pour les deux.`,
@@ -734,6 +743,7 @@ function endTurn() {
   if ((props || evs) && document.documentElement.classList.contains('compact')) setSide(true); // le tiroir s'ouvre quand une IA ou un événement vous sollicite
   if (s.congress?.status === 'open' && s.congress.votes[0] === undefined) { Sound.sfx.congress(); showCongress(); }
   else if (crisisPending()) { Sound.sfx.congress(); showCrisis(); }
+  else if (expoPending() && s.expo.turn - s.turn === s.rules.expos.bidLead) showExpo();
   const offers = myContracts().filter((c) => c.status === 'offered' && c.turn === s.turn).length;
   if (offers) toast(`${s.players[myContracts().find((c) => c.status === 'offered').from].name} vous propose un contrat.`);
 }
@@ -805,6 +815,9 @@ function showEncyclopedia(tab = 'buildings') {
       <div class="enc-item"><b>Contrats commerciaux</b><div class="muted">Une IA demande une livraison (${s.rules.contracts.duration} tours pour livrer) contre de l'Or, +${s.rules.contracts.relation} relation et +${s.rules.contracts.prestige} prestige. Un contrat accepté puis non honoré coûte ${s.rules.contracts.failRelation} relation.</div></div>
       <div class="enc-item"><b>Influence culturelle</b><div class="muted">Votre culture s'accumule en influence. À ${s.rules.influence.baseCost} points (+${s.rules.influence.costPerClaim} par case déjà annexée), votre territoire s'étend d'une case neutre voisine. Si votre culture dépasse ${s.rules.influence.flipFactor} fois celle d'un voisin, vous pouvez attirer une case de sa frontière (sans bâtiment, coût doublé, ${s.rules.influence.flipRelation} relation).</div></div>
       <div class="enc-item"><b>Crise mondiale</b><div class="muted">Vers le milieu de la partie, une crise frappe tous les pays. Un Congrès extraordinaire réunit les contributions (objectif ${s.rules.crisis.goalPerPlayer} Or par pays). Atteint : la crise s'arrête et les contributeurs gagnent du prestige. Manqué : elle dure ${s.rules.crisis.failTurns} tours, et personne ne paie.</div></div>
+      <div class="enc-item"><b>Traités</b><div class="muted">Deux pays signent pour ${R.treaties.durations.join(' ou ')} tours un traité avec les clauses de leur choix : ${Object.values(R.treaties.clauses).map((c) => `${c.name} (${c.desc.toLowerCase()})`).join(' ; ')}. Chaque traité donne +${R.treaties.relationPerTurn} relation par tour et +${R.treaties.prestige} prestige. Le rompre avant l'échéance coûte ${R.treaties.breakPenalty} relation. À l'échéance, on le renégocie.</div></div>
+      <div class="enc-item"><b>Expositions universelles et Jeux</b><div class="muted">Tous les ${R.expos.every} tours environ. Deux tours avant, on peut se porter candidat pour accueillir l'événement (hôte : +${R.expos.hostPrestige} prestige, +${R.expos.hostCulture} Culture) et choisir sa participation au concours (1er +${R.expos.winPrestige[0]} prestige, 2e +${R.expos.winPrestige[1]}). L'Exposition récompense l'industrie, les ressources rares et la science ; les Jeux, la population et la culture.</div></div>
+      <div class="enc-item"><b>Normes communes</b><div class="muted">À chaque Congrès, une norme est proposée. Elle entre en vigueur dès 2 signataires, et l'on peut y adhérer à un Congrès suivant : ${R.standards.map((d) => `${d.name} (${d.desc.toLowerCase()})`).join(' ; ')}</div></div>
       <div class="enc-item"><b>Marché mondial</b><div class="muted">Les cours sont communs à tous les joueurs : chaque vente fait baisser le cours, chaque achat le fait monter, et il revient peu à peu vers un niveau qui dépend de la rareté (nombre de producteurs). Avec une Halle marchande, on vend à ${Math.round(R.market.baseRate * 100)} % du cours et on achète avec une marge de ${Math.round((R.economy.buySpread - 1) * 100)} %, si un autre joueur produit la ressource.</div></div>
       <div class="enc-item"><b>Bulles et monopoles</b><div class="muted">De temps en temps, une ressource devient à la mode : son cours s'envole pendant quelques tours, puis la bulle éclate. Le seul producteur d'une ressource rare détient un monopole : il la vend ${Math.round(R.economy.monopolyBonus * 100)} % plus cher, les autres la paient plus cher, et il touche une part de leurs achats.</div></div>
       <div class="enc-item"><b>Ligue marchande</b><div class="muted">Une seule par partie (${G.techDef(s, R.league.tech).name}, ${G.fmtBundle(s, R.league.foundCost)}). Cotisation de ${R.league.dues} Or par tour. Les routes entre membres rapportent +${R.league.routeGold} Or et +${R.league.routePrestige} prestige, et les ventes à la Halle sont payées ${Math.round(R.league.sellBonus * 100)} % de plus. Un conflit ouvert entre membres (relation sous ${R.league.excludeBelow}), une cotisation impayée ou un contrat non honoré vaut l'exclusion.</div></div>`;
@@ -868,6 +881,16 @@ function showPolicies() {
     <div class="tech-grid">${list}</div></div>`);
 }
 
+function treatyForm(q) {
+  const T = s.rules.treaties;
+  if (!T) return '';
+  if (SUM.treatyBetween(s, 0, q.id)) return `<div class="treaty-row"><button class="btn small" data-action="treaty-break" data-id="${q.id}" title="Rompre avant l'échéance : ${T.breakPenalty} relation">Rompre le traité</button></div>`;
+  return `<details class="treaty-row"><summary>Proposer un traité</summary>
+    <div class="treaty-clauses">${Object.entries(T.clauses).map(([k, c]) => `<label class="check small" title="${esc(c.desc)}"><input type="checkbox" name="clause-${q.id}" value="${k}" ${k === 'tariffs' ? 'checked' : ''}> ${c.name}</label>`).join('')}</div>
+    <div class="row"><label class="field small">Durée <select id="treaty-dur-${q.id}">${T.durations.map((d) => `<option value="${d}">${d} tours</option>`).join('')}</select></label>
+    <button class="btn small" data-action="treaty-propose" data-id="${q.id}" title="Relation requise : ${T.baseRelation} + ${T.perClause} par clause">Proposer</button></div></details>`;
+}
+
 function leagueBox() {
   const L = s.rules.league, lg = s.league;
   const perks = `cotisation ${L.dues} Or/tour · +${L.routeGold} Or et +${L.routePrestige} prestige par route entre membres · ventes +${Math.round(L.sellBonus * 100)} %`;
@@ -901,7 +924,8 @@ function showDiplo() {
         ${all ? '<span class="tag good">Alliance</span>' : ''}${agr ? '<span class="tag good">Accord commercial</span>' : ''}
         ${routes ? `<span class="tag good">${routes} route(s)</span>` : ''}${nb ? '<span class="tag warn">Voisin</span>' : ''}
         ${G.hasEmbassy(s, 0, q.id) ? '<span class="tag good">Votre ambassade</span>' : ''}${G.hasEmbassy(s, q.id, 0) ? '<span class="tag neutral">Son ambassade</span>' : ''}
-        ${promised ? '<span class="tag warn">Promesse : pas de ville près de chez lui</span>' : ''}${ECO.inLeague(s, q.id) ? '<span class="tag good">Ligue marchande</span>' : ''}${nProj ? `<span class="tag good">${nProj} projet(s) commun(s)</span>` : ''}</div>
+        ${promised ? '<span class="tag warn">Promesse : pas de ville près de chez lui</span>' : ''}${ECO.inLeague(s, q.id) ? '<span class="tag good">Ligue marchande</span>' : ''}
+        ${(() => { const t = SUM.treatyBetween(s, 0, q.id); return t ? `<span class="tag good" title="${esc(t.clauses.map((c) => `${s.rules.treaties.clauses[c].name} : ${s.rules.treaties.clauses[c].desc}`).join('\n'))}">Traité jusqu'au tour ${t.until} : ${t.clauses.map((c) => s.rules.treaties.clauses[c].name).join(', ')}</span>` : ''; })()}${nProj ? `<span class="tag good">${nProj} projet(s) commun(s)</span>` : ''}</div>
       ${mem.length ? `<div class="memories"><div class="stock-group" style="margin-top:8px">Ce qu'il retient de vous</div>${mem.map((m) => `<div class="mem ${m.value < 0 ? 'bad' : 'good'}"><span>${esc(m.text)}</span><b>${m.value > 0 ? '+' : ''}${m.value}</b></div>`).join('')}</div>` : ''}
       <div class="actions">
         <button class="btn small" data-action="gift" data-id="${q.id}" ${me().res.gold < 25 ? 'disabled' : ''}>Offrir 25 Or</button>
@@ -910,6 +934,7 @@ function showDiplo() {
         ${all ? `<button class="btn small" data-action="project" data-id="${q.id}" ${nProj >= s.rules.jointProject.maxPerPair ? 'disabled' : ''} title="Coûte ${G.fmtBundle(s, s.rules.jointProject.cost)} à chacun : +${s.rules.jointProject.prestige} prestige et ${chipsText(s.rules.jointProject.yields)} par tour pour les deux">Projet commun</button>`
           : `<button class="btn small" data-action="alliance" data-id="${q.id}" title="Requiert Ambassades et relation ≥ ${pers?.allianceMin ?? s.rules.alliance.minRelation}">Alliance</button>`}
       </div>
+      ${treatyForm(q)}
       <div class="form-row">
         <label class="field">Je donne<span style="display:flex;gap:4px"><input type="number" min="1" value="20" id="give-amt-${q.id}" aria-label="Quantité donnée"><select id="give-res-${q.id}">${resOpts('wood')}</select></span></label>
         <label class="field">Contre<span style="display:flex;gap:4px"><input type="number" min="1" value="20" id="want-amt-${q.id}" aria-label="Quantité demandée"><select id="want-res-${q.id}">${resOpts('gold')}</select></span></label>
@@ -937,6 +962,9 @@ function showCongress() {
     <div class="section-title"><span>Résolution</span></div>
     <p style="margin:0 0 6px"><b>${def.name}</b>${c.target !== null ? ` — cible : <b>${esc(s.players[c.target].name)}</b>` : ''}</p><p class="muted" style="margin:0 0 10px;font-size:13.5px">${def.desc}</p>
     <div class="memories">${rows}</div>
+    ${c.standard ? (() => { const d = s.rules.standards.find((x) => x.id === c.standard); const st = (s.standards || []).find((x) => x.id === d.id); const member = st?.members.includes(0);
+      return `<div class="section-title" style="margin-top:14px"><span>Norme internationale</span></div><p style="margin:0 0 6px"><b>${esc(d.name)}</b> — ${esc(d.desc)}${st ? ` <span class="muted">(déjà en vigueur : ${st.members.map((m) => esc(s.players[m].name)).join(', ')})</span>` : ' <span class="muted">(il faut au moins 2 signataires)</span>'}</p>
+        ${open && !member ? '<label class="check"><input type="checkbox" id="join-standard" checked> Adhérer à cette norme</label>' : member ? '<p class="muted" style="margin:0">Vous en êtes déjà signataire.</p>' : ''}`; })() : ''}
     ${open ? `<div class="section-title" style="margin-top:14px"><span>Élection du Secrétaire (+${R.secretaryPrestige} prestige)</span></div>
       <div class="cands">${s.players.map((p) => `<label class="check"><input type="radio" name="secretary" value="${p.id}" ${p.id === 0 ? 'checked' : ''}> ${esc(p.name)} <span class="muted">· élu ${p.secretaryWins || 0} fois</span></label>`).join('')}</div>
       <div class="actions" style="margin-top:14px"><button class="btn primary" data-action="vote" data-yes="1">Voter pour la résolution</button><button class="btn" data-action="vote" data-yes="0">Voter contre</button></div>`
@@ -958,6 +986,23 @@ function showCrisis() {
     <div class="section-title"><span>Promesses des autres pays</span></div><div class="memories">${rows}</div>
     ${open ? `<div class="actions crisis-levels" style="margin-top:14px">${K.levels.map((l) => `<button class="btn ${l.id === 'modest' ? 'primary' : ''}" data-action="pledge" data-level="${l.id}" ${me().res.gold < l.gold ? 'aria-disabled="true"' : ''}><b>${l.name}</b>${l.gold ? ` · ${l.gold} Or · +${l.prestige} prestige` : ''}</button>`).join('')}</div>`
       : `<p style="margin-top:12px">${c.status === 'open' ? 'Votre promesse est enregistrée.' : c.status === 'resolved' ? `Crise surmontée (${c.total} Or réunis).` : `Contributions insuffisantes (${c.total} Or) : la crise dure jusqu'au tour ${c.until}.`}</p>`}
+  </div>`);
+}
+
+function showExpo() {
+  const e = s.expo, X = s.rules.expos;
+  if (!e) return;
+  const def = SUM.expoDef(s);
+  const bidders = e.bids.map((pid) => esc(s.players[pid].name)).join(', ') || 'aucun pour l\'instant';
+  const myEntry = e.entries[0];
+  openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="${esc(def.name)}" style="width:min(620px,100%)">
+    <header><div><h2>${esc(def.name)} · tour ${e.turn}</h2><div class="muted" style="font-size:13px">${esc(def.desc)}</div></div><button class="btn" data-action="close">Fermer</button></header>
+    <div class="section-title"><span>Accueillir l'événement</span></div>
+    <p style="margin:0 0 8px;font-size:13.5px">L'hôte gagne +${X.hostPrestige} prestige et +${X.hostCulture} Culture. Caution : ${G.fmtBundle(s, X.bidCost)}, remboursée si un autre pays est choisi. Le vote se fait au tour ${e.turn}, chacun soutenant le candidat qu'il apprécie le plus. Candidats : ${bidders}.</p>
+    ${e.bids.includes(0) ? '<p class="good" style="margin:0 0 8px">Vous êtes candidat.</p>' : `<button class="btn" data-action="expo-bid" ${G.canAfford(s, 0, X.bidCost) ? '' : 'aria-disabled="true"'}>Se porter candidat (${G.fmtBundle(s, X.bidCost)})</button>`}
+    <div class="section-title" style="margin-top:14px"><span>Concours</span></div>
+    <p style="margin:0 0 8px;font-size:13.5px">Votre score actuel : <b>${SUM.expoScore(s, 0)}</b>. Premier : +${X.winPrestige[0]} prestige, deuxième : +${X.winPrestige[1]}. Participer rapproche aussi de l'hôte (+${X.hostRelation} relation). La participation est payée au tour ${e.turn}.</p>
+    <div class="actions crisis-levels">${X.levels.map((l) => `<button class="btn ${myEntry === l.id ? 'primary' : ''}" data-action="expo-enter" data-level="${l.id}" aria-pressed="${myEntry === l.id}" ${me().res.gold < l.gold ? 'aria-disabled="true"' : ''}><b>${l.name}</b>${l.gold ? ` · ${l.gold} Or · +${l.score} points` : ''}</button>`).join('')}</div>
   </div>`);
 }
 
@@ -1104,7 +1149,7 @@ function onAction(e) {
     case 'congress': showCongress(); break;
     case 'vote': {
       const cand = $('input[name="secretary"]:checked');
-      G.castCongressVote(s, 0, b.dataset.yes === '1', cand ? Number(cand.value) : null);
+      G.castCongressVote(s, 0, b.dataset.yes === '1', cand ? Number(cand.value) : null, !!$('#join-standard')?.checked);
       closeModal(); renderAll(); save();
       const c = s.congress;
       toast(`Résolution ${c.passed ? 'adoptée' : 'rejetée'}. ${c.secretary !== null ? `Secrétaire : ${s.players[c.secretary].name}.` : 'Pas de Secrétaire élu.'}`, c.passed ? 'good' : '');
@@ -1135,6 +1180,16 @@ function onAction(e) {
       if (!r.ok) toast(r.reason, 'bad'); else toast(`${r.qty} ${data.resources[b.dataset.res].name} achetés : −${r.gold} Or.`, 'good');
       renderTop(); renderStock(); save(); break;
     }
+    case 'treaty-propose': {
+      const clauses = [...document.querySelectorAll(`input[name="clause-${id}"]:checked`)].map((x) => x.value);
+      const r = SUM.proposeTreaty(s, 0, id, clauses, Number($(`#treaty-dur-${id}`).value));
+      toast(r.ok ? `Traité signé avec ${s.players[id].name}.` : r.reason || 'Refus.', r.ok ? 'good' : 'bad');
+      showDiplo(); renderAll(); save(); break;
+    }
+    case 'treaty-break': SUM.breakTreaty(s, 0, id); showDiplo(); renderAll(); save(); break;
+    case 'expo': showExpo(); break;
+    case 'expo-bid': { const r = SUM.bidExpo(s, 0); toast(r.ok ? 'Candidature déposée.' : r.reason, r.ok ? 'good' : 'bad'); showExpo(); renderAll(); save(); break; }
+    case 'expo-enter': { const r = SUM.enterExpo(s, 0, b.dataset.level); if (!r.ok && r.reason) toast(r.reason, 'bad'); showExpo(); renderAll(); save(); break; }
     case 'league-found': { const r = ECO.foundLeague(s, 0); toast(r.ok ? 'Ligue marchande fondée !' : r.reason, r.ok ? 'good' : 'bad'); showDiplo(); renderAll(); save(); break; }
     case 'league-invite': { const r = ECO.inviteToLeague(s, 0, id); toast(r.ok ? `${s.players[id].name} rejoint la Ligue.` : r.reason || 'Refus.', r.ok ? 'good' : 'bad'); showDiplo(); renderAll(); save(); break; }
     case 'league-leave': ECO.leaveLeague(s, 0); showDiplo(); renderAll(); save(); break;

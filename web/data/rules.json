@@ -721,5 +721,112 @@
     "routePrestige": 1,
     "minRelation": 15,
     "excludeBelow": -25
-  }
+  },
+  "treaties": {
+    "durations": [
+      10,
+      20
+    ],
+    "baseRelation": 5,
+    "perClause": 5,
+    "relationPerTurn": 0.4,
+    "prestige": 2,
+    "breakPenalty": -20,
+    "clauses": {
+      "noSettle": {
+        "name": "Frontières respectées",
+        "desc": "Aucun des deux ne fonde de ville près des villes de l'autre. Fonder malgré tout rompt le traité."
+      },
+      "techShare": {
+        "name": "Partage de technologie",
+        "desc": "Les technologies que l'autre connaît déjà coûtent 30 % de moins.",
+        "discount": 0.3
+      },
+      "tariffs": {
+        "name": "Tarifs préférentiels",
+        "desc": "+2 Or par route commerciale entre les deux signataires.",
+        "routeGold": 2
+      },
+      "cultural": {
+        "name": "Échanges culturels",
+        "desc": "+2 Culture par tour pour chacun.",
+        "culture": 2
+      }
+    }
+  },
+  "expos": {
+    "first": 15,
+    "every": 15,
+    "bidLead": 2,
+    "bidCost": {
+      "gold": 50
+    },
+    "levels": [
+      {
+        "id": "none",
+        "name": "Ne rien présenter",
+        "gold": 0,
+        "score": 0
+      },
+      {
+        "id": "stand",
+        "name": "Un stand",
+        "gold": 40,
+        "score": 15
+      },
+      {
+        "id": "pavilion",
+        "name": "Un grand pavillon",
+        "gold": 100,
+        "score": 35
+      }
+    ],
+    "hostPrestige": 12,
+    "hostCulture": 40,
+    "winPrestige": [
+      8,
+      4
+    ],
+    "hostRelation": 3,
+    "list": [
+      {
+        "id": "expo",
+        "name": "Exposition universelle",
+        "desc": "Les pays présentent leurs meilleurs produits. Le concours récompense l'industrie, la diversité des ressources rares et la science."
+      },
+      {
+        "id": "games",
+        "name": "Jeux mondiaux",
+        "desc": "Les pays envoient leurs athlètes. Le concours récompense la population et la culture."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "id": "metric",
+      "name": "Système métrique",
+      "desc": "+1 Or par route commerciale entre signataires.",
+      "routeGold": 1
+    },
+    {
+      "id": "postal",
+      "name": "Union postale",
+      "desc": "+0,5 relation par tour entre signataires.",
+      "relationPerTurn": 0.5
+    },
+    {
+      "id": "patents",
+      "name": "Brevets internationaux",
+      "desc": "+8 % Science pour les signataires.",
+      "yieldPct": {
+        "science": 0.08
+      }
+    },
+    {
+      "id": "timezones",
+      "name": "Heure universelle",
+      "desc": "+1 mouvement pour les caravanes et navires des signataires.",
+      "vehicleMoves": 1
+    }
+  ]
 }

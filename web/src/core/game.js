@@ -5,6 +5,7 @@ import { generateMap } from './mapgen.js';
 import { placeFeatures, onDiscover, exploreRuin, naturalYields, activeBuffs, activePolicies, eventsTick } from './diversity.js';
 import { contractsTick, influenceTick, crisisTick, crisisActive, crisisDef } from './world.js';
 import * as ECO from './economy.js';
+import * as SUM from './summits.js';
 
 export const RES = ['gold', 'food', 'wood', 'stone'];
 export const GOODS = ['planks', 'tools', 'goods'];
@@ -227,6 +228,7 @@ export function playerMods(s, pid) {
   for (const pol of activePolicies(s, pid)) apply(pol.effects);
   for (const b of activeBuffs(s, pid)) apply({ yieldPct: b.yieldPct });
   if (crisisActive(s)) apply({ yieldPct: crisisDef(s).yieldPct });
+  for (const st of SUM.standardsOf(s, pid)) if (st.yieldPct) apply({ yieldPct: st.yieldPct });
   // Bâtiments à effet global (une fois par type), ex. Relais des cartographes : +1 vision.
   const seenTypes = new Set();
   for (const b of s.buildings) {
@@ -317,6 +319,7 @@ export function foundCity(s, uid) {
   claimTerritory(s, city);
   s.units = s.units.filter((x) => x.id !== uid);
   log(s, `${p.name} fonde ${city.name}.`, null, u.owner === 0 ? 'good' : 'info');
+  SUM.onCityFounded(s, city);
   const upset = new Set();
   for (const other of s.cities) {
     if (other.owner !== u.owner && cheb(other.x, other.y, city.x, city.y) < s.rules.borderDistance - 1 && !upset.has(other.owner)) {
@@ -470,7 +473,8 @@ function spawnUnit(s, pid, type, x, y) {
   s.units.push(u);
   return u;
 }
-export const unitMaxMoves = (s, u) => unitDef(s, u.type).moves + playerMods(s, u.owner).moveBonus;
+export const unitMaxMoves = (s, u) => unitDef(s, u.type).moves + playerMods(s, u.owner).moveBonus
+  + (u.type === 'caravan' || u.type === 'ship' ? SUM.standardsOf(s, u.owner).reduce((a, st) => a + (st.vehicleMoves || 0), 0) : 0);
 export const unitVision = (s, u) => unitDef(s, u.type).vision + playerMods(s, u.owner).visionBonus;
 
 export function canTrain(s, pid, cityId, type) {
@@ -766,7 +770,8 @@ export function setResearch(s, pid, techId) {
 export function techCost(s, pid, techId) {
   const t = techDef(s, techId);
   const allyKnows = s.players.some((q) => q.id !== pid && isAllied(s, pid, q.id) && q.techs.includes(techId));
-  return Math.round(t.cost * (s.rules.techCostScale ?? 1) * (allyKnows ? 1 - s.rules.allyTechDiscount : 1));
+  const disc = Math.max(allyKnows ? s.rules.allyTechDiscount : 0, s.rules.treaties ? SUM.techShareDiscount(s, pid, techId) : 0);
+  return Math.round(t.cost * (s.rules.techCostScale ?? 1) * (1 - disc));
 }
 export function checkResearch(s, pid) {
   const p = s.players[pid];
@@ -944,6 +949,8 @@ export function applyDeal(s, from, to, kind, payload) {
     s.promises.push({ from: to, to: from, type: payload.type, turn: s.turn });
     remember(s, to, from, 'Promesse de ne pas s\'installer près de nous', s.rules.promise.keepBonus);
     log(s, `Vous promettez à ${A.name} de ne plus fonder de ville près de ses frontières.`, [from, to], 'good');
+  } else if (kind === 'treaty') {
+    SUM.signTreaty(s, from, to, payload.clauses, payload.duration);
   } else if (kind === 'league') {
     ECO.joinLeague(s, to);
   } else if (kind === 'project') {
@@ -964,7 +971,7 @@ export function respondProposal(s, propId, accept) {
     applyDeal(s, pr.from, pr.to, pr.kind, pr.payload);
   } else {
     const base = pr.kind === 'request' ? (isAllied(s, pr.from, pr.to) ? -12 : -8) : pr.kind === 'promise' ? s.rules.promise.declinePenalty : -3;
-    const label = { league: 'Invitation dans la Ligue refusée', request: 'Demande d\'aide refusée', promise: 'Promesse refusée', alliance: 'Alliance refusée', agreement: 'Accord refusé', exchange: 'Échange refusé', project: 'Projet commun refusé' }[pr.kind] || 'Proposition refusée';
+    const label = { treaty: 'Traité refusé', league: 'Invitation dans la Ligue refusée', request: 'Demande d\'aide refusée', promise: 'Promesse refusée', alliance: 'Alliance refusée', agreement: 'Accord refusé', exchange: 'Échange refusé', project: 'Projet commun refusé' }[pr.kind] || 'Proposition refusée';
     const v = remember(s, pr.to, pr.from, label, base);
     log(s, `Vous déclinez la proposition de ${s.players[pr.from].name} (${v} relation).`, [pr.to], 'bad');
   }
@@ -1032,13 +1039,14 @@ export function computeYields(s, pid) {
   }
   const nat = naturalYields(s, pid);
   add(nat.yields);
+  if (R.treaties) gross.culture += SUM.treatyCulture(s, pid);
   const connected = connectedToCapital(s, pid).length;
   gross.gold += connected * R.road.connectedCityGold;
   const myRoutes = s.tradeRoutes.filter((r) => r.a === pid || r.b === pid);
   const routes = myRoutes.length;
   const embargoed = activeResolutions(s).some((r) => r.id === 'embargo' && r.target === pid);
   const freeTrade = activeResolutions(s).some((r) => r.id === 'trade') ? R.congress.resolutions.trade.routeGold : 0;
-  if (!embargoed) gross.gold += myRoutes.reduce((a, r) => a + (r.sea ? R.seaRoute.gold : R.tradeRoute.gold) + freeTrade + (R.league && ECO.leagueRoute(s, r.a, r.b) ? R.league.routeGold : 0), 0);
+  if (!embargoed) gross.gold += myRoutes.reduce((a, r) => a + (r.sea ? R.seaRoute.gold : R.tradeRoute.gold) + freeTrade + (R.league && ECO.leagueRoute(s, r.a, r.b) ? R.league.routeGold : 0) + (R.treaties ? SUM.treatyRouteGold(s, r.a, r.b) : 0) + SUM.sharedStandard(s, r.a, r.b, 'routeGold'), 0);
   for (const pj of s.projects || []) if (pj.a === pid || pj.b === pid) add(R.jointProject.yields);
   const agreements = s.agreements.filter((r) => r.a === pid || r.b === pid).length;
   gross.gold += agreements * R.tradeAgreement.gold;
@@ -1104,6 +1112,7 @@ export function computePrestige(s, pid) {
   }
   b.diplomatie += (s.projects || []).filter((pj) => pj.a === pid || pj.b === pid).length * s.rules.jointProject.prestige;
   if (s.secretary === pid) b.diplomatie += s.rules.congress.secretaryPrestige;
+  if (s.rules.treaties) b.diplomatie += SUM.treatiesOf(s, pid).length * s.rules.treaties.prestige;
   const embP = playerMods(s, pid).embassyPrestige;
   if (embP) b.diplomatie += (s.embassies || []).filter((e) => e.from === pid).length * embP;
   const lux = activeLuxuries(s, pid).length;
@@ -1115,6 +1124,7 @@ export function computePrestige(s, pid) {
   for (const [k, v] of Object.entries(p.bonusPrestige || {})) b[k] = (b[k] || 0) + v;
   const per = playerMods(s, pid).buildingPrestigePer;
   if (per) b.monuments += Math.floor(s.buildings.filter((x) => x.owner === pid && !x.turnsLeft && !buildingDef(s, x.type).wonder).length / per);
+  for (const k of Object.keys(b)) b[k] = Math.round(b[k]); // prestige toujours entier
   const total = Object.values(b).reduce((a, v) => a + v, 0);
   return { total, breakdown: b };
 }
@@ -1196,6 +1206,8 @@ export function endRound(s) {
     for (const [w, owner] of Object.entries(s.wonders)) {
       if (owner === a || owner === b) d += (buildingDef(s, w).relationPerTurn || 0);
     }
+    if (SUM.treatyBetween(s, a, b)) d += R.treaties.relationPerTurn;
+    d += SUM.sharedStandard(s, a, b, 'relationPerTurn');
     for (const bd of s.buildings) { // Chancellerie
       if ((bd.owner === a || bd.owner === b) && !bd.turnsLeft && !buildingDef(s, bd.type).wonder) d += buildingDef(s, bd.type).relationPerTurn || 0;
     }
@@ -1215,6 +1227,8 @@ export function endRound(s) {
   eventsTick(s);
   contractsTick(s);
   crisisTick(s);
+  SUM.treatiesTick(s);
+  SUM.exposTick(s);
   if (s.congress && s.congress.status === 'open') resolveCongress(s); // vote humain non exprimé : abstention
   for (const p of s.players) {
     const pr = computePrestige(s, p.id);
@@ -1253,8 +1267,9 @@ function openCongress(s) {
   const ids = Object.keys(R.resolutions);
   const id = ids[s.rng.int(ids.length)];
   const leader = [...s.players].sort((a, b) => b.prestige - a.prestige)[0];
-  s.congress = { turn: s.turn, id, target: R.resolutions[id].targeted ? leader.id : null, votes: {}, secretaryVotes: {}, status: 'open' };
-  for (const p of s.players) if (!p.isHuman) aiCongressVote(s, p.id);
+  const std = SUM.nextStandard(s);
+  s.congress = { turn: s.turn, id, target: R.resolutions[id].targeted ? leader.id : null, votes: {}, secretaryVotes: {}, status: 'open', standard: std?.id || null, standardVotes: {} };
+  for (const p of s.players) if (!p.isHuman) { aiCongressVote(s, p.id); if (std) s.congress.standardVotes[p.id] = SUM.aiJoinsStandard(s, p.id); }
   log(s, `Le Congrès mondial se réunit : « ${R.resolutions[id].name} »${s.congress.target !== null ? ` (cible : ${s.players[s.congress.target].name})` : ''} et élection du Secrétaire.`, null, 'warn');
   if (!s.players.some((p) => p.isHuman)) resolveCongress(s);
 }
@@ -1281,9 +1296,10 @@ function aiCongressVote(s, pid) {
   c.secretaryVotes[pid] = best;
 }
 
-export function castCongressVote(s, pid, yes, candidate) {
+export function castCongressVote(s, pid, yes, candidate, joinStandard = false) {
   if (!s.congress || s.congress.status !== 'open') return { ok: false };
   s.congress.votes[pid] = yes;
+  if (s.congress.standard) s.congress.standardVotes[pid] = !!joinStandard;
   if (candidate !== undefined && candidate !== null) s.congress.secretaryVotes[pid] = candidate;
   resolveCongress(s);
   return { ok: true };
@@ -1312,6 +1328,8 @@ function resolveCongress(s) {
     s.secretary = null;
     log(s, 'Aucun Secrétaire élu : égalité des voix.', null, 'info');
   }
+  SUM.resolveStandard(s, c);
+  s.congressCount = (s.congressCount || 0) + 1;
   c.status = 'closed';
   c.secretary = s.secretary;
 }

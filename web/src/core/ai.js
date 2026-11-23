@@ -3,6 +3,7 @@ import * as G from './game.js';
 import { aiPolicies } from './diversity.js';
 import { aiAbility } from './world.js';
 import { aiMarket, aiLeague } from './economy.js';
+import { aiTreaties } from './summits.js';
 
 // Paramètres de l'IA : web/data/ai.json, éventuellement surchargés par joueur (s.aiOverrides[pid]) pour l'entraînement.
 function merge(a, b) {
@@ -37,6 +38,7 @@ function aiTurn(s, pid) {
   sellSurplus(s, pid);
   aiMarket(s, pid);
   aiLeague(s, pid);
+  aiTreaties(s, pid);
   diplomacy(s, pid);
 }
 
