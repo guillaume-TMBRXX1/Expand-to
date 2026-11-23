@@ -5,8 +5,12 @@
   "type": "module",
   "description": "Expand-to — jeu de stratégie, gestion et diplomatie au tour par tour (prototype).",
   "scripts": {
-    "dev": "python3 -m http.server 8000 --directory web",
+    "start": "node tools/serve.mjs",
+    "dev": "node tools/serve.mjs",
     "sim": "node tools/sim.mjs 10",
     "test:py": "cd python && python3 -m pytest -q"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
