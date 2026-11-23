@@ -205,7 +205,6 @@ function buildRoads(s, pid) {
     for (const i of path) {
       const t = s.map.tiles[i];
       if (t.road === pid || G.cityAt(s, t.x, t.y)) continue;
-      if (G.buildingAt(s, t.x, t.y)) break;
       if (G.buildRoad(s, pid, t.x, t.y).ok) return;
       break;
     }
