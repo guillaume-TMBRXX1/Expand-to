@@ -4,6 +4,7 @@ import * as D from './core/diversity.js';
 import * as W from './core/world.js';
 import * as ECO from './core/economy.js';
 import * as SUM from './core/summits.js';
+import * as CUL from './core/culture.js';
 import { playAITurns } from './core/ai.js';
 import { Renderer } from './render/renderer.js';
 import { avatarSVG } from './ui/avatar.js';
@@ -241,7 +242,7 @@ function renderTop() {
   });
   const research = p.research ? G.techDef(s, p.research) : null;
   items.push(`<span class="res" title="Science accumulée / coût de la recherche en cours"><i style="background:${resColor('science')}"></i><b>${research ? `<span class="res-research">${research.name}</span> ${fmt(p.sciencePool)}/${G.techCost(s, 0, research.id)}` : `${fmt(p.sciencePool)} · à choisir`}</b><small>${sign(y.net.science)}</small></span>`);
-  items.push(`<span class="res" title="Culture totale (1 prestige / ${s.rules.prestige.culturePerPoint}). Influence culturelle : ${Math.floor(p.influence || 0)} / ${W.influenceCost(s, 0)} pour annexer la prochaine case."><i style="background:${resColor('culture')}"></i><b>${fmt(p.cultureTotal)}</b><small>${sign(y.net.culture)}</small></span>`);
+  items.push(`<span class="res" title="Culture totale (1 prestige / ${s.rules.prestige.culturePerPoint}). Tourisme : ${y.tourism || 0} par tour. Influence culturelle : ${Math.floor(p.influence || 0)} / ${W.influenceCost(s, 0)} pour annexer la prochaine case."><i style="background:${resColor('culture')}"></i><b>${fmt(p.cultureTotal)}</b><small>${sign(y.net.culture)}</small></span>`);
   const stockTotal = [...G.GOODS, ...G.LUXURIES].reduce((a, k) => a + Math.floor(p.res[k] || 0), 0);
   items.push(`<button class="res res-btn" data-action="stock" title="Entrepôt : biens transformés et ressources rares" aria-expanded="${!$('#stock').hidden}"><i style="background:${resColor('goods')}"></i><b><span class="lbl-long">Entrepôt</span><span class="lbl-short">Stock</span></b><small>${stockTotal}</small></button>`);
   items.push(`<span class="res" title="Prestige — objectif de victoire"><i style="background:var(--accent)"></i><b>${p.prestige}<span class="pt-target"> / ${s.rules.prestigeTarget}</span></b><small class="lbl-long">prestige</small><small class="lbl-short">★</small></span>`);
@@ -399,7 +400,7 @@ function renderSide() {
   const resol = G.activeResolutions(s).map((r) => `<div class="resolution">${esc(s.rules.congress.resolutions[r.id].name)}${r.target !== null && r.target !== undefined ? ` · ${esc(s.players[r.target].name)}` : ''} <span class="muted">jusqu'au tour ${r.until}</span></div>`).join('');
   const congressOpen = s.congress?.status === 'open' && s.congress.votes[0] === undefined;
   $('#scoreboard').innerHTML = `<div class="section-title"><span>Prestige</span><span>${s.rules.prestigeTarget}</span></div>
-    <div class="score-actions"><button class="btn small" data-action="victory">Voies de victoire</button>
+    <div class="score-actions"><button class="btn small" data-action="victory">Voies de victoire</button><button class="btn small" data-action="culture" title="Œuvres d'art, patrimoine mondial, tourisme et défis scientifiques (C)">Culture</button>
     <button class="btn small ${congressOpen ? 'primary' : ''}" data-action="congress" title="Congrès mondial tous les ${s.rules.congress.every} tours">${congressOpen ? 'Voter au Congrès' : `Congrès · tour ${Math.ceil((s.turn + (s.turn % s.rules.congress.every === 0 ? 1 : 0)) / s.rules.congress.every) * s.rules.congress.every}`}</button></div>
     ${(s.standards || []).map((st) => `<div class="resolution" title="${esc(s.rules.standards.find((d) => d.id === st.id).desc)}">Norme : ${esc(s.rules.standards.find((d) => d.id === st.id).name)} <span class="muted">${st.members.includes(0) ? '(signataire)' : `(${st.members.length} pays)`}</span></div>`).join('')}
     ${s.secretary !== null && s.secretary !== undefined ? `<div class="resolution">Secrétaire du Congrès : <b>${esc(s.players[s.secretary].name)}</b></div>` : ''}${resol}` + ranked.map((p) => `
@@ -691,6 +692,7 @@ function showTileTip(i, x, y) {
   if (t.river && !b && !c) lines.push(`<span class="muted">Rivière : +${s.rules.river.buildingYield.gold} Or au bâtiment construit ici, Moulin à eau possible</span>`);
   if (t.natural) { const nd = D.naturalDef(s, t.natural); lines.push(`<span class="chip yield">Merveille naturelle : ${nd.name}</span>`, `<span class="muted">${chipsText(nd.yields)} pour le territoire qui l'englobe · +${s.rules.naturalWonders.ownedPrestige} prestige · ${chipsText(s.rules.naturalWonders.adjacency)} aux bâtiments voisins</span>`); }
   if (t.ruin) lines.push('<span class="chip yield">Ruines antiques : envoyez une unité les fouiller</span>');
+  if (CUL.isHeritage(s, t.x, t.y)) lines.push('<span class="chip yield">Patrimoine mondial</span>');
   if (t.luxury && !b) lines.push(`<span class="chip yield"><i style="background:${resColor(t.luxury)}"></i>${data.resources[t.luxury].name} (ressource rare)</span>`);
   if (b) {
     const def = G.buildingDef(s, b.type);
@@ -815,6 +817,9 @@ function showEncyclopedia(tab = 'buildings') {
       <div class="enc-item"><b>Contrats commerciaux</b><div class="muted">Une IA demande une livraison (${s.rules.contracts.duration} tours pour livrer) contre de l'Or, +${s.rules.contracts.relation} relation et +${s.rules.contracts.prestige} prestige. Un contrat accepté puis non honoré coûte ${s.rules.contracts.failRelation} relation.</div></div>
       <div class="enc-item"><b>Influence culturelle</b><div class="muted">Votre culture s'accumule en influence. À ${s.rules.influence.baseCost} points (+${s.rules.influence.costPerClaim} par case déjà annexée), votre territoire s'étend d'une case neutre voisine. Si votre culture dépasse ${s.rules.influence.flipFactor} fois celle d'un voisin, vous pouvez attirer une case de sa frontière (sans bâtiment, coût doublé, ${s.rules.influence.flipRelation} relation).</div></div>
       <div class="enc-item"><b>Crise mondiale</b><div class="muted">Vers le milieu de la partie, une crise frappe tous les pays. Un Congrès extraordinaire réunit les contributions (objectif ${s.rules.crisis.goalPerPlayer} Or par pays). Atteint : la crise s'arrête et les contributeurs gagnent du prestige. Manqué : elle dure ${s.rules.crisis.failTurns} tours, et personne ne paie.</div></div>
+      <div class="enc-item"><b>Défis scientifiques</b><div class="muted">Objectifs ouverts à tous : le premier qui en remplit un gagne du prestige et de la Science. ${R.challenges.map((c) => `${c.name} (${c.desc.toLowerCase().replace(/\.$/, '')})`).join(' ; ')}.</div></div>
+      <div class="enc-item"><b>Œuvres d'art</b><div class="muted">Elles se commandent dans la fenêtre Culture (touche C) et s'exposent dans un Théâtre, un Monument, un Quartier des arts ou l'Amphithéâtre. Chacune rapporte de la Culture et du tourisme, et peut être prêtée à un voisin (${R.artworks.loanTurns} tours, +${R.artworks.loanRelation} relation, loyer de ${R.artworks.loanRent} Or par tour).</div></div>
+      <div class="enc-item"><b>Patrimoine mondial et tourisme</b><div class="muted">Un site classé est protégé contre l'influence des voisins et attire des visiteurs. Le tourisme vient des merveilles naturelles, des merveilles, des théâtres, des œuvres, du patrimoine et du rayonnement culturel. Il rapporte ${R.tourism.goldPerPoint} Or par point et par tour, et 1 prestige tous les ${R.tourism.prestigePer} points cumulés.</div></div>
       <div class="enc-item"><b>Traités</b><div class="muted">Deux pays signent pour ${R.treaties.durations.join(' ou ')} tours un traité avec les clauses de leur choix : ${Object.values(R.treaties.clauses).map((c) => `${c.name} (${c.desc.toLowerCase()})`).join(' ; ')}. Chaque traité donne +${R.treaties.relationPerTurn} relation par tour et +${R.treaties.prestige} prestige. Le rompre avant l'échéance coûte ${R.treaties.breakPenalty} relation. À l'échéance, on le renégocie.</div></div>
       <div class="enc-item"><b>Expositions universelles et Jeux</b><div class="muted">Tous les ${R.expos.every} tours environ. Deux tours avant, on peut se porter candidat pour accueillir l'événement (hôte : +${R.expos.hostPrestige} prestige, +${R.expos.hostCulture} Culture) et choisir sa participation au concours (1er +${R.expos.winPrestige[0]} prestige, 2e +${R.expos.winPrestige[1]}). L'Exposition récompense l'industrie, les ressources rares et la science ; les Jeux, la population et la culture.</div></div>
       <div class="enc-item"><b>Normes communes</b><div class="muted">À chaque Congrès, une norme est proposée. Elle entre en vigueur dès 2 signataires, et l'on peut y adhérer à un Congrès suivant : ${R.standards.map((d) => `${d.name} (${d.desc.toLowerCase()})`).join(' ; ')}</div></div>
@@ -1006,6 +1011,41 @@ function showExpo() {
   </div>`);
 }
 
+function showCulture() {
+  const p = me(), A = s.rules.artworks, H = s.rules.heritage, T = s.rules.tourism;
+  const tour = CUL.tourismOf(s, 0);
+  const nextP = T.prestigePer - ((p.tourismTotal || 0) % T.prestigePer);
+  const slots = CUL.artSlots(s, 0), held = CUL.artworksHeld(s, 0);
+  const others = s.players.filter((q) => q.id !== 0);
+  const artRow = (a) => {
+    const K = A.kinds[a.kind];
+    const where = a.holder === a.owner ? (a.owner === 0 ? 'chez vous' : `chez ${esc(s.players[a.owner].name)}`) : a.owner === 0 ? `prêtée à ${esc(s.players[a.holder].name)} jusqu'au tour ${a.until}` : `prêtée par ${esc(s.players[a.owner].name)} jusqu'au tour ${a.until}`;
+    const lendable = a.owner === 0 && a.holder === 0;
+    return `<div class="mem"><span><b>« ${esc(a.name)} »</b> <span class="muted">${K.name.toLowerCase()} · +${K.culture} Culture · +${K.tourism} tourisme · ${where}</span></span>
+      ${lendable ? `<span class="lend"><select id="lend-to-${a.id}" aria-label="Prêter à">${others.map((q) => `<option value="${q.id}">${esc(q.name)}</option>`).join('')}</select><button class="btn small" data-action="art-lend" data-id="${a.id}" title="Prêt de ${A.loanTurns} tours : +${A.loanRelation} relation, loyer ${A.loanRent} Or par tour">Prêter</button></span>` : ''}</div>`;
+  };
+  const arts = (s.artworks || []).filter((a) => a.owner === 0 || a.holder === 0);
+  const cands = CUL.heritageCandidates(s, 0);
+  const chal = (s.rules.challenges || []).map((ch) => {
+    const w = s.challenges?.[ch.id];
+    return `<div class="mem"><span><b>${esc(ch.name)}</b> <span class="muted">${esc(ch.desc.replace(/\.$/, ''))} · +${ch.prestige} prestige, +${ch.science} Science</span><br><span class="muted">${w === undefined ? esc(CUL.challengeProgress(s, 0, ch)) : ''}</span></span><b class="${w === 0 ? 'good' : w !== undefined ? 'bad' : ''}">${w === undefined ? 'Ouvert' : w === 0 ? 'Remporté' : esc(s.players[w].name)}</b></div>`;
+  }).join('');
+  openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Culture et tourisme" style="width:min(760px,100%)">
+    <header><div><h2>Culture et tourisme</h2><div class="muted" style="font-size:13px">Tourisme : <b>${tour.total}</b> par tour (+${(tour.total * T.goldPerPoint).toFixed(1).replace('.0', '').replace('.', ',')} Or). Cumul ${Math.floor(p.tourismTotal || 0)} : 1 prestige tous les ${T.prestigePer}, prochain dans ${nextP}.</div></div><button class="btn" data-action="close">Fermer</button></header>
+    ${tour.parts.length ? `<div class="memories">${tour.parts.map(([k, v]) => `<div class="mem"><span>${k}</span><b>+${v}</b></div>`).join('')}</div>` : '<p class="muted">Aucun visiteur pour l\'instant : merveilles, théâtres, œuvres et patrimoine en attirent.</p>'}
+    <div class="section-title" style="margin-top:14px"><span>Œuvres d'art · ${held.length}/${slots} places</span></div>
+    <p class="muted" style="font-size:12.5px;margin:0 0 6px">Une œuvre s'expose dans un Théâtre (1 place), un Monument (1), un Quartier des arts (2) ou l'Amphithéâtre (2). Chaque œuvre possédée vaut +${A.prestige} prestige.</p>
+    <div class="actions crisis-levels">${Object.entries(A.kinds).map(([k, K]) => { const c = CUL.canCommission(s, 0, k); return `<button class="btn small" data-action="art-commission" data-kind="${k}" ${c.ok ? '' : 'aria-disabled="true"'} title="${esc(c.ok ? `+${K.culture} Culture, +${K.tourism} tourisme` : c.reason)}">Commander : ${K.name} · ${G.fmtBundle(s, K.cost)}</button>`; }).join('')}</div>
+    ${arts.length ? `<div class="memories" style="margin-top:8px">${arts.map(artRow).join('')}</div>` : ''}
+    <div class="section-title" style="margin-top:14px"><span>Patrimoine mondial</span></div>
+    <p class="muted" style="font-size:12.5px;margin:0 0 6px">Faire classer une merveille naturelle, une merveille, un monument ou un théâtre de votre territoire (${G.techDef(s, H.tech).name}, ${G.fmtBundle(s, H.cost)}, un classement tous les ${H.cooldown} tours) : la case est protégée contre l'influence des voisins, +${H.tourism} tourisme et +${H.prestige} prestige.</p>
+    ${CUL.heritageOf(s, 0).length ? `<div class="memories">${CUL.heritageOf(s, 0).map((h) => `<div class="mem"><span>${esc(h.name)}</span><b class="good">Classé</b></div>`).join('')}</div>` : ''}
+    <div class="actions crisis-levels">${cands.length ? cands.map((c) => { const ok = CUL.canClassify(s, 0, c.x, c.y); return `<button class="btn small" data-action="heritage" data-x="${c.x}" data-y="${c.y}" ${ok.ok ? '' : 'aria-disabled="true"'} title="${esc(ok.ok ? 'Faire classer' : ok.reason)}">Classer : ${esc(c.name)}</button>`; }).join('') : '<span class="muted">Aucun site éligible pour l\'instant.</span>'}</div>
+    <div class="section-title" style="margin-top:14px"><span>Défis scientifiques</span></div>
+    <div class="memories">${chal}</div>
+  </div>`);
+}
+
 function showVictory() {
   const rivals = s.players.filter((p) => p.id !== 0);
   const mine = G.victoryProgress(s, 0);
@@ -1127,6 +1167,10 @@ function onAction(e) {
       showDiplo(); renderAll(); save(); break;
     }
     case 'victory': showVictory(); break;
+    case 'culture': showCulture(); break;
+    case 'art-commission': { const r = CUL.commission(s, 0, b.dataset.kind); toast(r.ok ? `Œuvre commandée : « ${r.art.name} ».` : r.reason, r.ok ? 'good' : 'bad'); showCulture(); renderAll(); save(); break; }
+    case 'art-lend': { const r = CUL.lend(s, id, Number($(`#lend-to-${id}`).value)); if (!r.ok) toast(r.reason, 'bad'); showCulture(); renderAll(); save(); break; }
+    case 'heritage': { const r = CUL.classify(s, 0, Number(b.dataset.x), Number(b.dataset.y)); toast(r.ok ? 'Site inscrit au patrimoine mondial !' : r.reason, r.ok ? 'good' : 'bad'); showCulture(); refreshWorld(); save(); break; }
     case 'event-choice': {
       const r = D.resolveEvent(s, id, Number(b.dataset.choice));
       if (!r.ok) { toast(r.reason, 'bad'); break; }
@@ -1287,6 +1331,7 @@ function bindInput() {
     else if (e.key === 'r' || e.key === 'R') setMode(mode?.type === 'road' ? null : { type: 'road' });
     else if (e.key === 't' || e.key === 'T') showTech();
     else if (e.key === 'p' || e.key === 'P') showPolicies();
+    else if (e.key === 'c' || e.key === 'C') showCulture();
     else if (e.key === 'd' || e.key === 'D') showDiplo();
     else if (e.key === 'm' || e.key === 'M') showMenu();
     else if (e.key === 'e' || e.key === 'E') showEncyclopedia();

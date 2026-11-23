@@ -171,6 +171,7 @@ function candidates(s, pid) {
     let flip = false;
     if (t.owner !== -1) {
       if (G.cityAt(s, t.x, t.y) || G.buildingAt(s, t.x, t.y)) continue;
+      if ((s.heritage || []).some((h) => h.x === t.x && h.y === t.y)) continue; // patrimoine mondial : protégé
       if (G.citiesOf(s, t.owner).some((c) => G.cheb(c.x, c.y, t.x, t.y) <= 1)) continue;
       const mine = s.players[pid].lastYield?.net.culture || 0, theirs = s.players[t.owner].lastYield?.net.culture || 0;
       if (mine < Math.max(2, theirs * I.flipFactor)) continue;

@@ -828,5 +828,159 @@
       "desc": "+1 mouvement pour les caravanes et navires des signataires.",
       "vehicleMoves": 1
     }
-  ]
+  ],
+  "challenges": [
+    {
+      "id": "atlas",
+      "name": "Atlas du monde",
+      "desc": "Explorer 45 % de la carte.",
+      "explored": 0.45,
+      "prestige": 5,
+      "science": 10
+    },
+    {
+      "id": "encyclopedia",
+      "name": "Grande Encyclopédie",
+      "desc": "Connaître 8 technologies.",
+      "techCount": 8,
+      "prestige": 5,
+      "science": 15
+    },
+    {
+      "id": "academy",
+      "name": "Académie des sciences",
+      "desc": "Chimie et 3 bibliothèques.",
+      "techs": [
+        "chemistry"
+      ],
+      "buildings": {
+        "library": 3
+      },
+      "prestige": 6,
+      "science": 15
+    },
+    {
+      "id": "biglab",
+      "name": "Grand laboratoire",
+      "desc": "Méthode scientifique et 2 laboratoires.",
+      "techs": [
+        "method"
+      ],
+      "buildings": {
+        "lab": 2
+      },
+      "prestige": 7,
+      "science": 20
+    },
+    {
+      "id": "industry",
+      "name": "Révolution industrielle",
+      "desc": "2 forges et 2 manufactures.",
+      "buildings": {
+        "forge": 2,
+        "manufactory": 2
+      },
+      "prestige": 6,
+      "science": 15
+    },
+    {
+      "id": "sky",
+      "name": "Carte du ciel",
+      "desc": "Découvrir l'Astronomie.",
+      "techs": [
+        "astronomy"
+      ],
+      "prestige": 6,
+      "science": 20
+    }
+  ],
+  "artworks": {
+    "slots": {
+      "theatre": 1,
+      "monument": 1,
+      "artsquarter": 2,
+      "amphitheatre": 2
+    },
+    "kinds": {
+      "painting": {
+        "name": "Tableau",
+        "cost": {
+          "gold": 60
+        },
+        "culture": 2,
+        "tourism": 2
+      },
+      "sculpture": {
+        "name": "Sculpture",
+        "cost": {
+          "gold": 70,
+          "stone": 25
+        },
+        "culture": 3,
+        "tourism": 2
+      },
+      "opera": {
+        "name": "Opéra",
+        "cost": {
+          "gold": 110,
+          "planks": 15
+        },
+        "culture": 4,
+        "tourism": 3,
+        "tech": "philosophy"
+      }
+    },
+    "prestige": 1,
+    "loanTurns": 10,
+    "loanRelation": 12,
+    "loanRent": 4,
+    "names": {
+      "painting": [
+        "La Vague bleue",
+        "Le Verger d'or",
+        "Femme au parasol",
+        "Les Toits rouges",
+        "Nuit d'été",
+        "Le Port au matin",
+        "Les Cerfs-volants",
+        "Jardin sous la pluie"
+      ],
+      "sculpture": [
+        "Le Penseur de sable",
+        "L'Envol",
+        "La Fontaine des saisons",
+        "Le Géant endormi",
+        "La Danseuse de bronze",
+        "Le Cheval de vent"
+      ],
+      "opera": [
+        "L'Île aux oiseaux",
+        "La Reine des marées",
+        "Le Voyage d'hiver",
+        "Les Lanternes",
+        "Le Chant du phare"
+      ]
+    }
+  },
+  "heritage": {
+    "tech": "philosophy",
+    "cost": {
+      "gold": 80
+    },
+    "tourism": 3,
+    "prestige": 3,
+    "cooldown": 8,
+    "types": [
+      "monument",
+      "theatre"
+    ]
+  },
+  "tourism": {
+    "natural": 2,
+    "wonder": 2,
+    "theatre": 1,
+    "cultureShare": 0.1,
+    "goldPerPoint": 0.5,
+    "prestigePer": 40
+  }
 }

@@ -207,12 +207,19 @@ Module `web/src/core/summits.js`, réglages `treaties`, `expos` et `standards` d
 - [x] Interface : traités dans Diplomatie, carte et fenêtre de l'événement, norme dans la fenêtre du Congrès, normes en vigueur dans le panneau Prestige, encyclopédie.
 - Correction au passage : le prestige est toujours arrondi à l'entier.
 
-## Phase 11 — Science, culture et tourisme · à venir
+## Phase 11 — Science, culture et tourisme ✅
 
-- [ ] **Défis scientifiques**, inspirés des académies et des prix : des objectifs ouverts à tous (« premier à découvrir la Chimie avec 3 bibliothèques »), qui font une course comme les merveilles.
-- [ ] **Œuvres d'art uniques**, inspirées des mécènes de la Renaissance : tableaux, opéras ou sculptures à commander et à exposer dans ses théâtres et quartiers des arts, voire à prêter à un voisin contre de la relation.
-- [ ] **Patrimoine mondial**, inspiré de l'UNESCO : faire classer une merveille naturelle ou un monument, ce qui protège la case et attire des visiteurs.
-- [ ] **Tourisme** : une nouvelle ressource, qui vient de la culture, des merveilles, du patrimoine et de la beauté du territoire, et qui se convertit en Or et en prestige.
+Module `web/src/core/culture.js`, réglages `challenges`, `artworks`, `heritage` et `tourism` dans `rules.json`. Nouvelle fenêtre « Culture et tourisme » (bouton du panneau Prestige, touche C).
+
+- [x] **Défis scientifiques** : 6 objectifs ouverts à tous (Atlas du monde, Grande Encyclopédie, Académie des sciences, Grand laboratoire, Révolution industrielle, Carte du ciel). Le premier qui en remplit un gagne du prestige et de la Science. La fenêtre affiche votre progression.
+- [x] **Œuvres d'art** : tableau, sculpture ou opéra (Philosophie), avec un nom unique.
+  - Elles s'exposent dans les lieux qui ont de la place : Théâtre 1, Monument 1, Quartier des arts 2, Amphithéâtre 2.
+  - Chacune rapporte Culture et tourisme, et vaut +1 prestige.
+  - Prêt à un voisin pour 10 tours : +12 relation et 4 Or de loyer par tour. L'œuvre revient ensuite.
+- [x] **Patrimoine mondial** : on peut faire classer une merveille naturelle, une merveille, un monument ou un théâtre (Philosophie, 80 Or, un classement tous les 8 tours). La case est protégée contre l'influence culturelle des voisins, et rapporte +3 tourisme et +3 prestige.
+- [x] **Tourisme** : il vient des merveilles naturelles, des merveilles, des théâtres, des œuvres, du patrimoine et de 10 % de la culture. Il rapporte 0,5 Or par point et par tour, et 1 prestige tous les 40 points cumulés.
+- [x] IA : elle commande des œuvres, prête à ses amis et fait classer ses sites.
+- Provisoire, jusqu'à l'équilibrage final : le plancher de durée de la CI passe à 50 % de la partie (30 tours en partie normale, contre 35 avant). Les nouvelles sources de prestige et de Science raccourcissent les parties (environ 33 tours aujourd'hui), et l'objectif de prestige seul ne suffit plus à compenser, puisque les voies de victoire accélèrent aussi.
 
 ## Phase 12 — Climat et société · à venir
 
