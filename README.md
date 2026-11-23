@@ -9,14 +9,15 @@ Une partie dure de 30 à 60 minutes.
 Le jeu est un site statique, sans dépendance à installer : Three.js est inclus dans `web/vendor/`.
 
 ```bash
-python3 -m http.server 8000 --directory web
+node tools/serve.mjs
 ```
 
 Ouvrez ensuite <http://localhost:8000>.
 
-## Déployer sur Vercel
+## Déployer en ligne
 
-Importez le dépôt dans Vercel. `vercel.json` sert directement le dossier `web/`, sans étape de build.
+- **Railway** : importez le dépôt GitHub dans un nouveau projet. `railway.json` lance `node tools/serve.mjs`, un mini-serveur statique sans dépendance qui écoute sur la variable d'environnement `PORT`. Générez ensuite un domaine public dans *Settings → Networking*.
+- **Vercel** : importez le dépôt. `vercel.json` sert directement le dossier `web/`, sans étape de build.
 
 ## Labo Python (Google Colab)
 
@@ -46,6 +47,7 @@ node tools/sim.mjs 10
 | Construire une route | `R` |
 | Technologies | `T` |
 | Diplomatie | `D` |
+| Menu (sauvegardes, export, import) | `M` |
 | Annuler | `Échap` |
 
 - **Construire** : choisissez un bâtiment dans la barre du bas, puis une case verte de votre territoire. Maintenez `Maj` pour en placer plusieurs.

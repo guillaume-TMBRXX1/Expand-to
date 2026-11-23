@@ -129,7 +129,12 @@ function buildSomething(s, pid, w) {
     return { def, score: score + s.rng.next() * 2 };
   }).sort((a, b) => b.score - a.score);
   const tiles = s.map.tiles.filter((t) => t.owner === pid);
+  // Épargne pour une merveille : tant qu'une merveille est accessible, l'IA ne construit plus que l'essentiel.
+  const target = scored.find(({ def }) => def.wonder && s.wonders[def.id] === undefined && (!def.tech || G.hasTech(s, pid, def.tech))
+    && !s.buildings.some((b) => b.owner === pid && b.type === def.id) && tiles.some((t) => def.terrain.includes(t.type) && !G.cityAt(s, t.x, t.y) && !G.buildingAt(s, t.x, t.y) && (!def.coastal || G.isCoastal(s, t))));
+  const essential = (def) => (def.yields.food && y.food < 2) || def.id === 'quarry' || (def.id === 'lumber' && y.wood < 4);
   for (const { def } of scored) {
+    if (target && !def.wonder && !essential(def)) continue;
     const cost = G.costOf(s, pid, def);
     if ((cost.gold || 0) + reserve > p.res.gold && cost.gold) continue;
     for (const t of tiles) {

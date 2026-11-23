@@ -1,12 +1,12 @@
 // Point d'entrée : chargement des données, écran de départ, boucle de jeu et interface.
 import * as G from './core/game.js';
 import { playAITurns } from './core/ai.js';
-import { makeRng } from './core/rng.js';
 import { Renderer } from './render/renderer.js';
 import { avatarSVG } from './ui/avatar.js';
+import * as Saves from './ui/saves.js';
+import * as Tuto from './ui/tutorial.js';
 
 const $ = (sel) => document.querySelector(sel);
-const SAVE_KEY = 'expandto.save.v1';
 const BRANCHES = { economy: 'Économie', science: 'Science', culture: 'Culture', diplomacy: 'Diplomatie' };
 const BUILD_TABS = {
   prod: { label: 'Production', ids: ['farm', 'lumber', 'quarry', 'market', 'harbor', 'district', 'road'] },
@@ -44,22 +44,17 @@ function toast(text, tone = '') {
   setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 250); }, 2600);
 }
 
-function save() {
-  try {
-    const { data: _d, rules: _r, rng: _g, ...rest } = s;
-    localStorage.setItem(SAVE_KEY, JSON.stringify(rest));
-  } catch { /* stockage indisponible : la partie continue sans sauvegarde */ }
+function save() { Saves.saveTo('auto', s); }
+const fmtDate = (iso) => { try { return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }); } catch { return ''; } };
+function saveMeta(m) {
+  if (!m) return '';
+  const prof = data.profilesById[m.profile]?.name || '';
+  return [m.turn ? `Tour ${m.turn}` : '', prof, m.prestige !== undefined ? `${m.prestige} prestige` : '', m.savedAt ? fmtDate(m.savedAt) : ''].filter(Boolean).join(' · ');
 }
-function loadSave() {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return null;
-    const st = JSON.parse(raw);
-    st.data = data; st.rules = data.rules; st.rng = makeRng((st.seed * 31 + st.turn) >>> 0);
-    return st;
-  } catch { return null; }
+async function importGame() {
+  try { startGame(Saves.deserialize(await Saves.pickFile(), data)); closeModal(); toast('Partie importée.', 'good'); }
+  catch (e) { toast(e.message || 'Fichier illisible.', 'bad'); }
 }
-function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch { return false; } }
 
 // ------------------------------------------------------------ écran de départ
 function showStart() {
@@ -81,8 +76,9 @@ function showStart() {
       </div>
       <div class="start-actions">
         <button class="btn primary" id="start-go">Lancer la partie</button>
-        ${hasSave() ? '<button class="btn" id="start-continue">Reprendre la partie</button>' : ''}
+        <label class="check"><input type="checkbox" id="f-tuto" checked> Tutoriel guidé</label>
       </div>
+      ${renderSaveList()}
       <div class="help">
         <b>Commandes</b> — clic gauche : sélectionner / déplacer · glisser : déplacer la caméra · clic droit glissé : pivoter · molette : zoom ·
         <kbd>Entrée</kbd> finir le tour · <kbd>Échap</kbd> annuler · <kbd>Espace</kbd> unité suivante · <kbd>F</kbd> fonder · <kbd>R</kbd> route · <kbd>T</kbd> technologies · <kbd>D</kbd> diplomatie
@@ -95,15 +91,26 @@ function showStart() {
   $('#start-go').addEventListener('click', () => {
     const seedTxt = $('#f-seed').value.trim();
     const seed = seedTxt ? (Number(seedTxt) || [...seedTxt].reduce((a, c) => a * 31 + c.charCodeAt(0), 7)) >>> 0 : undefined;
-    startGame(G.createGame({ data, seed, profile, name: $('#f-name').value.trim() || 'Vous', aiCount: Number($('#f-ai').value) }));
+    const game = G.createGame({ data, seed, profile, name: $('#f-name').value.trim() || 'Vous', aiCount: Number($('#f-ai').value) });
+    Tuto.initTutorial(game, $('#f-tuto').checked);
+    startGame(game);
   });
-  $('#start-continue')?.addEventListener('click', () => { const st = loadSave(); if (st) startGame(st); else toast('Sauvegarde illisible.', 'bad'); });
+}
+
+function renderSaveList() {
+  const saves = Saves.listSaves().filter((x) => !x.empty);
+  return `<div class="saves"><div class="section-title"><span>Parties sauvegardées</span><button class="btn small ghost" data-action="import">Importer un fichier</button></div>
+    ${saves.length ? saves.map((x) => `<div class="save-row"><div><b>${x.label}</b><div class="muted">${x.broken ? 'Sauvegarde illisible' : esc(saveMeta(x.meta))}</div></div>
+      <div class="row"><button class="btn small" data-action="load-slot" data-slot="${x.key}" ${x.broken ? 'disabled' : ''}>Reprendre</button>
+      <button class="btn small ghost" data-action="delete-slot" data-slot="${x.key}" aria-label="Supprimer ${x.label}">Supprimer</button></div></div>`).join('')
+      : '<div class="muted" style="font-size:13px">Aucune partie sauvegardée pour le moment.</div>'}</div>`;
 }
 
 function startGame(state) {
   s = state;
   $('#start').hidden = true;
   for (const id of ['#topbar', '#side', '#buildbar']) $(id).hidden = false;
+  $('#summary').hidden = true;
   renderer.setState(s, 0);
   sel = null; mode = null;
   const u = s.units.find((x) => x.owner === 0 && x.type === 'settler') || s.units.find((x) => x.owner === 0);
@@ -118,7 +125,74 @@ function startGame(state) {
 
 // ------------------------------------------------------------------ rendu UI
 function renderAll() {
-  renderTop(); renderSide(); renderSelection(); renderBuildbar(); renderHighlights();
+  renderTop(); renderSide(); renderSelection(); renderBuildbar(); renderHighlights(); renderTutorial(); drawMinimap();
+}
+
+// ---------------------------------------------------------------- tutoriel
+function renderTutorial() {
+  const el = $('#tutorial');
+  const passed = Tuto.advance(s);
+  if (passed) toast(`Étape réussie : ${passed}`, 'good');
+  const t = s.tutorial;
+  if (!t?.active) { el.hidden = true; return; }
+  const step = Tuto.STEPS[t.step];
+  el.hidden = false;
+  el.innerHTML = `<div class="section-title"><span>Tutoriel · ${t.step + 1} / ${Tuto.STEPS.length}</span><button class="btn small ghost" data-action="tuto-skip">Passer</button></div>
+    <h3>${step.title}</h3><p>${step.text}</p>
+    <div class="tuto-bar"><div style="width:${(t.step / Tuto.STEPS.length) * 100}%"></div></div>
+    ${step.final ? '<button class="btn small primary" data-action="tuto-finish">Terminer le tutoriel</button>' : ''}`;
+}
+
+// ---------------------------------------------------------------- mini-carte
+function drawMinimap() {
+  const cv = $('#minimap canvas');
+  if (!cv || !s) return;
+  const W = s.map.width, H = s.map.height;
+  const scale = Math.floor(cv.clientWidth / W) || 7;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (cv.width !== W * scale * dpr) { cv.width = W * scale * dpr; cv.height = H * scale * dpr; cv.style.height = `${H * scale}px`; }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const p = me();
+  ctx.fillStyle = '#e4dcd6'; ctx.fillRect(0, 0, W * scale, H * scale);
+  s.map.tiles.forEach((t, i) => {
+    if (!p.explored[i]) return;
+    ctx.fillStyle = data.terrain[t.type].color;
+    ctx.fillRect(t.x * scale, t.y * scale, scale, scale);
+    if (t.owner !== -1) { ctx.globalAlpha = 0.45; ctx.fillStyle = s.players[t.owner].color; ctx.fillRect(t.x * scale, t.y * scale, scale, scale); ctx.globalAlpha = 1; }
+  });
+  for (const c of s.cities) {
+    if (!p.explored[c.y * W + c.x]) continue;
+    ctx.fillStyle = '#fff'; ctx.fillRect(c.x * scale - 1, c.y * scale - 1, scale + 2, scale + 2);
+    ctx.fillStyle = s.players[c.owner].color; ctx.fillRect(c.x * scale + 1, c.y * scale + 1, scale - 2, scale - 2);
+  }
+  for (const u of s.units) if (u.owner === 0) { ctx.fillStyle = '#2f2a33'; ctx.beginPath(); ctx.arc((u.x + 0.5) * scale, (u.y + 0.5) * scale, scale / 3, 0, Math.PI * 2); ctx.fill(); }
+  const fp = renderer.viewFootprint();
+  if (fp) {
+    ctx.strokeStyle = '#2f2a33'; ctx.lineWidth = 1.5; ctx.beginPath();
+    fp.forEach(([x, y], k) => (k ? ctx.lineTo((x + 0.5) * scale, (y + 0.5) * scale) : ctx.moveTo((x + 0.5) * scale, (y + 0.5) * scale)));
+    ctx.closePath(); ctx.stroke();
+  }
+}
+
+// ---------------------------------------------------------- résumé du tour
+function snapshot() {
+  const p = me();
+  return { res: { ...p.res }, science: p.sciencePool, culture: p.cultureTotal, prestige: p.prestige, techs: p.techs.length, logLen: s.log.length, turn: s.turn };
+}
+function showSummary(before) {
+  const p = me();
+  const el = $('#summary');
+  const delta = (a, b) => b - a;
+  const gains = [...G.RES.map((k) => [data.resources[k].name, resColor(k), delta(before.res[k], p.res[k])]),
+    ['Culture', resColor('culture'), delta(before.culture, p.cultureTotal)], ['Prestige', 'var(--accent)', delta(before.prestige, p.prestige)]];
+  const events = s.log.filter((l) => l.turn === before.turn && (!l.who || l.who.includes(0))).slice(-5).reverse();
+  el.innerHTML = `<div class="section-title"><span>Tour ${before.turn} terminé</span><button class="btn small ghost" data-action="summary-close" aria-label="Fermer le résumé">Fermer</button></div>
+    <div class="chips summary-gains">${gains.filter(([, , v]) => Math.round(v) !== 0).map(([n, c, v]) => `<span class="chip yield"><i style="background:${c}"></i>${v > 0 ? '+' : ''}${Math.round(v)} ${n}</span>`).join('') || '<span class="muted">Aucun changement.</span>'}</div>
+    ${events.length ? `<ul>${events.map((l) => `<li class="${l.kind}">${esc(l.text)}</li>`).join('')}</ul>` : ''}`;
+  el.hidden = false;
+  clearTimeout(showSummary.timer);
+  showSummary.timer = setTimeout(() => { el.hidden = true; }, 9000);
 }
 
 function renderTop() {
@@ -298,6 +372,7 @@ function handleTileClick(i, shift) {
   if (u && u.owner === 0 && (u.x !== t.x || u.y !== t.y)) {
     if (!G.isExplored(s, 0, t.x, t.y)) { toast('Destination inexplorée.', 'bad'); return; }
     const r = G.orderMove(s, u.id, t.x, t.y);
+    if (r.ok) Tuto.flag(s, 'moved');
     if (!r.ok) { toast(r.reason, 'bad'); return; }
     renderer.animateUnit(u.id, r.steps);
     if (!s.units.includes(u)) { sel = null; toast('Route commerciale ouverte !', 'good'); }
@@ -338,11 +413,13 @@ function endTurn() {
   if (s.winner) { showEnd(); return; }
   closeModal();
   mode = null;
+  const before = snapshot();
   playAITurns(s);
   G.endRound(s);
   save();
   refreshWorld();
   if (s.winner) { showEnd(); return; }
+  showSummary(before);
   if (!me().research && G.availableTechs(s, 0).length) toast('Choisissez une recherche (T).');
   const props = s.proposals.filter((p) => p.to === 0).length;
   if (props) toast(`${props} proposition(s) diplomatique(s) en attente.`);
@@ -350,7 +427,7 @@ function endTurn() {
 
 // ---------------------------------------------------------------- modales
 function openModal(html) { const m = $('#modal'); m.innerHTML = html; m.hidden = false; m.querySelector('button, select, input')?.focus(); }
-function closeModal() { const m = $('#modal'); m.hidden = true; m.innerHTML = ''; }
+function closeModal() { const m = $('#modal'); m.hidden = true; m.innerHTML = ''; if (s) renderTutorial(); }
 
 function showTech() {
   const p = me();
@@ -373,6 +450,7 @@ function showTech() {
 }
 
 function showDiplo() {
+  Tuto.flag(s, 'diplo');
   const resOpts = (sel0) => G.RES.map((k) => `<option value="${k}" ${k === sel0 ? 'selected' : ''}>${data.resources[k].name}</option>`).join('');
   const dip = G.diplomacyPct(s, 0);
   const cards = s.players.filter((p) => p.id !== 0).map((q) => {
@@ -401,6 +479,20 @@ function showDiplo() {
     <button class="btn" data-action="close">Fermer</button></header>
     <div class="diplo-grid">${cards}</div>
     <div class="effects"><b>Effets actuels sur votre productivité</b>${dip.reasons.length ? `<ul>${dip.reasons.map((r) => `<li class="${r.tone}">${esc(r.text)} : ${r.value > 0 ? '+' : ''}${Math.round(r.value * 100)}%${r.res ? ' Or' : ''}</li>`).join('')}</ul>` : '<div class="muted" style="margin-top:4px">Aucun effet pour le moment.</div>'}</div></div>`);
+}
+
+function showMenu() {
+  const slots = Saves.listSaves().filter((x) => x.key !== 'auto');
+  openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Menu" style="width:min(560px,100%)">
+    <header><h2>Menu</h2><button class="btn" data-action="close">Fermer</button></header>
+    <div class="section-title"><span>Sauvegarder dans</span></div>
+    ${slots.map((x) => `<div class="save-row"><div><b>${x.label}</b><div class="muted">${x.empty ? 'Vide' : esc(saveMeta(x.meta))}</div></div>
+      <button class="btn small" data-action="save-slot" data-slot="${x.key}">${x.empty ? 'Sauvegarder' : 'Écraser'}</button></div>`).join('')}
+    <div class="section-title" style="margin-top:16px"><span>Fichier</span></div>
+    <div class="actions"><button class="btn small" data-action="export">Exporter la partie (.json)</button><button class="btn small" data-action="import">Importer une partie</button></div>
+    <div class="section-title" style="margin-top:16px"><span>Partie</span></div>
+    <div class="actions"><button class="btn small" data-action="tuto-restart">${s.tutorial?.active ? 'Recommencer le tutoriel' : 'Relancer le tutoriel'}</button><button class="btn small" data-action="new-game">Retour à l'accueil</button></div>
+    <p class="muted" style="font-size:12.5px;margin:14px 0 0">La partie est aussi sauvegardée automatiquement à chaque tour dans ce navigateur.</p></div>`);
 }
 
 function showEnd() {
@@ -459,7 +551,21 @@ function onAction(e) {
       toast(r.ok ? 'Échange accepté.' : r.reason, r.ok ? 'good' : 'bad');
       showDiplo(); renderAll(); save(); break;
     }
-    case 'new-game': closeModal(); try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ } for (const x of ['#topbar', '#side', '#buildbar', '#selection', '#hint']) $(x).hidden = true; showStart(); break;
+    case 'new-game': closeModal(); save(); for (const x of ['#topbar', '#side', '#buildbar', '#selection', '#hint', '#tutorial', '#summary']) $(x).hidden = true; s = null; showStart(); break;
+    case 'menu': showMenu(); break;
+    case 'save-slot': if (Saves.saveTo(b.dataset.slot, s)) toast('Partie sauvegardée.', 'good'); else toast('Stockage du navigateur indisponible.', 'bad'); showMenu(); break;
+    case 'load-slot': { try { const st = Saves.loadFrom(b.dataset.slot, data); if (st) startGame(st); } catch { toast('Sauvegarde illisible.', 'bad'); } break; }
+    case 'delete-slot': {
+      const label = Saves.SLOTS.find((x) => x.key === b.dataset.slot)?.label;
+      if (window.confirm(`Supprimer définitivement « ${label} » ?`)) { Saves.remove(b.dataset.slot); showStart(); }
+      break;
+    }
+    case 'export': Saves.exportFile(s); break;
+    case 'import': importGame(); break;
+    case 'tuto-skip': s.tutorial.active = false; renderAll(); save(); break;
+    case 'tuto-finish': Tuto.flag(s, 'finished'); renderAll(); save(); break;
+    case 'tuto-restart': Tuto.initTutorial(s, true); closeModal(); renderAll(); save(); break;
+    case 'summary-close': $('#summary').hidden = true; break;
     default: break;
   }
 }
@@ -500,6 +606,7 @@ function bindInput() {
     else if (e.key === 'r' || e.key === 'R') setMode(mode?.type === 'road' ? null : { type: 'road' });
     else if (e.key === 't' || e.key === 'T') showTech();
     else if (e.key === 'd' || e.key === 'D') showDiplo();
+    else if (e.key === 'm' || e.key === 'M') showMenu();
   });
 }
 
@@ -511,6 +618,13 @@ function bindInput() {
   renderer.state.players[0].explored.fill(1);
   renderer.refresh();
   bindInput();
+  setInterval(() => { if (s && !$('#side').hidden) drawMinimap(); }, 300);
+  $('#minimap canvas').addEventListener('click', (e) => {
+    if (!s) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const scale = r.width / s.map.width;
+    renderer.focus(Math.floor((e.clientX - r.left) / scale), Math.floor((e.clientY - r.top) / scale));
+  });
   showStart();
   window.__expandto = { get state() { return s; }, G, renderer };
 })();

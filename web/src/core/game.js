@@ -131,12 +131,16 @@ export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profi
 
 export function playerMods(s, pid) {
   const p = s.players[pid];
-  const m = { yieldPct: {}, cityYield: {}, costPct: 0, popCap: 0, relationPerTurn: 0, moveBonus: 0, visionBonus: 0 };
+  const m = { yieldPct: {}, cityYield: {}, costPct: 0, wonderCostPct: 0, tradePrestige: 0, buildingPrestigePer: 0, discoveryPrestige: 0, popCap: 0, relationPerTurn: 0, moveBonus: 0, visionBonus: 0 };
   const apply = (e) => {
     if (!e) return;
     for (const [k, v] of Object.entries(e.yieldPct || {})) m.yieldPct[k] = (m.yieldPct[k] || 0) + v;
     for (const [k, v] of Object.entries(e.cityYield || {})) m.cityYield[k] = (m.cityYield[k] || 0) + v;
     m.costPct += e.costPct || 0;
+    m.wonderCostPct += e.wonderCostPct || 0;
+    m.tradePrestige += e.tradePrestige || 0;
+    if (e.buildingPrestigePer) m.buildingPrestigePer = e.buildingPrestigePer;
+    m.discoveryPrestige += e.discoveryPrestige || 0;
     m.popCap += e.popCap || 0;
     m.relationPerTurn += e.relationPerTurn || 0;
     m.moveBonus += e.moveBonus || 0;
@@ -148,7 +152,8 @@ export function playerMods(s, pid) {
 }
 
 export function costOf(s, pid, def, isBuilding = true) {
-  const pct = isBuilding && !def.wonder ? playerMods(s, pid).costPct : isBuilding ? playerMods(s, pid).costPct / 2 : 0;
+  const mods = playerMods(s, pid);
+  const pct = !isBuilding ? 0 : def.wonder ? mods.costPct / 2 + mods.wonderCostPct : mods.costPct;
   const out = {};
   for (const [k, v] of Object.entries(def.cost || {})) out[k] = Math.max(1, Math.round(v * (1 + pct)));
   return out;
@@ -623,18 +628,23 @@ export function computePrestige(s, pid) {
   const p = s.players[pid];
   const b = {
     villes: citiesOf(s, pid).length * R.perCity,
-    technologies: p.techs.reduce((a, t) => a + techDef(s, t).tier * R.perTechTier, 0),
+    technologies: Math.floor(p.techs.reduce((a, t) => a + techDef(s, t).tier * R.perTechTier, 0)),
     culture: Math.floor(p.cultureTotal / R.culturePerPoint),
     monuments: 0, merveilles: 0,
     diplomatie: s.alliances.filter((r) => r.a === pid || r.b === pid).length * s.rules.alliance.prestige
       + s.agreements.filter((r) => r.a === pid || r.b === pid).length * s.rules.tradeAgreement.prestige,
-    commerce: s.tradeRoutes.filter((r) => r.a === pid || r.b === pid).length * s.rules.tradeRoute.prestige,
+    commerce: s.tradeRoutes.filter((r) => r.a === pid || r.b === pid).length * (s.rules.tradeRoute.prestige + playerMods(s, pid).tradePrestige)
+      + s.agreements.filter((r) => r.a === pid || r.b === pid).length * playerMods(s, pid).tradePrestige,
   };
   for (const bd of s.buildings) {
     if (bd.owner !== pid || bd.turnsLeft > 0) continue;
     const def = buildingDef(s, bd.type);
     if (def.prestige) b[def.wonder ? 'merveilles' : 'monuments'] += def.prestige;
   }
+  const disc = playerMods(s, pid).discoveryPrestige;
+  if (disc) b.decouvertes = Math.floor((p.explored.reduce((a, v) => a + v, 0) / p.explored.length) * disc);
+  const per = playerMods(s, pid).buildingPrestigePer;
+  if (per) b.monuments += Math.floor(s.buildings.filter((x) => x.owner === pid && !x.turnsLeft && !buildingDef(s, x.type).wonder).length / per);
   const total = Object.values(b).reduce((a, v) => a + v, 0);
   return { total, breakdown: b };
 }

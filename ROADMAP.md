@@ -43,11 +43,11 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 ## Phase 1 — Fondations (v0.2) · ~1 à 2 semaines
 
 - [ ] Connecter le dépôt à Vercel : une URL de prévisualisation par PR.
-- [ ] CI GitHub Actions : `pytest`, une simulation de 20 parties, et un échec si la durée moyenne sort de [35, 60] tours.
-- [ ] Tutoriel guidé sur les 5 premiers tours : fonder, construire, explorer, rechercher.
-- [ ] Équilibrage : le Négociant est en retrait dans les simulations, et les merveilles sont rarement construites par l'IA.
-- [ ] Plusieurs emplacements de sauvegarde, plus un export et un import de fichier.
-- [ ] Mini-carte et vue « fin de tour » qui résume les gains et les événements.
+- [x] CI GitHub Actions : `pytest`, une simulation de 20 parties, et un échec si la durée moyenne sort de [35, 60] tours.
+- [x] Tutoriel guidé en 8 étapes : fonder, construire, rechercher, explorer, finir le tour, route, diplomatie, prestige.
+- [x] Équilibrage : sur 80 parties simulées, chaque profil gagne entre 20 et 32 % des parties (contre 8 à 43 % avant), et l'IA construit 1,5 merveille par partie (contre 1).
+- [x] Sauvegarde automatique, 3 emplacements, export et import de fichier.
+- [x] Mini-carte cliquable avec le cadre de la caméra, et résumé de fin de tour (gains et événements).
 
 ## Phase 2 — Profondeur de gestion (v0.3) · ~3 semaines
 

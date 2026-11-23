@@ -310,6 +310,25 @@ export class Renderer {
     return hit ? hit.instanceId : null;
   }
 
+  // Empreinte de la caméra au sol, en coordonnées de cases (pour la mini-carte).
+  viewFootprint() {
+    if (!this.W) return null;
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const out = [];
+    for (const [nx, ny] of [[-1, 1], [1, 1], [1, -1], [-1, -1]]) {
+      this.raycaster.setFromCamera(new THREE.Vector2(nx, ny), this.camera);
+      const hit = new THREE.Vector3();
+      const maxR = this.camera.position.distanceTo(this.controls.target) * 0.6;
+      if (!this.raycaster.ray.intersectPlane(plane, hit) || hit.distanceTo(this.controls.target) > maxR) {
+        // Coin proche de l'horizon : on borne la distance au centre de la vue.
+        const dir = this.raycaster.ray.direction.clone().setY(0).normalize().multiplyScalar(maxR);
+        hit.copy(this.controls.target).add(dir);
+      }
+      out.push([hit.x + this.W / 2 - 0.5, hit.z + this.H / 2 - 0.5]);
+    }
+    return out;
+  }
+
   focus(x, y, instant = false) {
     const t = new THREE.Vector3(this.wx(x), 0, this.wz(y));
     const delta = t.clone().sub(this.controls.target);
