@@ -2,20 +2,20 @@
   { "id": "commerce",      "branch": "economy",   "tier": 1, "cost": 25,  "name": "Commerce",            "requires": [],                         "effects": { "cityYield": { "gold": 1 } },       "desc": "Caravanes, +1 Or par ville." },
   { "id": "navigation",    "branch": "economy",   "tier": 2, "cost": 55,  "name": "Navigation",          "requires": ["commerce"],               "effects": {},                                    "desc": "Port, Grand Phare." },
   { "id": "banking",       "branch": "economy",   "tier": 3, "cost": 95,  "name": "Banque",              "requires": ["navigation"],             "effects": { "yieldPct": { "gold": 0.15 } },     "desc": "+15% Or." },
-  { "id": "stockexchange", "branch": "economy",   "tier": 4, "cost": 150, "name": "Bourse mondiale",     "requires": ["banking", "protocol"],    "effects": {},                                    "desc": "Merveille : Grande Bourse." },
+  { "id": "stockexchange", "branch": "economy",   "tier": 4, "cost": 125, "name": "Bourse mondiale",     "requires": ["banking", "protocol"],    "effects": {},                                    "desc": "Merveille : Grande Bourse." },
 
   { "id": "writing",       "branch": "science",   "tier": 1, "cost": 25,  "name": "Écriture",            "requires": [],                         "effects": {},                                    "desc": "Bibliothèque." },
   { "id": "chemistry",     "branch": "science",   "tier": 2, "cost": 55,  "name": "Chimie",              "requires": ["writing"],                "effects": {},                                    "desc": "Laboratoire." },
   { "id": "method",        "branch": "science",   "tier": 3, "cost": 95,  "name": "Méthode scientifique","requires": ["chemistry"],              "effects": { "yieldPct": { "science": 0.2 } },   "desc": "+20% Science, Grande Bibliothèque." },
-  { "id": "astronomy",     "branch": "science",   "tier": 4, "cost": 150, "name": "Astronomie",          "requires": ["method", "navigation"],   "effects": {},                                    "desc": "Merveille : Observatoire Céleste." },
+  { "id": "astronomy",     "branch": "science",   "tier": 4, "cost": 125, "name": "Astronomie",          "requires": ["method", "navigation"],   "effects": {},                                    "desc": "Merveille : Observatoire Céleste." },
 
   { "id": "arts",          "branch": "culture",   "tier": 1, "cost": 25,  "name": "Arts",                "requires": [],                         "effects": {},                                    "desc": "Théâtre." },
   { "id": "architecture",  "branch": "culture",   "tier": 2, "cost": 55,  "name": "Architecture",        "requires": ["arts"],                   "effects": { "costPct": -0.1 },                  "desc": "Monument, -10% coût des bâtiments." },
   { "id": "philosophy",    "branch": "culture",   "tier": 3, "cost": 95,  "name": "Philosophie",         "requires": ["architecture"],           "effects": { "yieldPct": { "culture": 0.2 } },   "desc": "+20% Culture." },
-  { "id": "humanism",      "branch": "culture",   "tier": 4, "cost": 150, "name": "Humanisme",           "requires": ["philosophy", "writing"],  "effects": {},                                    "desc": "Merveille : Amphithéâtre." },
+  { "id": "humanism",      "branch": "culture",   "tier": 4, "cost": 125, "name": "Humanisme",           "requires": ["philosophy", "writing"],  "effects": {},                                    "desc": "Merveille : Amphithéâtre." },
 
   { "id": "protocol",      "branch": "diplomacy", "tier": 1, "cost": 25,  "name": "Protocole",           "requires": [],                         "effects": {},                                    "desc": "Accords commerciaux." },
   { "id": "urbanism",      "branch": "diplomacy", "tier": 2, "cost": 55,  "name": "Urbanisme",           "requires": ["protocol"],               "effects": { "popCap": 1 },                      "desc": "Quartiers, +1 pop. max par ville." },
   { "id": "embassies",     "branch": "diplomacy", "tier": 3, "cost": 95,  "name": "Ambassades",          "requires": ["urbanism"],               "effects": { "relationPerTurn": 1 },             "desc": "Alliances, +1 relation/tour." },
-  { "id": "federation",    "branch": "diplomacy", "tier": 4, "cost": 150, "name": "Fédération",          "requires": ["embassies", "arts"],      "effects": {},                                    "desc": "Merveille : Palais des Nations." }
+  { "id": "federation",    "branch": "diplomacy", "tier": 4, "cost": 125, "name": "Fédération",          "requires": ["embassies", "arts"],      "effects": {},                                    "desc": "Merveille : Palais des Nations." }
 ]

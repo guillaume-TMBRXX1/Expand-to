@@ -752,7 +752,7 @@ function showEncyclopedia(tab = 'buildings') {
     body = data.units.map((d) => `<div class="enc-item"><div class="vhead"><b>${d.name}</b><span class="muted">${d.tech ? G.techDef(s, d.tech).name : 'Disponible'}</span></div>
       <div class="muted">${d.desc}</div><div class="enc-line">Coût : ${cost(d.cost)} · ${d.moves} mouvements · vision ${d.vision}${d.naval ? ' · naval' : ''}${d.flying ? ' · aérien' : ''}</div></div>`).join('');
   } else if (tab === 'techs') {
-    body = Object.entries(BRANCHES).map(([k, v]) => `<div class="stock-group">${v}</div>` + data.techs.filter((t) => t.branch === k).map((t) => `<div class="enc-item"><div class="vhead"><b>${t.name}</b><span class="muted">${t.cost} science · palier ${t.tier}</span></div><div class="muted">${t.desc}${t.requires.length ? ` · requiert ${t.requires.map((r) => G.techDef(s, r).name).join(', ')}` : ''}</div></div>`).join('')).join('');
+    body = Object.entries(BRANCHES).map(([k, v]) => `<div class="stock-group">${v}</div>` + data.techs.filter((t) => t.branch === k).map((t) => `<div class="enc-item"><div class="vhead"><b>${t.name}</b><span class="muted">${Math.round(t.cost * (s.rules.techCostScale ?? 1))} science · palier ${t.tier}</span></div><div class="muted">${t.desc}${t.requires.length ? ` · requiert ${t.requires.map((r) => G.techDef(s, r).name).join(', ')}` : ''}</div></div>`).join('')).join('');
   } else if (tab === 'policies') {
     body = `<div class="enc-item"><div class="muted">Emplacements : ${data.policies.slots.map((t) => `${t.slots} à ${t.techs} technologies`).join(', ')}. Remplacer une politique coûte ${G.fmtBundle(s, data.policies.swapCost)}.</div></div>`
       + Object.entries(BRANCHES).map(([k, v]) => `<div class="stock-group">${v}</div>` + data.policies.list.filter((d) => d.branch === k).map((d) => `<div class="enc-item"><div class="vhead"><b>${d.name}</b><span class="muted">${d.tech ? G.techDef(s, d.tech).name : 'Disponible'}</span></div><div class="muted">${d.desc}</div></div>`).join('')).join('');
@@ -797,7 +797,7 @@ function showTech() {
     const req = t.requires.map((r) => G.techDef(s, r).name).join(', ');
     return `<button class="tech ${cls}" data-action="research" data-id="${t.id}" ${cls === 'locked' || done ? 'aria-disabled="true"' : ''}>
       <b>${t.name}</b><span class="muted">${t.desc}</span>
-      <div class="meta"><span>${done ? 'Acquise' : cur ? `En cours · ${eta} tour(s)` : `${cost} science${cost < t.cost ? ' (allié −25 %)' : ''}`}</span><span>${!done && req ? `Requiert ${req}` : `Palier ${t.tier}`}</span></div></button>`;
+      <div class="meta"><span>${done ? 'Acquise' : cur ? `En cours · ${eta} tour(s)` : `${cost} science${cost < Math.round(t.cost * (s.rules.techCostScale ?? 1)) ? ' (allié −25 %)' : ''}`}</span><span>${!done && req ? `Requiert ${req}` : `Palier ${t.tier}`}</span></div></button>`;
   }).join('');
   openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Technologies"><header><div><h2>Technologies</h2>
     <div class="muted" style="font-size:13px;margin-top:2px">Science disponible : ${fmt(p.sciencePool)} · ${sign(y)} / tour · chaque technologie rapporte ${s.rules.prestige.perTechTier} prestige par palier</div></div>

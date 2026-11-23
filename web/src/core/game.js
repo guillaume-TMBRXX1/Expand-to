@@ -33,9 +33,10 @@ export function gameRules(data, settings = {}) {
   return {
     ...base,
     map: { width: size.width, height: size.height },
+    techCostScale: len.techCostScale ?? 1,
     turnLimit: len.turnLimit,
     prestigeTarget: Math.round((base.prestigeTarget * (len.prestigeScale ?? k) * (size.prestigeScale ?? 1)) / 5) * 5,
-    victory: { ...base.victory, cultureTotal: Math.round(base.victory.cultureTotal * (len.prestigeScale ?? k)), economyGold: Math.round(base.victory.economyGold * (len.prestigeScale ?? k) * 1.15), scienceTechs: Math.min(16, Math.round(base.victory.scienceTechs * (k < 1 ? 0.86 : 1))), secretaryWins: len.secretaryWins ?? base.victory.secretaryWins },
+    victory: { ...base.victory, cultureTotal: Math.round(base.victory.cultureTotal * (len.pathScale ?? len.prestigeScale ?? k)), economyGold: Math.round(base.victory.economyGold * (len.pathScale ?? len.prestigeScale ?? k) * 1.15), scienceTechs: Math.min(16, Math.round(base.victory.scienceTechs * (len.techScale ?? (k < 1 ? 0.86 : 1)))), secretaryWins: len.secretaryWins ?? base.victory.secretaryWins, allyAllElections: len.allyAllElections ?? base.victory.allyAllElections },
     luxuries: { ...base.luxuries, perType: Math.round(base.luxuries.perType * (size.width * size.height) / (36 * 26)) },
   };
 }
@@ -765,7 +766,7 @@ export function setResearch(s, pid, techId) {
 export function techCost(s, pid, techId) {
   const t = techDef(s, techId);
   const allyKnows = s.players.some((q) => q.id !== pid && isAllied(s, pid, q.id) && q.techs.includes(techId));
-  return Math.round(t.cost * (allyKnows ? 1 - s.rules.allyTechDiscount : 1));
+  return Math.round(t.cost * (s.rules.techCostScale ?? 1) * (allyKnows ? 1 - s.rules.allyTechDiscount : 1));
 }
 export function checkResearch(s, pid) {
   const p = s.players[pid];

@@ -74,6 +74,7 @@ Sur l'écran d'accueil, vous choisissez :
 | Annuler | `Échap` |
 
 - **Déplacer** : cliquez une destination pour voir le chemin et le nombre de tours, puis cliquez à nouveau pour confirmer (Échap annule).
+- **Fonder** : une ville doit être à au moins 3 cases de toute autre. On peut combler les trous de son propre territoire.
 - **Construire** : choisissez un bâtiment dans la barre du bas, puis une case verte de votre territoire. Maintenez `Maj` pour en placer plusieurs.
 - **Caravane** : envoyez-la dans une ville étrangère pour ouvrir une route commerciale. Elle rapporte de l'Or, de la relation et du prestige.
 - **Industrie** : les Menuiseries, Forges et Manufactures transforment vos matières premières en planches, outils et biens. Ces biens font monter vos villes de palier (Artisans, puis Savants).
@@ -82,7 +83,13 @@ Sur l'écran d'accueil, vous choisissez :
 - **Merveilles** : chacune est unique dans la partie. Le premier qui l'achève la garde, et les autres chantiers sont remboursés à 50 %. Si un rival en construit une, sa carte dans l'onglet Merveilles affiche son nom et le nombre de tours restants (et les vôtres si vous êtes en course). Le journal vous prévient dès qu'une course commence.
 - **Ressources rares** : épices, marbre et cristal s'exploitent avec un Comptoir. Le bouton **Entrepôt** affiche vos stocks et vos bonus actifs.
 - **Diplomatie** : les voisins méfiants ou hostiles réduisent votre productivité. Accords et alliances la renforcent.
-- **Victoire** : la première voie complétée l'emporte. Les voies sont Science, Culture, Économie et Diplomatie ; sinon, la victoire va au premier à 210 points de prestige, ou au meilleur score après 60 tours. Le bouton « Voies de victoire » (panneau Prestige) suit votre progression.
+- **Victoire** : la première voie complétée l'emporte. Sinon, la victoire va au premier à 230 points de prestige, ou au meilleur score après 60 tours. Les voies (valeurs en partie normale) :
+  - Science : Observatoire Céleste et 12 technologies ;
+  - Culture : Amphithéâtre et 750 de culture ;
+  - Économie : Grande Bourse et 1 150 Or en caisse ;
+  - Diplomatie : élu 4 fois Secrétaire et allié de la moitié des rivaux, ou allié de tous et élu 3 fois.
+
+  En partie longue, les seuils sont plus élevés et les technologies coûtent plus cher. Le bouton « Voies de victoire » (panneau Prestige) suit votre progression.
 - **Politiques** (touche `P`) : vous adoptez jusqu'à 3 politiques (1 au départ, 2 à 4 technologies, 3 à 9). Remplir un emplacement libre est gratuit ; remplacer une politique coûte 30 Or. Chaque branche de l'arbre technologique en débloque de nouvelles.
 - **Événements** : tous les 4 à 6 tours environ, un événement vous propose un choix (sécheresse, comète, savant exilé…). La carte s'affiche dans le panneau de droite. Sans réponse au bout de 3 tours, le choix le plus raisonnable est fait pour vous.
 - **Merveilles naturelles** : six sites uniques (Grandes Chutes, Mont Braise, Récif de corail, Arbre millénaire, Canyon rouge, Oasis). Les découvrir rapporte du prestige (davantage au premier). Dans votre territoire, elles produisent et rapportent du prestige, et les bâtiments voisins gagnent +1 Culture.

@@ -11,6 +11,7 @@ function merge(a, b) {
   return out;
 }
 export function aiParams(s, pid) { return merge(s.data.ai, s.aiOverrides?.[pid]); }
+const PATH_WONDER = { science: 'observatory', culture: 'amphitheatre', economy: 'exchange', diplomacy: 'nations' };
 const YIELD_BRANCH = { gold: 'economy', science: 'science', culture: 'culture', food: 'economy', wood: 'economy', stone: 'economy' };
 
 export function playAITurns(s) {
@@ -37,7 +38,10 @@ function chooseResearch(s, pid, w) {
   if (p.research) return;
   const options = G.availableTechs(s, pid);
   if (!options.length) return;
-  options.sort((a, b) => (w[b.branch] / G.techCost(s, pid, b.id)) - (w[a.branch] / G.techCost(s, pid, a.id)) + (s.rng.next() - 0.5) * 0.02);
+  // Concentration sur la branche principale (poids élevé à une puissance) : l'IA atteint ses technologies de palier 4.
+  const focus = aiParams(s, pid).researchFocus ?? 1;
+  const val = (t) => Math.pow(w[t.branch], focus) / G.techCost(s, pid, t.id);
+  options.sort((a, b) => val(b) - val(a) + (s.rng.next() - 0.5) * 0.02);
   G.setResearch(s, pid, options[0].id);
 }
 
@@ -126,6 +130,7 @@ function trainUnits(s, pid, P) {
   const p = s.players[pid];
   const cities = G.citiesOf(s, pid).sort((a, b) => b.pop - a.pop);
   if (!cities.length) return;
+  if (s.wonders.exchange === pid) return; // thésaurisation (voie économique)
   const settlers = s.units.filter((u) => u.owner === pid && u.type === 'settler').length;
   const wanted = p.profile === 'explorer' ? P.expansion.explorerTargetCities : P.expansion.targetCities;
   if (cities.length + settlers < wanted && settlers === 0 && s.turn > 2) G.train(s, pid, cities[0].id, 'settler');
@@ -152,7 +157,15 @@ function buildSomething(s, pid, w, B) {
   const p = s.players[pid];
   if (!G.citiesOf(s, pid).length) return false;
   const y = p.lastYield ? p.lastYield.net : { food: 1, wood: 1, stone: 1, gold: 2 };
-  const reserve = s.units.some((u) => u.owner === pid && u.type === 'settler') ? 0 : B.goldReserve;
+  // Voie économique : avec la Grande Bourse, l'IA thésaurise pour atteindre l'Or demandé.
+  const hoard = s.wonders.exchange === pid ? s.rules.victory.economyGold : 0;
+  const reserve = Math.max(hoard, s.units.some((u) => u.owner === pid && u.type === 'settler') ? 0 : B.goldReserve);
+  const topBranch = Object.entries(w).sort((a, b) => b[1] - a[1])[0][0];
+  // Matériaux transformés qui manquent pour la merveille de sa voie : on construit l'atelier qui les produit.
+  const PRODUCER = { planks: 'sawmill', tools: 'forge', goods: 'manufactory' };
+  const pwDef = PATH_WONDER[topBranch] && s.wonders[PATH_WONDER[topBranch]] === undefined ? G.buildingDef(s, PATH_WONDER[topBranch]) : null;
+  const missingFor = new Set();
+  if (pwDef) for (const [k, v] of Object.entries(G.costOf(s, pid, pwDef))) if (PRODUCER[k] && (p.res[k] || 0) < v) missingFor.add(PRODUCER[k]);
   const scored = s.data.buildings.filter((def) => !def.profile || def.profile === p.profile).map((def) => {
     let score = 0;
     if (def.profile) score += B.unique ?? 8; // bâtiment propre au profil
@@ -161,6 +174,7 @@ function buildSomething(s, pid, w, B) {
     if (def.yields.wood && (y.wood < 3 || p.res.wood < 20)) score += B.woodNeed;
     if (def.yields.stone && (y.stone < 3 || p.res.stone < 20)) score += B.stoneNeed;
     if (def.wonder) score += def.prestige * B.wonderPrestige;
+    if (def.wonder && PATH_WONDER[topBranch] === def.id) score += B.pathWonder ?? 0; // merveille de sa voie de victoire
     if (def.prestige && !def.wonder) score += def.prestige * B.monumentPrestige;
     if (def.popCap) score += B.popCap;
     const count = s.buildings.filter((b) => b.owner === pid && b.type === def.id).length;
@@ -172,6 +186,7 @@ function buildSomething(s, pid, w, B) {
     if (def.id === 'markethall' && count === 0) score += B.markethall;
     if (def.id === 'lab') score += B.lab;
     if (def.footprint) score += B.quarter;
+    if (missingFor.has(def.id) && count < 2) score += B.pathMaterials ?? 15;
     if (!def.wonder) score -= count * B.diversity; // diversité : on évite d'empiler toujours le même bâtiment
     return { def, score: score + s.rng.next() * 2 };
   }).sort((a, b) => b.score - a.score);
@@ -179,7 +194,7 @@ function buildSomething(s, pid, w, B) {
   // Épargne pour une merveille : tant qu'une merveille est accessible, l'IA ne construit plus que l'essentiel.
   const target = B.saveForWonders && scored.find(({ def }) => def.wonder && s.wonders[def.id] === undefined && (!def.tech || G.hasTech(s, pid, def.tech))
     && !s.buildings.some((b) => b.owner === pid && b.type === def.id) && tiles.some((t) => def.terrain.includes(t.type) && !G.cityAt(s, t.x, t.y) && !G.buildingAt(s, t.x, t.y) && (!def.coastal || G.isCoastal(s, t))));
-  const essential = (def) => (def.yields.food && y.food < 2) || def.id === 'quarry' || (def.id === 'lumber' && y.wood < 4);
+  const essential = (def) => (def.yields.food && y.food < 2) || def.id === 'quarry' || (def.id === 'lumber' && y.wood < 4) || missingFor.has(def.id);
   for (const { def } of scored) {
     if (target && !def.wonder && !essential(def)) continue;
     const cost = G.costOf(s, pid, def);
@@ -255,7 +270,7 @@ function diplomacy(s, pid) {
       if (G.propose(s, pid, q.id, 'project').pending) toHuman++;
       continue;
     }
-    if (rel < 5 && p.res.gold > 140 && r < 0.2) { G.giveGift(s, pid, q.id, 30); continue; }
+    if (rel < 5 && p.res.gold > 140 && r < 0.2 && s.wonders.exchange !== pid) { G.giveGift(s, pid, q.id, 30); continue; }
     if (q.isHuman && toHuman < 2 && rel > -30) {
       if (r > 0.94) {
         const res = lowestResource(p);
