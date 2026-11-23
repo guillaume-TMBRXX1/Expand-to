@@ -12,7 +12,7 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web'
 const load = (f) => JSON.parse(fs.readFileSync(path.join(root, f), 'utf8'));
 const data = G.indexData({
   terrain: load('terrain.json'), resources: load('resources.json'), buildings: load('buildings.json'),
-  units: load('units.json'), techs: load('techs.json'), profiles: load('profiles.json'), rules: load('rules.json'), ai: load('ai.json'),
+  units: load('units.json'), techs: load('techs.json'), profiles: load('profiles.json'), rules: load('rules.json'), ai: load('ai.json'), events: load('events.json'), policies: load('policies.json'),
 });
 
 const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));

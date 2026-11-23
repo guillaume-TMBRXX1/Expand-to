@@ -1,5 +1,6 @@
 // Point d'entrée : chargement des données, écran de départ, boucle de jeu et interface.
 import * as G from './core/game.js';
+import * as D from './core/diversity.js';
 import { playAITurns } from './core/ai.js';
 import { Renderer } from './render/renderer.js';
 import { avatarSVG } from './ui/avatar.js';
@@ -30,7 +31,7 @@ let showAdjacency = false; // touche A : bonus d'adjacence actifs sur la carte
 
 // ------------------------------------------------------------------ données
 async function loadData() {
-  const files = ['terrain', 'resources', 'buildings', 'units', 'techs', 'profiles', 'rules', 'ai'];
+  const files = ['terrain', 'resources', 'buildings', 'units', 'techs', 'profiles', 'rules', 'ai', 'events', 'policies'];
   const raw = {};
   await Promise.all(files.map(async (f) => { raw[f] = await (await fetch(`data/${f}.json`)).json(); }));
   return G.indexData(raw);
@@ -240,7 +241,7 @@ function renderTop() {
   items.push(`<span class="res" title="Culture totale (1 prestige / ${s.rules.prestige.culturePerPoint})"><i style="background:${resColor('culture')}"></i><b>${fmt(p.cultureTotal)}</b><small>${sign(y.net.culture)}</small></span>`);
   const stockTotal = [...G.GOODS, ...G.LUXURIES].reduce((a, k) => a + Math.floor(p.res[k] || 0), 0);
   items.push(`<button class="res res-btn" data-action="stock" title="Entrepôt : biens transformés et ressources rares" aria-expanded="${!$('#stock').hidden}"><i style="background:${resColor('goods')}"></i><b><span class="lbl-long">Entrepôt</span><span class="lbl-short">Stock</span></b><small>${stockTotal}</small></button>`);
-  items.push(`<span class="res" title="Prestige — objectif de victoire"><i style="background:var(--accent)"></i><b>${p.prestige} / ${s.rules.prestigeTarget}</b><small class="lbl-long">prestige</small><small class="lbl-short">★</small></span>`);
+  items.push(`<span class="res" title="Prestige — objectif de victoire"><i style="background:var(--accent)"></i><b>${p.prestige}<span class="pt-target"> / ${s.rules.prestigeTarget}</span></b><small class="lbl-long">prestige</small><small class="lbl-short">★</small></span>`);
   $('#resources').innerHTML = items.join('');
   $('#turn').textContent = `Tour ${s.turn} / ${s.rules.turnLimit}`;
   const short = document.querySelector('[data-action="end-turn"] .lbl-short');
@@ -312,9 +313,30 @@ function setSide(open) {
   if (open) drawMinimap();
 }
 function updateSideBadge() {
-  const n = s.proposals.filter((p) => p.to === 0).length + (s.congress?.status === 'open' && s.congress.votes[0] === undefined ? 1 : 0);
+  const n = s.proposals.filter((p) => p.to === 0).length + myEvents().length + (s.congress?.status === 'open' && s.congress.votes[0] === undefined ? 1 : 0);
   const b = $('#side-badge');
   b.hidden = n === 0; b.textContent = n;
+  const free = freePolicySlots();
+  const pb = $('#policy-badge');
+  if (pb) { pb.hidden = free === 0; pb.textContent = free; }
+}
+
+const myEvents = () => (s.pendingEvents || []).filter((pe) => pe.pid === 0);
+const freePolicySlots = () => {
+  const slots = D.policySlots(s, 0), pol = me().policies || [];
+  const unlocked = (data.policies?.list || []).filter((d) => D.policyUnlocked(s, 0, d) && !pol.includes(d.id)).length;
+  return Math.min(unlocked, Math.max(0, slots - pol.filter(Boolean).length));
+};
+function eventCards() {
+  return myEvents().map((pe) => {
+    const ev = D.eventDef(s, pe.ev);
+    const left = data.events.expireAfter - (s.turn - pe.turn);
+    return `<div class="card proposal event"><div class="event-head"><b>${esc(ev.title)}</b><span class="muted">${left > 1 ? `${left} tours pour décider` : 'Dernier tour pour décider'}</span></div>
+      <p>${esc(D.eventText(s, pe))}</p><div class="event-choices">${ev.choices.map((ch, k) => {
+        const ok = D.canPay(s, 0, ch);
+        return `<button class="btn small ${k === 0 ? 'primary' : ''}" data-action="event-choice" data-id="${pe.id}" data-choice="${k}" ${ok ? '' : 'aria-disabled="true"'} title="${ok ? '' : 'Ressources insuffisantes'}"><b>${esc(ch.label)}</b><span>${esc(D.describeEffects(s, ch))}</span></button>`;
+      }).join('')}</div></div>`;
+  }).join('');
 }
 
 function renderSide() {
@@ -331,7 +353,7 @@ function renderSide() {
       <div class="bar"><div style="width:${Math.min(100, (p.prestige / s.rules.prestigeTarget) * 100)}%;background:${p.color}"></div></div>
     </div>`).join('');
   const props = s.proposals.filter((p) => p.to === 0);
-  $('#proposals').innerHTML = props.map((pr) => {
+  $('#proposals').innerHTML = eventCards() + props.map((pr) => {
     const from = s.players[pr.from];
     const text = {
       promise: `<b>${esc(from.name)}</b> vous demande de <b>promettre</b> de ne plus fonder de ville près de ses frontières. Rompre une promesse coûte très cher (${s.rules.promise.breakPenalty} relation, et les autres l'apprennent).`,
@@ -603,6 +625,8 @@ function showTileTip(i, x, y) {
   const lines = [`<b>${c ? esc(c.name) : ter.name}</b>${t.owner !== -1 ? ` <span class="muted">· ${esc(s.players[t.owner].name)}</span>` : ''}`];
   if (c) lines.push(`<span class="muted">Ville · ${c.pop} hab. · ${s.rules.tiers[c.tier || 0].name}</span>`);
   if (!c) lines.push(`<span class="muted">${ter.passable ? `Déplacement ${t.road !== -1 ? s.rules.road.moveCost : ter.move}` : 'Impraticable'}${t.road !== -1 ? ' · route' : ''}</span>`);
+  if (t.natural) { const nd = D.naturalDef(s, t.natural); lines.push(`<span class="chip yield">Merveille naturelle : ${nd.name}</span>`, `<span class="muted">${chipsText(nd.yields)} pour le territoire qui l'englobe · +${s.rules.naturalWonders.ownedPrestige} prestige · ${chipsText(s.rules.naturalWonders.adjacency)} aux bâtiments voisins</span>`); }
+  if (t.ruin) lines.push('<span class="chip yield">Ruines antiques : envoyez une unité les fouiller</span>');
   if (t.luxury && !b) lines.push(`<span class="chip yield"><i style="background:${resColor(t.luxury)}"></i>${data.resources[t.luxury].name} (ressource rare)</span>`);
   if (b) {
     const def = G.buildingDef(s, b.type);
@@ -649,8 +673,10 @@ function endTurn() {
   showSummary(before);
   if (!me().research && G.availableTechs(s, 0).length) toast('Choisissez une recherche (T).');
   const props = s.proposals.filter((p) => p.to === 0).length;
+  const evs = myEvents().filter((pe) => pe.turn === s.turn).length;
   if (props) toast(`${props} proposition(s) diplomatique(s) en attente.`);
-  if (props && document.documentElement.classList.contains('compact')) setSide(true); // le tiroir s'ouvre quand une IA vous sollicite
+  if (evs) toast(`Événement : ${D.eventDef(s, myEvents().find((pe) => pe.turn === s.turn).ev).title}. Votre décision est attendue.`);
+  if ((props || evs) && document.documentElement.classList.contains('compact')) setSide(true); // le tiroir s'ouvre quand une IA ou un événement vous sollicite
   if (s.congress?.status === 'open' && s.congress.votes[0] === undefined) { Sound.sfx.congress(); showCongress(); }
 }
 
@@ -680,7 +706,7 @@ document.addEventListener('keydown', (e) => {
 
 // ------------------------------------------------------------ encyclopédie
 function showEncyclopedia(tab = 'buildings') {
-  const tabs = { buildings: 'Bâtiments', units: 'Unités', techs: 'Technologies', resources: 'Ressources', rules: 'Règles' };
+  const tabs = { buildings: 'Bâtiments', units: 'Unités', techs: 'Technologies', policies: 'Politiques', nature: 'Nature et événements', resources: 'Ressources', rules: 'Règles' };
   const cost = (c) => Object.entries(c || {}).map(([k, v]) => `${v} ${data.resources[k].name}`).join(', ');
   let body = '';
   if (tab === 'buildings') {
@@ -694,12 +720,21 @@ function showEncyclopedia(tab = 'buildings') {
       <div class="muted">${d.desc}</div><div class="enc-line">Coût : ${cost(d.cost)} · ${d.moves} mouvements · vision ${d.vision}${d.naval ? ' · naval' : ''}${d.flying ? ' · aérien' : ''}</div></div>`).join('');
   } else if (tab === 'techs') {
     body = Object.entries(BRANCHES).map(([k, v]) => `<div class="stock-group">${v}</div>` + data.techs.filter((t) => t.branch === k).map((t) => `<div class="enc-item"><div class="vhead"><b>${t.name}</b><span class="muted">${t.cost} science · palier ${t.tier}</span></div><div class="muted">${t.desc}${t.requires.length ? ` · requiert ${t.requires.map((r) => G.techDef(s, r).name).join(', ')}` : ''}</div></div>`).join('')).join('');
+  } else if (tab === 'policies') {
+    body = `<div class="enc-item"><div class="muted">Emplacements : ${data.policies.slots.map((t) => `${t.slots} à ${t.techs} technologies`).join(', ')}. Remplacer une politique coûte ${G.fmtBundle(s, data.policies.swapCost)}.</div></div>`
+      + Object.entries(BRANCHES).map(([k, v]) => `<div class="stock-group">${v}</div>` + data.policies.list.filter((d) => d.branch === k).map((d) => `<div class="enc-item"><div class="vhead"><b>${d.name}</b><span class="muted">${d.tech ? G.techDef(s, d.tech).name : 'Disponible'}</span></div><div class="muted">${d.desc}</div></div>`).join('')).join('');
+  } else if (tab === 'nature') {
+    const NW = s.rules.naturalWonders, RU = s.rules.ruins;
+    body = `<div class="stock-group">Merveilles naturelles</div><div class="enc-item"><div class="muted">Uniques et réparties sur la carte. Les découvrir rapporte ${NW.firstPrestige} prestige au premier, ${NW.laterPrestige} aux suivants. Dans votre territoire : leur rendement et +${NW.ownedPrestige} prestige. Tout bâtiment voisin gagne ${chipsText(NW.adjacency)}. On ne construit pas dessus.</div></div>`
+      + NW.list.map((d) => `<div class="enc-item"><div class="vhead"><b>${d.name}</b><span class="muted">${d.terrain.map((k) => data.terrain[k].name).join(', ')}</span></div><div class="muted">${d.desc}</div><div class="enc-line">${chipsText(d.yields)}</div></div>`).join('')
+      + `<div class="stock-group">Ruines antiques</div><div class="enc-item"><div class="muted">Une unité qui entre dans des ruines les fouille et trouve au hasard : ${RU.rewards.map((r) => r.text).join(', ')}.</div></div>`
+      + `<div class="stock-group">Événements</div><div class="enc-item"><div class="muted">Tous les ${data.events.every[0]} à ${data.events.every[1]} tours environ, un événement vous propose un choix (sécheresse, comète, savant exilé…). Sans réponse au bout de ${data.events.expireAfter} tours, le choix le plus raisonnable est fait pour vous.</div></div>`;
   } else if (tab === 'resources') {
     body = Object.entries(data.resources).map(([k, r]) => `<div class="enc-item"><div class="vhead"><b><i class="dot" style="display:inline-block;background:${r.color}"></i> ${r.name}</b><span class="muted">valeur d'échange ${r.tradeValue}</span></div>${r.desc ? `<div class="muted">${r.desc}</div>` : ''}</div>`).join('')
       + `<div class="stock-group">Terrains</div>` + Object.values(data.terrain).map((t) => `<div class="enc-item"><b>${t.name}</b> <span class="muted">· ${t.passable ? `déplacement ${t.move}` : 'impraticable'}</span></div>`).join('');
   } else {
     const R = s.rules;
-    body = `<div class="enc-item"><b>Victoire</b><div class="muted">Premier à ${R.prestigeTarget} prestige, ou une voie complète : Science (Observatoire Céleste + ${R.victory.scienceTechs} technologies), Culture (Amphithéâtre + ${R.victory.cultureTotal} culture), Économie (Grande Bourse + ${R.victory.economyGold} Or), Diplomatie (élu ${R.victory.secretaryWins} fois Secrétaire avec un allié, ou allié de tous). Sinon, meilleur prestige au tour ${R.turnLimit}.</div></div>
+    body = `<div class="enc-item"><b>Victoire</b><div class="muted">Premier à ${R.prestigeTarget} prestige, ou une voie complète : Science (Observatoire Céleste + ${R.victory.scienceTechs} technologies), Culture (Amphithéâtre + ${R.victory.cultureTotal} culture), Économie (Grande Bourse + ${R.victory.economyGold} Or), Diplomatie (élu ${R.victory.secretaryWins} fois Secrétaire et allié de la moitié des rivaux, ou allié de tous après au moins une élection). Sinon, meilleur prestige au tour ${R.turnLimit}.</div></div>
       <div class="enc-item"><b>Paliers de population</b><div class="muted">${R.tiers.map((t) => `${t.name}${t.minPop ? ` (${t.minPop} hab., ${G.fmtBundle(s, t.needs)} / tour)` : ''}`).join(' → ')}</div></div>
       <div class="enc-item"><b>Diplomatie</b><div class="muted">Voisins méfiants : ${Math.round(R.malus.waryPct * 100)} % de productivité, hostiles : ${Math.round(R.malus.hostilePct * 100)} %. Alliance : +${Math.round(R.alliance.pct * 100)} % Or, Science, Culture. Accord commercial : +${R.tradeAgreement.gold} Or/tour.</div></div>
       <div class="enc-item"><b>Congrès mondial</b><div class="muted">Tous les ${R.congress.every} tours : une résolution (durée ${R.congress.duration} tours) et l'élection du Secrétaire (+${R.congress.secretaryPrestige} prestige).</div></div>
@@ -729,6 +764,39 @@ function showTech() {
     <div class="muted" style="font-size:13px;margin-top:2px">Science disponible : ${fmt(p.sciencePool)} · ${sign(y)} / tour · chaque technologie rapporte ${s.rules.prestige.perTechTier} prestige par palier</div></div>
     <button class="btn" data-action="close">Fermer</button></header>
     <div class="tech-grid">${Object.entries(BRANCHES).map(([k, v]) => `<div class="branch"><h4>${v}</h4>${col(k)}</div>`).join('')}</div></div>`);
+}
+
+let policyPick = null; // emplacement en cours de choix
+function showPolicies() {
+  const p = me();
+  const slots = D.policySlots(s, 0);
+  const pol = p.policies || [];
+  const next = (data.policies.slots || []).find((t) => t.slots > slots);
+  const swap = G.fmtBundle(s, data.policies.swapCost);
+  if (policyPick === null || policyPick >= slots) policyPick = pol.slice(0, slots).findIndex((x) => !x);
+  if (policyPick < 0) policyPick = 0;
+  const slotHtml = Array.from({ length: 3 }, (_, i) => {
+    if (i >= slots) {
+      const t = (data.policies.slots || []).find((x) => x.slots > i);
+      return `<div class="policy-slot locked"><span class="muted">Emplacement ${i + 1}</span><b>Verrouillé</b><span class="muted">${t ? `à ${t.techs} technologies` : ''}</span></div>`;
+    }
+    const def = pol[i] ? D.policyDef(s, pol[i]) : null;
+    return `<button class="policy-slot ${def ? `b-${def.branch}` : 'empty'}" data-action="policy-pick" data-slot="${i}" aria-pressed="${policyPick === i}"><span class="muted">Emplacement ${i + 1}</span><b>${def ? esc(def.name) : 'Libre'}</b><span class="muted">${def ? esc(def.desc) : 'Choisissez une politique ci-dessous'}</span></button>`;
+  }).join('');
+  const current = pol[policyPick] || null;
+  const list = Object.entries(BRANCHES).map(([k, v]) => `<div class="branch"><h4>${v}</h4>` + data.policies.list.filter((d) => d.branch === k).map((d) => {
+    const unlocked = D.policyUnlocked(s, 0, d);
+    const adopted = pol.includes(d.id);
+    const cost = current && !adopted ? ` · changement : ${swap}` : '';
+    return `<button class="tech policy ${adopted ? 'done' : unlocked ? 'available' : 'locked'}" data-action="policy-set" data-slot="${policyPick}" data-policy="${d.id}" ${!unlocked || adopted ? 'aria-disabled="true"' : ''}>
+      <b>${esc(d.name)}</b><span class="muted">${esc(d.desc)}</span><div class="meta"><span>${adopted ? 'Adoptée' : unlocked ? `Adopter${cost}` : `Nécessite ${G.techDef(s, d.tech).name}`}</span></div></button>`;
+  }).join('') + '</div>').join('');
+  openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Politiques"><header><div><h2>Politiques</h2>
+    <div class="muted" style="font-size:13px;margin-top:2px">${slots} emplacement(s)${next ? ` · le suivant s'ouvre à ${next.techs} technologies` : ''}. Remplir un emplacement libre est gratuit ; remplacer une politique coûte ${swap}.</div></div>
+    <button class="btn" data-action="close">Fermer</button></header>
+    <div class="policy-slots">${slotHtml}</div>
+    ${current ? `<div class="row" style="margin:6px 0 10px"><button class="btn small" data-action="policy-set" data-slot="${policyPick}" data-policy="">Libérer l'emplacement ${policyPick + 1}</button></div>` : ''}
+    <div class="tech-grid">${list}</div></div>`);
 }
 
 function showDiplo() {
@@ -913,6 +981,18 @@ function onAction(e) {
       showDiplo(); renderAll(); save(); break;
     }
     case 'victory': showVictory(); break;
+    case 'event-choice': {
+      const r = D.resolveEvent(s, id, Number(b.dataset.choice));
+      if (!r.ok) { toast(r.reason, 'bad'); break; }
+      refreshWorld(); save(); break;
+    }
+    case 'policies': showPolicies(); break;
+    case 'policy-set': {
+      const r = D.setPolicy(s, 0, Number(b.dataset.slot), b.dataset.policy || null);
+      if (!r.ok) toast(r.reason, 'bad');
+      policyPick = null; showPolicies(); renderAll(); save(); break;
+    }
+    case 'policy-pick': policyPick = Number(b.dataset.slot); showPolicies(); break;
     case 'end-metric': showEnd(b.dataset.metric); break;
     case 'congress': showCongress(); break;
     case 'vote': {
@@ -1036,6 +1116,7 @@ function bindInput() {
     else if (e.key === 'f' || e.key === 'F') foundSelected();
     else if (e.key === 'r' || e.key === 'R') setMode(mode?.type === 'road' ? null : { type: 'road' });
     else if (e.key === 't' || e.key === 'T') showTech();
+    else if (e.key === 'p' || e.key === 'P') showPolicies();
     else if (e.key === 'd' || e.key === 'D') showDiplo();
     else if (e.key === 'm' || e.key === 'M') showMenu();
     else if (e.key === 'e' || e.key === 'E') showEncyclopedia();

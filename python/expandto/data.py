@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "web" / "data"
-FILES = ("terrain", "resources", "buildings", "units", "techs", "profiles", "rules", "ai")
+FILES = ("terrain", "resources", "buildings", "units", "techs", "profiles", "rules", "ai", "events", "policies")
 
 
 def load_data(data_dir: Path = DATA_DIR) -> dict:

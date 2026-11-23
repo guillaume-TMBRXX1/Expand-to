@@ -1,5 +1,6 @@
 // IA des joueurs ordinateurs : heuristiques simples pondérées par leur profil.
 import * as G from './game.js';
+import { aiPolicies } from './diversity.js';
 
 // Paramètres de l'IA : web/data/ai.json, éventuellement surchargés par joueur (s.aiOverrides[pid]) pour l'entraînement.
 function merge(a, b) {
@@ -20,6 +21,7 @@ function aiTurn(s, pid) {
   const P = aiParams(s, pid);
   const w = P.branchWeights[p.profile];
   chooseResearch(s, pid, w);
+  aiPolicies(s, pid);
   for (const u of s.units.filter((x) => x.owner === pid)) moveUnit(s, pid, u);
   trainUnits(s, pid, P);
   for (let i = 0; i < 2; i++) if (!buildSomething(s, pid, w, P.build)) break;
@@ -40,7 +42,7 @@ function chooseResearch(s, pid, w) {
 // ------------------------------------------------------------------ unités
 
 function siteScore(s, pid, t, home) {
-  if (!G.terrainOf(s, t).passable || t.type === 'sand') return -Infinity;
+  if (!G.terrainOf(s, t).passable || t.type === 'sand' || t.natural) return -Infinity;
   if (t.owner !== -1 && t.owner !== pid) return -Infinity;
   if (s.cities.some((c) => G.cheb(c.x, c.y, t.x, t.y) < s.rules.minCityDistance)) return -Infinity;
   let score = 0;
@@ -49,6 +51,8 @@ function siteScore(s, pid, t, home) {
     if (n && n.owner === -1) score += { plains: 2, grass: 2, forest: 1.6, hills: 1.8, sand: 1, water: 0.8 }[n.type] || 0;
   }
   if (G.isCoastal(s, t)) score += 2;
+  // Une merveille naturelle dans le futur territoire : rendement et prestige.
+  if ((s.naturals || []).some((n) => G.cheb(n.x, n.y, t.x, t.y) <= s.rules.cityRadius && G.tileAt(s, n.x, n.y).owner === -1)) score += 5;
   const d = home ? G.cheb(home.x, home.y, t.x, t.y) : 0;
   if (d > 11) return -Infinity;
   const foreignNear = s.cities.some((c) => c.owner !== pid && G.cheb(c.x, c.y, t.x, t.y) < s.rules.borderDistance - 1);
@@ -80,6 +84,13 @@ function moveUnit(s, pid, u) {
     return;
   }
   if (u.type === 'explorer') {
+    if (!u.target) {
+      const p = s.players[pid];
+      // Des ruines connues à portée : on va les fouiller.
+      const ruins = s.map.tiles.filter((t) => t.ruin && p.explored[G.idx(s, t.x, t.y)] && G.cheb(t.x, t.y, u.x, u.y) <= 8)
+        .sort((a, b) => G.cheb(a.x, a.y, u.x, u.y) - G.cheb(b.x, b.y, u.x, u.y));
+      for (const t of ruins.slice(0, 3)) if (G.findPath(s, u, t.x, t.y)) { u.target = { x: t.x, y: t.y }; break; }
+    }
     if (!u.target) {
       const p = s.players[pid];
       const unexplored = s.map.tiles.filter((t) => !p.explored[G.idx(s, t.x, t.y)] && G.terrainOf(s, t).passable);

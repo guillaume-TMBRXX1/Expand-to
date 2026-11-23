@@ -1,0 +1,98 @@
+{
+  "firstTurn": 5,
+  "every": [4, 6],
+  "expireAfter": 3,
+  "list": [
+    { "id": "drought", "title": "Sécheresse", "text": "Les pluies se font attendre et les récoltes de {city} s'annoncent maigres.", "if": { "minTurn": 6 },
+      "choices": [
+        { "label": "Importer du grain", "res": { "gold": -35 } },
+        { "label": "Rationner", "buff": { "yieldPct": { "food": -0.25 }, "turns": 4 } }
+      ] },
+    { "id": "comet", "title": "Une comète dans le ciel", "text": "Une comète traverse le ciel nocturne. Tout le pays lève les yeux.",
+      "choices": [
+        { "label": "Organiser une fête", "culture": 40 },
+        { "label": "L'étudier", "science": 40 }
+      ] },
+    { "id": "merchants", "title": "Marchands étrangers", "text": "Une caravane venue de loin demande à commercer à {city}.",
+      "choices": [
+        { "label": "Les accueillir", "res": { "gold": 30 }, "relAll": 1 },
+        { "label": "Les taxer lourdement", "res": { "gold": 60 }, "relAll": -2 }
+      ] },
+    { "id": "deposit", "title": "Un filon de pierre", "text": "Des carriers découvrent un filon remarquable près de {city}, au pied d'un site ancien.",
+      "choices": [
+        { "label": "Exploiter le filon", "res": { "stone": 30 } },
+        { "label": "Préserver le site", "culture": 25, "prestige": 2 }
+      ] },
+    { "id": "refugees", "title": "Familles en quête d'un foyer", "text": "Des familles chassées par les crues demandent à s'installer à {city}.", "if": { "minTurn": 8 },
+      "choices": [
+        { "label": "Les accueillir", "pop": 1, "res": { "food": -10 } },
+        { "label": "Les orienter vers un voisin", "relAll": 1 }
+      ] },
+    { "id": "fire", "title": "Incendie", "text": "Un incendie ravage un quartier de {city}.", "if": { "minTurn": 10, "minCities": 2 },
+      "choices": [
+        { "label": "Reconstruire vite", "res": { "wood": -25, "stone": -10 } },
+        { "label": "Reconstruire lentement", "buff": { "yieldPct": { "gold": -0.15 }, "turns": 3 } }
+      ] },
+    { "id": "artist", "title": "Un artiste de passage", "text": "Un peintre renommé propose une fresque pour la grand-place de {city}.",
+      "choices": [
+        { "label": "Commander la fresque", "res": { "gold": -30 }, "culture": 45, "prestige": 2 },
+        { "label": "Décliner poliment" }
+      ] },
+    { "id": "scholar", "title": "Un savant exilé", "text": "Un savant chassé de son pays demande l'asile et apporte ses carnets.", "if": { "minTurn": 8 },
+      "choices": [
+        { "label": "L'héberger", "res": { "gold": -25 }, "science": 60 },
+        { "label": "Le recommander à un voisin", "relAll": 1 }
+      ] },
+    { "id": "harvest", "title": "Fête des moissons", "text": "Les greniers débordent. La population réclame une fête.", "if": { "minTurn": 8 },
+      "choices": [
+        { "label": "Grand banquet", "res": { "food": -20 }, "buff": { "yieldPct": { "culture": 0.25 }, "turns": 4 } },
+        { "label": "Tout stocker", "res": { "food": 20 } }
+      ] },
+    { "id": "storm", "title": "Tempête sur la côte", "text": "Une tempête menace les quais de {city}.", "if": { "coastal": true },
+      "choices": [
+        { "label": "Renforcer les quais", "res": { "wood": -20 } },
+        { "label": "Attendre que ça passe", "buff": { "yieldPct": { "gold": -0.12, "food": -0.1 }, "turns": 3 } }
+      ] },
+    { "id": "flu", "title": "Épidémie de grippe", "text": "Une grippe tenace se répand dans vos villes.", "if": { "minTurn": 14 },
+      "choices": [
+        { "label": "Payer des médecins", "res": { "gold": -40 } },
+        { "label": "Quarantaine", "buff": { "yieldPct": { "science": -0.15, "culture": -0.1 }, "turns": 3 } }
+      ] },
+    { "id": "architects", "title": "Concours d'architectes", "text": "Les architectes du royaume proposent un concours pour embellir {city}.", "if": { "tech": "architecture" },
+      "choices": [
+        { "label": "Organiser le concours", "res": { "gold": -40, "stone": -20 }, "prestige": 5 },
+        { "label": "Pas cette année" }
+      ] },
+    { "id": "envoy", "title": "Visite diplomatique", "text": "Les envoyés de vos voisins sont en visite à {city}.", "if": { "tech": "protocol" },
+      "choices": [
+        { "label": "Banquet officiel", "res": { "gold": -30 }, "relAll": 2 },
+        { "label": "Audience simple", "relAll": 1 }
+      ] },
+    { "id": "goldrush", "title": "Ruée vers l'or", "text": "On a trouvé de l'or dans les rivières près de {city}.", "if": { "minTurn": 12 },
+      "choices": [
+        { "label": "Laisser faire les prospecteurs", "buff": { "yieldPct": { "gold": 0.3, "food": -0.1 }, "turns": 4 } },
+        { "label": "Encadrer l'exploitation", "res": { "gold": 40 } }
+      ] },
+    { "id": "inventor", "title": "Un inventeur", "text": "Un inventeur présente une machine étonnante et cherche un mécène.", "if": { "tech": "chemistry" },
+      "choices": [
+        { "label": "Financer ses travaux", "res": { "gold": -50 }, "science": 90 },
+        { "label": "Lui commander des outils", "res": { "gold": -20, "tools": 10 } },
+        { "label": "Décliner" }
+      ] },
+    { "id": "pilgrims", "title": "Pèlerins", "text": "Des pèlerins affluent pour admirer vos merveilles.", "if": { "wonder": true },
+      "choices": [
+        { "label": "Les accueillir gratuitement", "culture": 30, "relAll": 1 },
+        { "label": "Faire payer la visite", "res": { "gold": 50 } }
+      ] },
+    { "id": "festival", "title": "Festival des arts", "text": "Les artistes de {city} veulent un festival.", "if": { "tech": "arts", "minTurn": 10 },
+      "choices": [
+        { "label": "Le financer", "res": { "gold": -35 }, "buff": { "yieldPct": { "culture": 0.3 }, "turns": 3 } },
+        { "label": "Le laisser s'organiser seul", "culture": 15 }
+      ] },
+    { "id": "forest", "title": "Forêt ancienne", "text": "Les bûcherons de {city} atteignent une forêt plusieurs fois centenaire.",
+      "choices": [
+        { "label": "Abattre", "res": { "wood": 35 } },
+        { "label": "La protéger", "culture": 20, "prestige": 1 }
+      ] }
+  ]
+}

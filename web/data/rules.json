@@ -4,7 +4,7 @@
     "height": 26
   },
   "turnLimit": 60,
-  "prestigeTarget": 160,
+  "prestigeTarget": 200,
   "cityBaseYield": {
     "food": 3,
     "gold": 2,
@@ -268,5 +268,131 @@
   "embark": {
     "tech": "navigation",
     "moveCost": 2
+  },
+  "naturalWonders": {
+    "per936Tiles": 4,
+    "minSpacing": 7,
+    "startGap": 4,
+    "firstPrestige": 3,
+    "laterPrestige": 1,
+    "ownedPrestige": 2,
+    "adjacency": {
+      "culture": 1
+    },
+    "list": [
+      {
+        "id": "falls",
+        "name": "Grandes Chutes",
+        "terrain": [
+          "hills",
+          "grass",
+          "forest"
+        ],
+        "needs": "water",
+        "yields": {
+          "culture": 2,
+          "gold": 1
+        },
+        "desc": "Une cascade spectaculaire qui attire voyageurs et poètes."
+      },
+      {
+        "id": "volcano",
+        "name": "Mont Braise",
+        "terrain": [
+          "mountain"
+        ],
+        "yields": {
+          "science": 2,
+          "stone": 2
+        },
+        "desc": "Un volcan endormi aux pentes fertiles et riches en minerais."
+      },
+      {
+        "id": "reef",
+        "name": "Récif de corail",
+        "terrain": [
+          "water"
+        ],
+        "yields": {
+          "food": 2,
+          "gold": 1
+        },
+        "desc": "Un récif éclatant où foisonnent poissons et coquillages."
+      },
+      {
+        "id": "greattree",
+        "name": "Arbre millénaire",
+        "terrain": [
+          "forest"
+        ],
+        "yields": {
+          "culture": 2,
+          "food": 1
+        },
+        "desc": "Un arbre géant, plus vieux que toutes les cités."
+      },
+      {
+        "id": "canyon",
+        "name": "Canyon rouge",
+        "terrain": [
+          "hills"
+        ],
+        "yields": {
+          "gold": 2,
+          "culture": 1
+        },
+        "desc": "Des falaises rouges sculptées par le vent."
+      },
+      {
+        "id": "oasis",
+        "name": "Oasis",
+        "terrain": [
+          "sand"
+        ],
+        "yields": {
+          "food": 2,
+          "gold": 2
+        },
+        "desc": "Une source d'eau douce au milieu des dunes."
+      }
+    ]
+  },
+  "ruins": {
+    "per936Tiles": 7,
+    "minSpacing": 3,
+    "startGap": 3,
+    "prestige": 0,
+    "rewards": [
+      {
+        "id": "gold",
+        "text": "un coffre de pièces anciennes",
+        "res": {
+          "gold": 30
+        }
+      },
+      {
+        "id": "science",
+        "text": "des tablettes savantes",
+        "science": 20
+      },
+      {
+        "id": "culture",
+        "text": "des fresques oubliées",
+        "culture": 20
+      },
+      {
+        "id": "map",
+        "text": "une carte ancienne de la région",
+        "reveal": 6
+      },
+      {
+        "id": "tools",
+        "text": "un atelier abandonné",
+        "res": {
+          "tools": 5,
+          "planks": 5
+        }
+      }
+    ]
   }
 }
