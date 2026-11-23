@@ -416,6 +416,7 @@ function describeAdjacency(def) {
 }
 
 function renderHighlights() {
+  renderer.setRoadsVisible(mode?.type === 'road');
   const list = [];
   const badges = [];
   const W = s.map.width;
@@ -471,6 +472,7 @@ function select(next) { sel = next; mode = null; pendingMove = null; renderAll()
 
 function setMode(next) {
   mode = next;
+  renderer.setRoadsVisible(mode?.type === 'road'); // les routes ne s'affichent qu'en mode Route
   renderBuildbar(); renderHighlights();
 }
 

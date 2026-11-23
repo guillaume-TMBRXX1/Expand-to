@@ -185,7 +185,7 @@ export class Renderer {
     for (const mesh of this.decor) {
       mesh.userData.slots.forEach((sl, k) => {
         const i = sl.t.y * this.W + sl.t.x;
-        const show = p.explored[i] === 1 && !occupied.has(i) && sl.t.road === -1 && !s.cities.some((ct) => ct.x === sl.t.x && ct.y === sl.t.y);
+        const show = p.explored[i] === 1 && !occupied.has(i) && !s.cities.some((ct) => ct.x === sl.t.x && ct.y === sl.t.y);
         const h = this.heights[i];
         m.compose(v.set(this.wx(sl.t.x) + sl.dx, h + 0.012, this.wz(sl.t.y) + sl.dz), q, sc.setScalar(show ? sl.sc : 0.0001));
         mesh.setMatrixAt(k, m);
@@ -251,7 +251,7 @@ export class Renderer {
     this.water.instanceMatrix.needsUpdate = true;
     this.treeSlots.forEach((sl, k) => {
       const i = sl.t.y * this.W + sl.t.x;
-      const ex = p.explored[i] === 1 && sl.t.type === 'forest' && !occupied.has(i) && sl.t.road === -1;
+      const ex = p.explored[i] === 1 && sl.t.type === 'forest' && !occupied.has(i);
       const k0 = ex ? sl.s : 0.0001;
       m.compose(v.set(this.wx(sl.t.x) + sl.dx, this.heights[i] + 0.11 * sl.s, this.wz(sl.t.y) + sl.dz), q, sc.setScalar(k0));
       this.trunks.setMatrixAt(k, m);
@@ -312,50 +312,84 @@ export class Renderer {
     this.drawHighlights();
   }
 
-  // Routes pavées : bordure sombre + chaussée claire + pavés, raccords arrondis, pentes entre cases.
-  // Les routes passent sous les bâtiments (le socle du bâtiment les recouvre).
+  // Routes : pointillés qui défilent du centre du réseau (capitale) vers l'extérieur.
+  // Elles ne sont affichées qu'en mode « Route » (setRoadsVisible).
+  setRoadsVisible(on) {
+    this.roadsVisible = on;
+    if (this.roadMesh) this.roadMesh.visible = on;
+  }
+
   drawRoads() {
+    this.roadMesh = null;
     const s = this.state, p = s.players[this.viewer], W = this.W;
-    const isCity = (x, y) => s.cities.some((c) => c.x === x && c.y === y);
-    const node = (x, y) => x >= 0 && y >= 0 && x < W && y < this.H && (s.map.tiles[y * W + x].road !== -1 || isCity(x, y));
+    const cityAtXY = (x, y) => s.cities.find((c) => c.x === x && c.y === y);
+    const ownerOf = (t) => (t.road !== -1 ? t.road : cityAtXY(t.x, t.y)?.owner ?? -1);
+    const node = (x, y) => x >= 0 && y >= 0 && x < W && y < this.H && (s.map.tiles[y * W + x].road !== -1 || !!cityAtXY(x, y));
     const road = (x, y) => x >= 0 && y >= 0 && x < W && y < this.H && s.map.tiles[y * W + x].road !== -1;
-    const edges = [], joints = [];
+    // Distance au centre (capitale) dans le réseau routier de chaque joueur : donne le sens du défilement.
+    const dist = new Map();
+    const queue = [];
+    for (const c of s.cities) if (c.capital) { dist.set(c.y * W + c.x, 0); queue.push(c); }
+    while (queue.length) {
+      const t = queue.shift(), d = dist.get(t.y * W + t.x);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = t.x + dx, ny = t.y + dy, ni = ny * W + nx;
+        if ((dx || dy) && node(nx, ny) && !dist.has(ni)) { dist.set(ni, d + 1); queue.push({ x: nx, y: ny }); }
+      }
+    }
+    const edges = [];
     s.map.tiles.forEach((t, i) => {
       if (!p.explored[i] || !node(t.x, t.y)) return;
-      if (road(t.x, t.y)) joints.push(t);
       for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
         const nx = t.x + dx, ny = t.y + dy;
         if (!node(nx, ny) || (!road(t.x, t.y) && !road(nx, ny))) continue;
-        if (dx && dy && (node(t.x + dx, t.y) || node(t.x, t.y + dy))) continue; // diagonale inutile si un coude existe
-        edges.push([t, s.map.tiles[ny * W + nx]]);
+        if (dx && dy && (node(t.x + dx, t.y) || node(t.x, t.y + dy))) continue;
+        const n = s.map.tiles[ny * W + nx];
+        const da = dist.get(i) ?? 99, db = dist.get(ny * W + nx) ?? 99;
+        edges.push(da <= db ? [t, n] : [n, t]);
       }
     });
-    if (!edges.length && !joints.length) return;
+    if (!edges.length) return;
+    const geo = new THREE.PlaneGeometry(1, 0.09);
+    geo.rotateX(-Math.PI / 2);
+    geo.translate(0.5, 0, 0);
+    const lens = new Float32Array(edges.length);
+    const mat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, depthTest: false, side: THREE.DoubleSide, // toujours visibles au-dessus des bâtiments et des arbres
+      uniforms: { uTime: this.waterUniform, uSpeed: { value: this.reducedMotion ? 0 : 0.6 } },
+      vertexShader: `attribute float aLen; attribute vec3 aColor; varying vec2 vUv; varying float vLen; varying vec3 vColor;
+        void main() { vUv = uv; vLen = aLen; vColor = aColor; gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0); }`,
+      fragmentShader: `uniform float uTime; uniform float uSpeed; varying vec2 vUv; varying float vLen; varying vec3 vColor;
+        void main() {
+          float d = vUv.x * vLen - uTime * uSpeed;
+          float dash = step(fract(d / 0.2), 0.55);
+          float edge = smoothstep(0.0, 0.25, vUv.y) * smoothstep(1.0, 0.75, vUv.y);
+          if (dash * edge < 0.05) discard;
+          gl_FragColor = vec4(mix(vColor, vec3(1.0), 0.15), 0.95 * edge);
+        }`,
+    });
+    const im = new THREE.InstancedMesh(geo, mat, edges.length);
+    const colors = new Float32Array(edges.length * 3);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), X = new THREE.Vector3(1, 0, 0), sc = new THREE.Vector3(), c = new THREE.Color();
     const top = (t) => this.heights[t.y * W + t.x];
-    const m = new THREE.Matrix4(), v = new THREE.Vector3(), sc = new THREE.Vector3(), q = new THREE.Quaternion(), X = new THREE.Vector3(1, 0, 0);
-    const mk = (geo, color, n) => { const im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.95 }), Math.max(1, n)); im.receiveShadow = true; return im; };
-    const curb = mk(new RoundedBoxGeometry(1, 0.03, 0.2, 1, 0.012), '#c9b38e', edges.length);
-    const pave = mk(new RoundedBoxGeometry(1, 0.03, 0.13, 1, 0.012), '#f1e5cb', edges.length);
-    const stones = [];
     edges.forEach(([a, b], k) => {
-      const A = new THREE.Vector3(this.wx(a.x), top(a) + 0.012, this.wz(a.y));
-      const B = new THREE.Vector3(this.wx(b.x), top(b) + 0.012, this.wz(b.y));
+      const A = new THREE.Vector3(this.wx(a.x), top(a) + 0.03, this.wz(a.y));
+      const B = new THREE.Vector3(this.wx(b.x), top(b) + 0.03, this.wz(b.y));
       const dir = B.clone().sub(A); const len = dir.length(); dir.normalize();
       q.setFromUnitVectors(X, dir);
-      m.compose(v.copy(A).add(B).multiplyScalar(0.5), q, sc.set(len, 1, 1)); curb.setMatrixAt(k, m);
-      m.compose(v.copy(A).add(B).multiplyScalar(0.5).add(new THREE.Vector3(0, 0.008, 0)), q, sc.set(len, 1, 1)); pave.setMatrixAt(k, m);
-      for (let f = 0.2; f < 0.95; f += 0.2) stones.push({ p: A.clone().lerp(B, f).add(new THREE.Vector3(0, 0.026, 0)), q: q.clone() });
+      m.compose(A, q, sc.set(len, 1, 1));
+      im.setMatrixAt(k, m);
+      lens[k] = len;
+      const own = ownerOf(a) !== -1 ? ownerOf(a) : ownerOf(b);
+      c.set(own >= 0 ? s.players[own].color : '#ffffff');
+      colors.set([c.r, c.g, c.b], k * 3);
     });
-    const jCurb = mk(new THREE.CylinderGeometry(0.1, 0.1, 0.03, 16), '#c9b38e', joints.length);
-    const jPave = mk(new THREE.CylinderGeometry(0.065, 0.065, 0.03, 16), '#f1e5cb', joints.length);
-    joints.forEach((t, k) => {
-      const c = new THREE.Vector3(this.wx(t.x), top(t) + 0.012, this.wz(t.y));
-      m.compose(c, new THREE.Quaternion(), sc.set(1, 1, 1)); jCurb.setMatrixAt(k, m);
-      m.compose(c.add(new THREE.Vector3(0, 0.008, 0)), new THREE.Quaternion(), sc.set(1, 1, 1)); jPave.setMatrixAt(k, m);
-    });
-    const dots = mk(new THREE.BoxGeometry(0.05, 0.012, 0.035), '#ddcba6', stones.length);
-    stones.forEach((st, k) => { m.compose(st.p, st.q, sc.set(1, 1, 1)); dots.setMatrixAt(k, m); });
-    this.dynamic.add(curb, pave, jCurb, jPave, dots);
+    geo.setAttribute('aLen', new THREE.InstancedBufferAttribute(lens, 1));
+    geo.setAttribute('aColor', new THREE.InstancedBufferAttribute(colors, 3));
+    im.renderOrder = 10;
+    im.visible = !!this.roadsVisible;
+    this.roadMesh = im;
+    this.dynamic.add(im);
   }
 
   // highlights : [{ i, color, opacity }]
