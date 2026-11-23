@@ -40,16 +40,16 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 - Sauvegarde automatique dans le navigateur.
 - Simulation headless (`tools/sim.mjs`) : les parties IA contre IA durent **41 à 60 tours**.
 
-## Phase 1 — Fondations (v0.2) · ~1 à 2 semaines
+## Phase 1 — Fondations (v0.2) · ~1 à 2 semaines ✅
 
-- [ ] Connecter le dépôt à Vercel : une URL de prévisualisation par PR.
+- [x] Mise en ligne : Railway à la place de Vercel (`railway.json` et mini-serveur `tools/serve.mjs`), avec redéploiement automatique à chaque fusion dans `main`. Pas d'adresse de prévisualisation par PR.
 - [x] CI GitHub Actions : `pytest`, une simulation de 20 parties, et un échec si la durée moyenne sort de [35, 60] tours.
 - [x] Tutoriel guidé en 8 étapes : fonder, construire, rechercher, explorer, finir le tour, route, diplomatie, prestige.
 - [x] Équilibrage : sur 80 parties simulées, chaque profil gagne entre 20 et 32 % des parties (contre 8 à 43 % avant), et l'IA construit 1,5 merveille par partie (contre 1).
 - [x] Sauvegarde automatique, 3 emplacements, export et import de fichier.
 - [x] Mini-carte cliquable avec le cadre de la caméra, et résumé de fin de tour (gains et événements).
 
-## Phase 2 — Profondeur de gestion (v0.3) · ~3 semaines
+## Phase 2 — Profondeur de gestion (v0.3) · ~3 semaines ✅
 
 - [x] **Adjacences façon Anno** : chaque bâtiment gagne des bonus selon ses voisins (bibliothèque à côté d'un laboratoire, scierie entourée de forêts, marché collé à une ville…). L'aperçu s'affiche au survol pendant la construction.
 - [x] **Chaînes de production** : Menuiserie (bois → planches), Forge (pierre + bois → outils), Manufacture (nourriture → biens). Ces biens servent aux bâtiments avancés et aux merveilles.
@@ -59,20 +59,20 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 - [x] Unités civiles : Ingénieur (routes partout, défrichage) et Émissaire (ambassade : +15 relation, +1 par tour).
 - [x] Quartiers 2×2 : Campus, Quartier des arts, Quartier marchand.
 - [x] Halle marchande : vente des surplus (biens, matériaux, ressources rares) avec un prix qui baisse quand on vend beaucoup, et une vente automatique au-delà d'un seuil réglable par ressource (30 par défaut).
-- [ ] Notes pour plus tard : l'IA construit encore peu de quartiers 2×2 et de laboratoires, et le moteur pourrait être optimisé (une simulation prend environ 0,5 s par partie).
+- [ ] À suivre : l'IA construit encore peu de quartiers 2×2 et de laboratoires. (Moteur optimisé depuis : file de priorité et un seul calcul de chemins par décision.)
 
-## Phase 3 — Diplomatie et IA (v0.4) · ~3 semaines
+## Phase 3 — Diplomatie et IA (v0.4) · ~3 semaines ✅
 
 - [x] **Congrès mondial** tous les 10 tours : vote d'une résolution (science, culture, libre-échange, embargo contre le meneur) pondéré par les alliances, accords et ambassades, et élection d'un Secrétaire (+8 prestige).
 - [x] Mémoire diplomatique (« ce qu'il retient de vous »), promesses (ne plus fonder de ville près d'un voisin ; la rompre coûte très cher) et personnalités d'IA (loyale, opportuniste, isolationniste).
 - [x] Alliances actives : projets communs (+6 prestige et +2 Science +2 Culture par tour), partage de technologies (−25 %), demandes d'aide qui pèsent davantage entre alliés.
-- [x] Voies de victoire : Science (Observatoire + 14 technologies), Culture (Amphithéâtre + 900 culture), Économie (Grande Bourse + 1 200 Or en caisse), Diplomatie (élu 3 fois Secrétaire avec au moins un allié, ou allié de tous), en plus du prestige. Un panneau suit la progression de chaque voie.
+- [x] Voies de victoire (valeurs en partie normale) : Science (Observatoire + 14 technologies), Culture (Amphithéâtre + 900 culture), Économie (Grande Bourse + 1 380 Or en caisse), Diplomatie (élu 4 fois Secrétaire et allié de la moitié des rivaux, ou allié de tous), en plus du prestige. Un panneau suit la progression de chaque voie.
 - [x] **Entraînement de l'IA** : paramètres dans `web/data/ai.json`, recherche évolutive `python -m expandto.train` (et une cellule dans le notebook Colab) qui fait jouer les candidats dans le vrai moteur.
 - [x] Niveaux de difficulté (Facile / Normal / Difficile : rendement, coûts et relations de départ des IA).
 - [x] Moteur plus rapide (file de priorité pour les chemins) : environ 0,35 s par partie simulée.
-- [ ] À suivre : les IA atteignent rarement les victoires Science, Culture et Économie (seuils à ajuster selon vos retours) ; lancer un vrai entraînement plus long dans Colab.
+- [ ] À suivre : les IA atteignent rarement les victoires Science, Culture et Économie, et les parties longues finissent vers le tour 47 sur 80 (seuils à ajuster selon vos parties) ; lancer un vrai entraînement de l'IA, plus long, dans Colab (l'outil n'a tourné que sur quelques parties de test).
 
-## Phase 4 — Présentation (v0.5) · ~2 à 3 semaines
+## Phase 4 — Présentation (v0.5) · ~2 à 3 semaines · deuxième passage en cours
 
 - [x] Direction artistique « jouet en argile » : modèles arrondis sur socles-dioramas, personnages toy, portraits SVG, palette chaude (voir DESIGN.md).
 - [x] **Design enrichi** (premier passage) : décor de terrain (fleurs, touffes, rochers, coquillages), flancs de falaise ombrés, eau animée avec reflets, moulin sur les fermes, petits animaux, faisceau du phare, bateau au port, antenne du laboratoire.
@@ -82,9 +82,9 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 - [x] Interface : infobulle au survol des cases, liste des bâtiments dans le panneau de ville (avec leurs adjacences), encyclopédie (touche E) générée depuis les données.
 - [x] Déplacements : tracé du chemin, nombre de tours et confirmation par un second clic (désactivable dans le menu).
 - [x] Accessibilité : focus piégé dans les fenêtres et rendu à la fermeture, respect du réglage « moins d'animations », boutons plus grands sur tablette.
-- [ ] Deuxième passage design selon vos retours (modèles glTF faits main, plus de variantes de bâtiments, effets de construction).
+- [ ] **Deuxième passage design (en cours)** : variantes de bâtiments, villes qui changent d'allure avec leur palier, effets de construction et d'achèvement, décor de terrain plus varié.
 
-## Phase 5 — Version 1.0
+## Phase 5 — Version 1.0 ✅
 
 - [x] Tailles de carte : petite (28×20, jusqu'à 3 IA), moyenne (36×26, jusqu'à 5 IA), grande (46×32, jusqu'à 7 IA). Types : continent, pangée, archipel. Les cartes Python et JS restent identiques (test pour chaque type).
 - [x] Embarquement : avec la Navigation, les unités terrestres traversent les lagunes peu profondes (indispensable en archipel).
@@ -93,10 +93,17 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 - [x] Performances : modèles fusionnés en un seul maillage à couleurs de sommets (grande carte à 8 joueurs : 3 800 → 1 000 appels de dessin, −45 % de triangles).
 - [ ] Plus tard (pas prévu pour l'instant) : multijoueur asynchrone (sauvegarde partagée), ce qui demanderait un petit backend.
 
+## Après la version 1.0 (retours de test)
+
+- [x] Routes : elles n'occupent plus les cases (on construit dessus), affichées en pointillés animés uniquement avec l'outil Route.
+- [x] Version iPad en paysage : mise en page tablette, tiroir « Infos » avec pastille, tactile fiable, ajout à l'écran d'accueil en plein écran.
+- [x] Correctifs tactiles : sélection d'une autre unité au toucher, boutons « Annuler » / « Terminer » et ✕ à la place de la touche Échap.
+- [x] Entrepôt : seuil de vente automatique réglable par ressource.
+
 ---
 
 ## Méthode de travail proposée
 
-1. Une **issue** par fonctionnalité, une **branche** et une **PR** en brouillon, avec une prévisualisation Vercel.
+1. Une **issue** par fonctionnalité, une **branche** et une **PR** en brouillon ; le jeu se teste sur Railway une fois la PR fusionnée.
 2. Toute modification de règles passe par `web/data/*.json`. On la vérifie avec le notebook Colab et la simulation **avant** la PR.
 3. Rien n'est poussé sans validation.
