@@ -19,6 +19,16 @@ Ouvrez ensuite <http://localhost:8000>.
 - **Railway** : importez le dépôt GitHub dans un nouveau projet. `railway.json` lance `node tools/serve.mjs`, un mini-serveur statique sans dépendance qui écoute sur la variable d'environnement `PORT`. Générez ensuite un domaine public dans *Settings → Networking*.
 - **Vercel** : importez le dépôt. `vercel.json` sert directement le dossier `web/`, sans étape de build.
 
+## Jouer sur iPad
+
+- Ouvrez l'adresse du jeu dans Safari, en tenant l'iPad **à l'horizontale**.
+- Pour jouer en plein écran comme une application : bouton **Partager**, puis **Sur l'écran d'accueil**.
+- Commandes au doigt :
+  - toucher une case : sélectionner, construire ou déplacer ;
+  - glisser un doigt : déplacer la carte ;
+  - deux doigts : zoomer et pivoter.
+- Le bouton **Infos** ouvre le classement, la mini-carte, les propositions et le journal. Une pastille signale une proposition ou un congrès en attente.
+
 ## Labo Python (Google Colab)
 
 Ouvrez `notebooks/Expand_to_Lab.ipynb` dans Colab. Le notebook clone le dépôt, prévisualise les cartes, analyse l'équilibrage et lance des simulations IA contre IA.
