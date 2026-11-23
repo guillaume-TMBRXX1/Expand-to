@@ -153,9 +153,8 @@ h2, h3, h4 { margin: 0; }
 .help { font-size: 13px; color: var(--muted); margin-top: 18px; line-height: 1.6; }
 kbd { font: 12px ui-monospace, monospace; background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
 
-@media (max-width: 1100px) {
+@media (max-width: 900px) {
   #buildbar { left: 12px; right: 12px; bottom: auto; top: 76px; }
-  #side { display: none; }
   #selection { width: calc(100% - 24px); max-height: 40vh; }
   #topbar { flex-wrap: wrap; }
 }
@@ -208,7 +207,7 @@ kbd { font: 12px ui-monospace, monospace; background: var(--surface-2); border: 
 .res small { font-size: 11.5px; }
 .brand { font-size: 17px; }
 .top-actions .btn { padding: 7px 12px; }
-@media (max-width: 1300px) { .resources { flex-wrap: wrap; } }
+
 
 .sell-row { display: flex; align-items: center; gap: 6px; margin: 0 0 8px 15px; flex-wrap: wrap; font-size: 12px; }
 .sell-row .btn.small { padding: 3px 8px; font-size: 12px; }
@@ -275,3 +274,65 @@ table.stats th, table.stats td { padding: 6px 8px; border-top: 1px solid var(--l
 table.stats th[scope="row"], table.stats thead th:first-child { text-align: left; }
 table.stats thead th { color: var(--muted); font-weight: 600; border-top: 0; }
 table.stats tr.me th, table.stats tr.me td { background: #fff4ef; font-weight: 700; }
+
+/* ------------------------------------------------------------ tablette (iPad paysage) */
+html.touch, html.touch body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+html.touch input, html.touch select { -webkit-user-select: auto; user-select: auto; }
+html.touch button, html.touch .tab { touch-action: manipulation; }
+.side-toggle { display: none; position: relative; }
+.badge { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 11.5px; font-weight: 800; display: inline-grid; place-items: center; padding: 0 5px; box-shadow: 0 0 0 2px var(--surface); }
+.badge[hidden] { display: none !important; }
+
+html.compact #topbar { top: calc(8px + env(safe-area-inset-top)); left: calc(8px + env(safe-area-inset-left)); right: calc(8px + env(safe-area-inset-right)); gap: 8px; padding: 6px 8px 6px 12px; }
+html.compact .brand { font-size: 15px; }
+html.compact .resources { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+html.compact .resources::-webkit-scrollbar { display: none; }
+html.compact .res { padding: 4px 8px; font-size: 12.5px; flex: 0 0 auto; }
+html.compact .turn { font-size: 12px; padding: 0 2px; }
+html.compact .top-actions { gap: 6px; }
+html.compact .top-actions .btn { padding: 8px 11px; min-height: 40px; font-size: 13.5px; }
+html.compact .side-toggle { display: inline-flex; align-items: center; }
+
+/* Tiroir de droite */
+html.compact #side { top: calc(70px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right)); bottom: calc(8px + env(safe-area-inset-bottom)); width: 300px; z-index: 6;
+  transform: translateX(calc(100% + 24px)); transition: transform .22s ease; }
+html.compact.side-open #side { transform: none; }
+html.compact.side-open #side::before { content: ''; position: fixed; inset: 0; z-index: -1; }
+
+/* Panneaux du bas */
+html.compact #selection { left: calc(8px + env(safe-area-inset-left)); bottom: calc(8px + env(safe-area-inset-bottom)); width: 290px; max-height: min(46vh, calc(100% - 150px)); padding: 12px 14px; }
+html.compact #buildbar { left: calc(306px + env(safe-area-inset-left)); right: calc(8px + env(safe-area-inset-right)); bottom: calc(8px + env(safe-area-inset-bottom)); padding: 6px 8px 8px; }
+html.compact.side-open #buildbar { right: calc(316px + env(safe-area-inset-right)); }
+html.compact .tabs { overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
+html.compact .tabs::-webkit-scrollbar { display: none; }
+html.compact .tab { flex: 0 0 auto; min-height: 40px; padding: 6px 10px; }
+html.compact .build-list { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+html.compact .build-item { min-width: 112px; min-height: 64px; padding: 7px 9px; font-size: 12.5px; }
+html.compact #tutorial { top: calc(70px + env(safe-area-inset-top)); left: calc(8px + env(safe-area-inset-left)); width: 290px; }
+html.compact #summary, html.compact #hint { max-width: calc(100% - 640px); min-width: 300px; }
+html.compact #hint { bottom: calc(140px + env(safe-area-inset-bottom)); }
+html.compact #stock { top: calc(70px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right)); }
+html.compact.side-open #stock { right: calc(316px + env(safe-area-inset-right)); }
+html.compact .dialog { max-height: calc(100vh - 32px); padding: 16px 18px; }
+html.compact #modal { padding: 12px; }
+html.touch .btn, html.touch .tab { min-height: 44px; }
+html.touch .btn.small { min-height: 38px; padding: 7px 11px; }
+html.touch .tech, html.touch .profile { min-height: 44px; }
+html.touch .sell-row .btn.small { min-height: 36px; }
+html.touch .check input { width: 20px; height: 20px; }
+html.compact .city-label { font-size: 11.5px; }
+@media (max-width: 1100px) { html.compact #summary, html.compact #hint { max-width: calc(100% - 340px); } }
+#rotate { z-index: 30; }
+
+.lbl-short { display: none; }
+@media (max-width: 1240px) {
+  html.compact .lbl-long { display: none; }
+  html.compact .lbl-short { display: inline; }
+  html.compact .brand { display: none; }
+  html.compact .res { padding: 4px 7px; gap: 4px; }
+  html.compact .res small { font-size: 11px; }
+  html.compact .res-research { max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
+  html.compact .turn { display: none; }
+}
+@media (max-width: 1240px) { html.compact .top-actions .btn { padding: 8px 9px; } html.compact #topbar { gap: 6px; } html.compact .resources { gap: 3px; } }
+@media (max-width: 1060px) { html.compact .res { padding: 4px 6px; } html.compact .res-research { max-width: 44px; } html.compact .top-actions .btn { padding: 8px 8px; font-size: 13px; } }

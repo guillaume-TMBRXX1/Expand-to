@@ -141,6 +141,7 @@ function startGame(state) {
   $('#start').hidden = true;
   for (const id of ['#topbar', '#side', '#buildbar']) $(id).hidden = false;
   $('#summary').hidden = true;
+  applyLayout();
   renderer.setState(s, 0);
   sel = null; mode = null;
   const u = s.units.find((x) => x.owner === 0 && x.type === 'settler') || s.units.find((x) => x.owner === 0);
@@ -233,13 +234,15 @@ function renderTop() {
     return `<span class="res" title="${tip}"><i style="background:${resColor(k)}"></i><b>${fmt(p.res[k])}</b><small class="${y.net[k] < 0 ? 'neg' : ''}">${sign(y.net[k])}</small></span>`;
   });
   const research = p.research ? G.techDef(s, p.research) : null;
-  items.push(`<span class="res" title="Science accumulée / coût de la recherche en cours"><i style="background:${resColor('science')}"></i><b>${research ? `${research.name} ${fmt(p.sciencePool)}/${research.cost}` : `${fmt(p.sciencePool)} · à choisir`}</b><small>${sign(y.net.science)}</small></span>`);
+  items.push(`<span class="res" title="Science accumulée / coût de la recherche en cours"><i style="background:${resColor('science')}"></i><b>${research ? `<span class="res-research">${research.name}</span> ${fmt(p.sciencePool)}/${G.techCost(s, 0, research.id)}` : `${fmt(p.sciencePool)} · à choisir`}</b><small>${sign(y.net.science)}</small></span>`);
   items.push(`<span class="res" title="Culture totale (1 prestige / ${s.rules.prestige.culturePerPoint})"><i style="background:${resColor('culture')}"></i><b>${fmt(p.cultureTotal)}</b><small>${sign(y.net.culture)}</small></span>`);
   const stockTotal = [...G.GOODS, ...G.LUXURIES].reduce((a, k) => a + Math.floor(p.res[k] || 0), 0);
-  items.push(`<button class="res res-btn" data-action="stock" title="Entrepôt : biens transformés et ressources rares" aria-expanded="${!$('#stock').hidden}"><i style="background:${resColor('goods')}"></i><b>Entrepôt</b><small>${stockTotal}</small></button>`);
-  items.push(`<span class="res" title="Prestige — objectif de victoire"><i style="background:var(--accent)"></i><b>${p.prestige} / ${s.rules.prestigeTarget}</b><small>prestige</small></span>`);
+  items.push(`<button class="res res-btn" data-action="stock" title="Entrepôt : biens transformés et ressources rares" aria-expanded="${!$('#stock').hidden}"><i style="background:${resColor('goods')}"></i><b><span class="lbl-long">Entrepôt</span><span class="lbl-short">Stock</span></b><small>${stockTotal}</small></button>`);
+  items.push(`<span class="res" title="Prestige — objectif de victoire"><i style="background:var(--accent)"></i><b>${p.prestige} / ${s.rules.prestigeTarget}</b><small class="lbl-long">prestige</small><small class="lbl-short">★</small></span>`);
   $('#resources').innerHTML = items.join('');
   $('#turn').textContent = `Tour ${s.turn} / ${s.rules.turnLimit}`;
+  const short = document.querySelector('[data-action="end-turn"] .lbl-short');
+  if (short) short.textContent = `Fin du tour ${s.turn}/${s.rules.turnLimit}`;
 }
 
 function renderStock() {
@@ -270,7 +273,33 @@ function renderStock() {
     <p class="muted" style="font-size:12px;margin:8px 0 0">Chaque ressource rare active rapporte aussi ${s.rules.luxuries.diversityPrestige} prestige. Échangez-les en Diplomatie.</p>`;
 }
 
+// ---------------------------------------------------------- mise en page tablette
+// Écrans ≤ 1366 px ou tactiles : panneau de droite en tiroir (bouton « Infos »), cibles plus grandes.
+const compactQuery = window.matchMedia('(max-width: 1366px), (pointer: coarse)');
+const portraitQuery = window.matchMedia('(orientation: portrait) and (pointer: coarse)');
+let rotateDismissed = false;
+function applyLayout() {
+  const root = document.documentElement;
+  root.classList.toggle('compact', compactQuery.matches);
+  root.classList.toggle('touch', window.matchMedia('(pointer: coarse)').matches);
+  if (!compactQuery.matches) root.classList.remove('side-open');
+  $('#rotate').hidden = !(portraitQuery.matches && s && !rotateDismissed);
+  const t = $('.side-toggle'); if (t) t.setAttribute('aria-expanded', String(root.classList.contains('side-open')));
+  setTimeout(() => renderer?.resize(), 50);
+}
+function setSide(open) {
+  document.documentElement.classList.toggle('side-open', open);
+  $('.side-toggle')?.setAttribute('aria-expanded', String(open));
+  if (open) drawMinimap();
+}
+function updateSideBadge() {
+  const n = s.proposals.filter((p) => p.to === 0).length + (s.congress?.status === 'open' && s.congress.votes[0] === undefined ? 1 : 0);
+  const b = $('#side-badge');
+  b.hidden = n === 0; b.textContent = n;
+}
+
 function renderSide() {
+  updateSideBadge();
   const ranked = [...s.players].sort((a, b) => b.prestige - a.prestige);
   const resol = G.activeResolutions(s).map((r) => `<div class="resolution">${esc(s.rules.congress.resolutions[r.id].name)}${r.target !== null && r.target !== undefined ? ` · ${esc(s.players[r.target].name)}` : ''} <span class="muted">jusqu'au tour ${r.until}</span></div>`).join('');
   const congressOpen = s.congress?.status === 'open' && s.congress.votes[0] === undefined;
@@ -592,6 +621,7 @@ function endTurn() {
   if (!me().research && G.availableTechs(s, 0).length) toast('Choisissez une recherche (T).');
   const props = s.proposals.filter((p) => p.to === 0).length;
   if (props) toast(`${props} proposition(s) diplomatique(s) en attente.`);
+  if (props && document.documentElement.classList.contains('compact')) setSide(true); // le tiroir s'ouvre quand une IA vous sollicite
   if (s.congress?.status === 'open' && s.congress.votes[0] === undefined) { Sound.sfx.congress(); showCongress(); }
 }
 
@@ -879,6 +909,8 @@ function onAction(e) {
     }
     case 'new-game': closeModal(); save(); for (const x of ['#topbar', '#side', '#buildbar', '#selection', '#hint', '#tutorial', '#summary']) $(x).hidden = true; s = null; showStart(); break;
     case 'menu': showMenu(); break;
+    case 'toggle-side': setSide(!document.documentElement.classList.contains('side-open')); break;
+    case 'dismiss-rotate': rotateDismissed = true; applyLayout(); break;
     case 'toggle-adj': showAdjacency = !showAdjacency; renderBuildbar(); renderHighlights(); break;
     case 'sell': {
       const r = G.sell(s, 0, b.dataset.res, Number(b.dataset.qty));
@@ -917,10 +949,20 @@ function bindInput() {
   $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
   const canvas = renderer.renderer.domElement;
   let down = null;
-  canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, b: e.button }; });
+  // Toucher : un tap = un seul doigt, peu de mouvement ; un pincement ou un glissé n'est jamais un tap.
+  const pointers = new Set();
+  let multi = false;
+  canvas.addEventListener('pointerdown', (e) => {
+    pointers.add(e.pointerId);
+    if (pointers.size > 1) multi = true;
+    if (pointers.size === 1) { multi = false; down = { x: e.clientX, y: e.clientY, b: e.button, t: e.pointerType }; }
+  });
+  const release = (e) => { pointers.delete(e.pointerId); };
+  canvas.addEventListener('pointercancel', release);
   canvas.addEventListener('pointerup', (e) => {
-    if (!s || !down || down.b !== 0) return;
-    if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
+    release(e);
+    if (!s || !down || down.b !== 0 || multi) return;
+    if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > (down.t === 'touch' ? 14 : 6)) return;
     const i = renderer.pick(e.clientX, e.clientY);
     if (i !== null) handleTileClick(i, e.shiftKey);
   });
@@ -974,6 +1016,10 @@ function bindInput() {
   renderer.refresh();
   bindInput();
   setInterval(() => { if (s && !$('#side').hidden) drawMinimap(); }, 300);
+  compactQuery.addEventListener('change', applyLayout);
+  portraitQuery.addEventListener('change', applyLayout);
+  window.addEventListener('orientationchange', applyLayout);
+  applyLayout();
   $('#minimap canvas').addEventListener('click', (e) => {
     if (!s) return;
     const r = e.currentTarget.getBoundingClientRect();

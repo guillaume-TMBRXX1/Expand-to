@@ -2,7 +2,14 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Expand-to">
+  <meta name="theme-color" content="#efe8e4">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
   <title>Expand-to</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2216%22 fill=%22%23ff6b4a%22/%3E%3Cpath d=%22M14 40 L32 22 L50 40 Z%22 fill=%22%23fff%22/%3E%3Crect x=%2222%22 y=%2238%22 width=%2220%22 height=%2212%22 rx=%222%22 fill=%22%23fff%22/%3E%3C/svg%3E">
   <meta name="description" content="Expand-to — stratégie, gestion, exploration et diplomatie au tour par tour.">
@@ -22,10 +29,11 @@
       <div id="resources" class="resources"></div>
       <div class="top-actions">
         <div id="turn" class="turn"></div>
-        <button class="btn" data-action="tech" title="Technologies (T)">Technologies</button>
-        <button class="btn" data-action="diplo" title="Diplomatie (D)">Diplomatie</button>
+        <button class="btn" data-action="tech" title="Technologies (T)"><span class="lbl-long">Technologies</span><span class="lbl-short">Techno</span></button>
+        <button class="btn" data-action="diplo" title="Diplomatie (D)"><span class="lbl-long">Diplomatie</span><span class="lbl-short">Diplo</span></button>
+        <button class="btn side-toggle" data-action="toggle-side" aria-expanded="false" aria-controls="side" title="Classement, mini-carte, propositions et journal">Infos<span class="badge" id="side-badge" hidden></span></button>
         <button class="btn" data-action="menu" title="Menu : sauvegardes, export (M)">Menu</button>
-        <button class="btn primary" data-action="end-turn" title="Fin du tour (Entrée)">Finir le tour</button>
+        <button class="btn primary" data-action="end-turn" title="Fin du tour (Entrée)"><span class="lbl-long">Finir le tour</span><span class="lbl-short">Fin du tour</span></button>
       </div>
     </header>
 
@@ -47,6 +55,7 @@
     <div id="modal" hidden></div>
 
     <div id="start" class="overlay"></div>
+    <div id="rotate" class="overlay" hidden><div class="card start" style="text-align:center;max-width:420px"><h2>Tournez votre iPad</h2><p class="lead" style="margin:10px auto 18px">Expand-to se joue à l'horizontale : la carte et les panneaux y ont toute la place.</p><button class="btn" data-action="dismiss-rotate">Continuer quand même</button></div></div>
   </div>
   <script type="module" src="src/main.js"></script>
 </body>
