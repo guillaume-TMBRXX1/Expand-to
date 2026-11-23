@@ -77,7 +77,7 @@ Sur l'écran d'accueil, vous choisissez :
 - **Caravane** : envoyez-la dans une ville étrangère pour ouvrir une route commerciale. Elle rapporte de l'Or, de la relation et du prestige.
 - **Industrie** : les Menuiseries, Forges et Manufactures transforment vos matières premières en planches, outils et biens. Ces biens font monter vos villes de palier (Artisans, puis Savants).
 - **Adjacences** : placez vos bâtiments les uns à côté des autres pour obtenir des bonus. Le gain s'affiche au survol pendant la construction.
-- **Halle marchande** (onglet Industrie) : elle permet de vendre dans l'Entrepôt vos biens, matériaux et ressources rares contre de l'Or. Le prix baisse si vous vendez beaucoup, puis remonte chaque tour. Une option vend automatiquement tout ce qui dépasse 30 unités.
+- **Halle marchande** (onglet Industrie) : elle permet de vendre dans l'Entrepôt vos biens, matériaux et ressources rares contre de l'Or. Le prix baisse si vous vendez beaucoup, puis remonte chaque tour. Une option vend automatiquement tout ce qui dépasse un seuil réglable pour chaque ressource (30 par défaut).
 - **Ressources rares** : épices, marbre et cristal s'exploitent avec un Comptoir. Le bouton **Entrepôt** affiche vos stocks et vos bonus actifs.
 - **Diplomatie** : les voisins méfiants ou hostiles réduisent votre productivité. Accords et alliances la renforcent.
 - **Victoire** : la première voie complétée l'emporte. Les voies sont Science, Culture, Économie et Diplomatie ; sinon, la victoire va au premier à 160 points de prestige, ou au meilleur score après 60 tours. Le bouton « Voies de victoire » (panneau Prestige) suit votre progression.

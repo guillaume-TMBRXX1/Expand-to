@@ -344,3 +344,9 @@ html.compact .city-label { font-size: 11.5px; }
 #selection { position: absolute; }
 .close-sel { position: absolute; top: 6px; right: 6px; min-height: 32px !important; width: 36px; padding: 0 !important; font-size: 15px; }
 html.compact #hint { top: calc(70px + env(safe-area-inset-top)); bottom: auto !important; }
+
+.auto-sell { display: inline-flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+.stepper { display: inline-flex; align-items: center; gap: 4px; }
+.stepper .btn.small { width: 30px; padding: 2px 0 !important; min-height: 28px; font-weight: 800; }
+.stepper-val { min-width: 30px; text-align: center; font-variant-numeric: tabular-nums; font-size: 12.5px; }
+html.touch .stepper .btn.small { width: 38px; min-height: 36px; }
