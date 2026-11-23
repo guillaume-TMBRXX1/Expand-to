@@ -390,7 +390,7 @@ export function build(s, pid, type, x, y) {
   const b = { id: s.nextId++, owner: pid, type, x, y, cityId: t.cityId, turnsLeft: def.turns };
   if (def.luxuryOnly) b.luxury = t.luxury;
   s.buildings.push(b);
-  for (const c of footprintTiles(s, type, x, y)) if (c.road === pid) c.road = -1;
+  // Les routes restent sous les bâtiments : elles n'occupent pas la case.
   if (def.wonder) log(s, `${s.players[pid].name} entame ${def.name}.`, null, 'info');
   return { ok: true, building: b };
 }
@@ -399,7 +399,7 @@ export function canRoad(s, pid, x, y) {
   const t = tileAt(s, x, y);
   if (!t || !terrainOf(s, t).passable) return { ok: false, reason: 'Terrain impraticable.' };
   if (t.road !== -1) return { ok: false, reason: 'Route déjà présente.' };
-  if (cityAt(s, x, y) || buildingAt(s, x, y)) return { ok: false, reason: 'Case occupée.' };
+  if (cityAt(s, x, y)) return { ok: false, reason: 'Une ville fait déjà office de route.' };
   if (t.owner !== -1 && t.owner !== pid) return { ok: false, reason: 'Territoire étranger.' };
   if (!isExplored(s, pid, x, y)) return { ok: false, reason: 'Case inexplorée.' };
   const linked = t.owner === pid || neighbors(s, x, y).some((n) => n.road === pid || (cityAt(s, n.x, n.y) || {}).owner === pid);
@@ -622,7 +622,7 @@ export function canEngineerRoad(s, u) {
   if (!u || u.type !== 'engineer') return { ok: false, reason: 'Réservé à l\'Ingénieur.' };
   const t = tileAt(s, u.x, u.y);
   if (u.movesLeft < 1) return { ok: false, reason: 'Plus de mouvement ce tour.' };
-  if (!terrainOf(s, t).passable || t.road !== -1 || cityAt(s, t.x, t.y) || buildingAt(s, t.x, t.y)) return { ok: false, reason: 'Impossible ici.' };
+  if (!terrainOf(s, t).passable || t.road !== -1 || cityAt(s, t.x, t.y)) return { ok: false, reason: 'Impossible ici.' };
   if (t.owner !== -1 && t.owner !== u.owner) return { ok: false, reason: 'Territoire étranger.' };
   if (!canAfford(s, u.owner, s.rules.engineer.roadCost)) return { ok: false, reason: 'Bois insuffisant.' };
   return { ok: true };

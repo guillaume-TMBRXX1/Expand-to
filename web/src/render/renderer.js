@@ -308,33 +308,54 @@ export class Renderer {
       });
       this.dynamic.add(border);
     }
-    // Routes : segments entre cases routières/villes voisines
-    const segs = [];
+    this.drawRoads();
+    this.drawHighlights();
+  }
+
+  // Routes pavées : bordure sombre + chaussée claire + pavés, raccords arrondis, pentes entre cases.
+  // Les routes passent sous les bâtiments (le socle du bâtiment les recouvre).
+  drawRoads() {
+    const s = this.state, p = s.players[this.viewer], W = this.W;
+    const isCity = (x, y) => s.cities.some((c) => c.x === x && c.y === y);
+    const node = (x, y) => x >= 0 && y >= 0 && x < W && y < this.H && (s.map.tiles[y * W + x].road !== -1 || isCity(x, y));
+    const road = (x, y) => x >= 0 && y >= 0 && x < W && y < this.H && s.map.tiles[y * W + x].road !== -1;
+    const edges = [], joints = [];
     s.map.tiles.forEach((t, i) => {
-      if (t.road === -1 || !p.explored[i]) return;
-      segs.push({ a: t, b: t });
-      for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1], [-1, 0], [0, -1], [-1, -1], [-1, 1]]) {
+      if (!p.explored[i] || !node(t.x, t.y)) return;
+      if (road(t.x, t.y)) joints.push(t);
+      for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
         const nx = t.x + dx, ny = t.y + dy;
-        if (nx < 0 || ny < 0 || nx >= this.W || ny >= this.H) continue;
-        const n = s.map.tiles[ny * this.W + nx];
-        const nIsCity = s.cities.some((ct) => ct.x === nx && ct.y === ny);
-        if ((n.road !== -1 && (dx > 0 || (dx === 0 && dy > 0))) || nIsCity) segs.push({ a: t, b: n });
+        if (!node(nx, ny) || (!road(t.x, t.y) && !road(nx, ny))) continue;
+        if (dx && dy && (node(t.x + dx, t.y) || node(t.x, t.y + dy))) continue; // diagonale inutile si un coude existe
+        edges.push([t, s.map.tiles[ny * W + nx]]);
       }
     });
-    if (segs.length) {
-      const roads = new THREE.InstancedMesh(new RoundedBoxGeometry(1, 0.03, 0.14, 1, 0.012), new THREE.MeshStandardMaterial({ color: '#f4ead8', roughness: 0.9 }), segs.length);
-      roads.receiveShadow = true;
-      segs.forEach((sg, k) => {
-        const ia = sg.a.y * this.W + sg.a.x, ib = sg.b.y * this.W + sg.b.x;
-        const ax = this.wx(sg.a.x), az = this.wz(sg.a.y), bx = this.wx(sg.b.x), bz = this.wz(sg.b.y);
-        const len = Math.hypot(bx - ax, bz - az) || 0.2;
-        const rot = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.atan2(bz - az, bx - ax));
-        m.compose(v.set((ax + bx) / 2, Math.max(this.heights[ia], this.heights[ib]) + 0.02, (az + bz) / 2), rot, sc.set(len, 1, 1));
-        roads.setMatrixAt(k, m);
-      });
-      this.dynamic.add(roads);
-    }
-    this.drawHighlights();
+    if (!edges.length && !joints.length) return;
+    const top = (t) => this.heights[t.y * W + t.x];
+    const m = new THREE.Matrix4(), v = new THREE.Vector3(), sc = new THREE.Vector3(), q = new THREE.Quaternion(), X = new THREE.Vector3(1, 0, 0);
+    const mk = (geo, color, n) => { const im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.95 }), Math.max(1, n)); im.receiveShadow = true; return im; };
+    const curb = mk(new RoundedBoxGeometry(1, 0.03, 0.2, 1, 0.012), '#c9b38e', edges.length);
+    const pave = mk(new RoundedBoxGeometry(1, 0.03, 0.13, 1, 0.012), '#f1e5cb', edges.length);
+    const stones = [];
+    edges.forEach(([a, b], k) => {
+      const A = new THREE.Vector3(this.wx(a.x), top(a) + 0.012, this.wz(a.y));
+      const B = new THREE.Vector3(this.wx(b.x), top(b) + 0.012, this.wz(b.y));
+      const dir = B.clone().sub(A); const len = dir.length(); dir.normalize();
+      q.setFromUnitVectors(X, dir);
+      m.compose(v.copy(A).add(B).multiplyScalar(0.5), q, sc.set(len, 1, 1)); curb.setMatrixAt(k, m);
+      m.compose(v.copy(A).add(B).multiplyScalar(0.5).add(new THREE.Vector3(0, 0.008, 0)), q, sc.set(len, 1, 1)); pave.setMatrixAt(k, m);
+      for (let f = 0.2; f < 0.95; f += 0.2) stones.push({ p: A.clone().lerp(B, f).add(new THREE.Vector3(0, 0.026, 0)), q: q.clone() });
+    });
+    const jCurb = mk(new THREE.CylinderGeometry(0.1, 0.1, 0.03, 16), '#c9b38e', joints.length);
+    const jPave = mk(new THREE.CylinderGeometry(0.065, 0.065, 0.03, 16), '#f1e5cb', joints.length);
+    joints.forEach((t, k) => {
+      const c = new THREE.Vector3(this.wx(t.x), top(t) + 0.012, this.wz(t.y));
+      m.compose(c, new THREE.Quaternion(), sc.set(1, 1, 1)); jCurb.setMatrixAt(k, m);
+      m.compose(c.add(new THREE.Vector3(0, 0.008, 0)), new THREE.Quaternion(), sc.set(1, 1, 1)); jPave.setMatrixAt(k, m);
+    });
+    const dots = mk(new THREE.BoxGeometry(0.05, 0.012, 0.035), '#ddcba6', stones.length);
+    stones.forEach((st, k) => { m.compose(st.p, st.q, sc.set(1, 1, 1)); dots.setMatrixAt(k, m); });
+    this.dynamic.add(curb, pave, jCurb, jPave, dots);
   }
 
   // highlights : [{ i, color, opacity }]
