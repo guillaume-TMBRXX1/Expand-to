@@ -1,0 +1,7 @@
+[
+  { "id": "merchant",  "name": "Négociant",   "desc": "Commerce dès le départ, +60 Or, +15% Or.",                       "mods": { "startRes": { "gold": 60 }, "startTechs": ["commerce"], "yieldPct": { "gold": 0.15 } } },
+  { "id": "scholar",   "name": "Érudit",      "desc": "Écriture dès le départ, +20% Science.",                          "mods": { "startTechs": ["writing"], "yieldPct": { "science": 0.2 } } },
+  { "id": "builder",   "name": "Bâtisseur",   "desc": "Bâtiments -20%, +30 Bois, +20 Pierre.",                          "mods": { "startRes": { "wood": 30, "stone": 20 }, "costPct": -0.2 } },
+  { "id": "diplomat",  "name": "Diplomate",   "desc": "Protocole dès le départ, +20 relation initiale, +0,5 relation/tour.", "mods": { "startTechs": ["protocol"], "relationStart": 20, "relationPerTurn": 0.5 } },
+  { "id": "explorer",  "name": "Explorateur", "desc": "Un explorateur en plus, +1 mouvement, +1 vision, +10% Culture.",  "mods": { "extraUnits": ["explorer"], "moveBonus": 1, "visionBonus": 1, "yieldPct": { "culture": 0.1 } } }
+]

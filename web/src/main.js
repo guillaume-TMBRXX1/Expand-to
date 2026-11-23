@@ -1,0 +1,514 @@
+// Point d'entrée : chargement des données, écran de départ, boucle de jeu et interface.
+import * as G from './core/game.js';
+import { playAITurns } from './core/ai.js';
+import { makeRng } from './core/rng.js';
+import { Renderer } from './render/renderer.js';
+
+const $ = (sel) => document.querySelector(sel);
+const SAVE_KEY = 'expandto.save.v1';
+const BRANCHES = { economy: 'Économie', science: 'Science', culture: 'Culture', diplomacy: 'Diplomatie' };
+const BUILD_TABS = {
+  prod: { label: 'Production', ids: ['farm', 'lumber', 'quarry', 'market', 'harbor', 'district', 'road'] },
+  know: { label: 'Savoir & culture', ids: ['library', 'lab', 'theatre', 'monument'] },
+  wonder: { label: 'Merveilles', ids: ['lighthouse', 'grandlibrary', 'observatory', 'amphitheatre', 'exchange', 'nations'] },
+};
+
+let data, s, renderer;
+let sel = null;          // { kind: 'unit'|'city'|'tile', id|i }
+let mode = null;         // null | { type: 'build', id } | { type: 'road' }
+let buildTab = 'prod';
+let hoverIdx = null;
+
+// ------------------------------------------------------------------ données
+async function loadData() {
+  const files = ['terrain', 'resources', 'buildings', 'units', 'techs', 'profiles', 'rules'];
+  const raw = {};
+  await Promise.all(files.map(async (f) => { raw[f] = await (await fetch(`data/${f}.json`)).json(); }));
+  return G.indexData(raw);
+}
+
+// --------------------------------------------------------------- utilitaires
+const fmt = (n) => Math.floor(n).toLocaleString('fr-FR');
+const sign = (n) => (n >= 0 ? '+' : '') + (Math.abs(n) < 10 ? n.toFixed(1).replace('.0', '') : Math.round(n));
+const resColor = (k) => data.resources[k].color;
+const chips = (bundle, cls = '') => Object.entries(bundle || {}).map(([k, v]) => `<span class="chip ${cls}"><i style="background:${resColor(k)}"></i>${cls ? '+' : ''}${v} ${data.resources[k].name}</span>`).join('');
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const me = () => s.players[0];
+
+function toast(text, tone = '') {
+  const el = document.createElement('div');
+  el.className = tone; el.textContent = text;
+  $('#toast').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 250); }, 2600);
+}
+
+function save() {
+  try {
+    const { data: _d, rules: _r, rng: _g, ...rest } = s;
+    localStorage.setItem(SAVE_KEY, JSON.stringify(rest));
+  } catch { /* stockage indisponible : la partie continue sans sauvegarde */ }
+}
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const st = JSON.parse(raw);
+    st.data = data; st.rules = data.rules; st.rng = makeRng((st.seed * 31 + st.turn) >>> 0);
+    return st;
+  } catch { return null; }
+}
+function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch { return false; } }
+
+// ------------------------------------------------------------ écran de départ
+function showStart() {
+  let profile = 'merchant';
+  const el = $('#start');
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="card start">
+      <h1>Expand<span>-to</span></h1>
+      <p class="lead">Explorez, bâtissez, commercez et négociez. Aucune armée : la victoire se gagne par le <b>prestige</b> — culture, science, commerce et alliances. Premier à ${data.rules.prestigeTarget} points, ou meilleur score après ${data.rules.turnLimit} tours.</p>
+      <div class="section-title">Profil de départ</div>
+      <div class="profiles" role="radiogroup" aria-label="Profil de départ">
+        ${data.profiles.map((p) => `<button class="profile" role="radio" aria-checked="${p.id === profile}" data-profile="${p.id}"><b>${p.name}</b><span>${p.desc}</span></button>`).join('')}
+      </div>
+      <div class="start-row">
+        <label class="field">Nom du dirigeant<input id="f-name" value="Vous" maxlength="18"></label>
+        <label class="field">Adversaires IA<select id="f-ai"><option>2</option><option selected>3</option><option>4</option></select></label>
+        <label class="field">Graine de carte (optionnel)<input id="f-seed" inputmode="numeric" placeholder="ex. 4242"></label>
+      </div>
+      <div class="start-actions">
+        <button class="btn primary" id="start-go">Lancer la partie</button>
+        ${hasSave() ? '<button class="btn" id="start-continue">Reprendre la partie</button>' : ''}
+      </div>
+      <div class="help">
+        <b>Commandes</b> — clic gauche : sélectionner / déplacer · glisser : déplacer la caméra · clic droit glissé : pivoter · molette : zoom ·
+        <kbd>Entrée</kbd> finir le tour · <kbd>Échap</kbd> annuler · <kbd>Espace</kbd> unité suivante · <kbd>F</kbd> fonder · <kbd>R</kbd> route · <kbd>T</kbd> technologies · <kbd>D</kbd> diplomatie
+      </div>
+    </div>`;
+  el.querySelectorAll('.profile').forEach((b) => b.addEventListener('click', () => {
+    profile = b.dataset.profile;
+    el.querySelectorAll('.profile').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+  }));
+  $('#start-go').addEventListener('click', () => {
+    const seedTxt = $('#f-seed').value.trim();
+    const seed = seedTxt ? (Number(seedTxt) || [...seedTxt].reduce((a, c) => a * 31 + c.charCodeAt(0), 7)) >>> 0 : undefined;
+    startGame(G.createGame({ data, seed, profile, name: $('#f-name').value.trim() || 'Vous', aiCount: Number($('#f-ai').value) }));
+  });
+  $('#start-continue')?.addEventListener('click', () => { const st = loadSave(); if (st) startGame(st); else toast('Sauvegarde illisible.', 'bad'); });
+}
+
+function startGame(state) {
+  s = state;
+  $('#start').hidden = true;
+  for (const id of ['#topbar', '#side', '#buildbar']) $(id).hidden = false;
+  renderer.setState(s, 0);
+  sel = null; mode = null;
+  const u = s.units.find((x) => x.owner === 0 && x.type === 'settler') || s.units.find((x) => x.owner === 0);
+  const c = G.citiesOf(s, 0)[0];
+  const focus = c || u;
+  if (focus) renderer.focus(focus.x, focus.y, true);
+  if (u && !c) select({ kind: 'unit', id: u.id });
+  save();
+  renderAll();
+  if (s.winner) showEnd();
+}
+
+// ------------------------------------------------------------------ rendu UI
+function renderAll() {
+  renderTop(); renderSide(); renderSelection(); renderBuildbar(); renderHighlights();
+}
+
+function renderTop() {
+  const p = me();
+  const y = G.computeYields(s, 0);
+  const items = ['gold', 'food', 'wood', 'stone'].map((k) => {
+    const tip = `${data.resources[k].name} : production ${y.gross[k].toFixed(1)} × ${Math.round(y.mult[k] * 100)}%${k === 'gold' && y.upkeep ? ` − entretien ${y.upkeep}` : ''}${k === 'food' ? ` − consommation ${y.consumption}` : ''}`;
+    return `<span class="res" title="${tip}"><i style="background:${resColor(k)}"></i><b>${fmt(p.res[k])}</b><small class="${y.net[k] < 0 ? 'neg' : ''}">${sign(y.net[k])}</small></span>`;
+  });
+  const research = p.research ? G.techDef(s, p.research) : null;
+  items.push(`<span class="res" title="Science accumulée / coût de la recherche en cours"><i style="background:${resColor('science')}"></i><b>${research ? `${research.name} ${fmt(p.sciencePool)}/${research.cost}` : `${fmt(p.sciencePool)} — aucune recherche`}</b><small>${sign(y.net.science)}</small></span>`);
+  items.push(`<span class="res" title="Culture totale (1 prestige / ${data.rules.prestige.culturePerPoint})"><i style="background:${resColor('culture')}"></i><b>${fmt(p.cultureTotal)}</b><small>${sign(y.net.culture)}</small></span>`);
+  items.push(`<span class="res" title="Prestige — objectif de victoire"><i style="background:var(--accent)"></i><b>${p.prestige} / ${data.rules.prestigeTarget}</b><small>prestige</small></span>`);
+  $('#resources').innerHTML = items.join('');
+  $('#turn').textContent = `Tour ${s.turn} / ${data.rules.turnLimit}`;
+}
+
+function renderSide() {
+  const ranked = [...s.players].sort((a, b) => b.prestige - a.prestige);
+  $('#scoreboard').innerHTML = `<div class="section-title"><span>Prestige</span><span>${data.rules.prestigeTarget}</span></div>` + ranked.map((p) => `
+    <div class="score-row" title="${Object.entries(p.prestigeBreakdown).map(([k, v]) => `${k} : ${v}`).join(' · ')}">
+      <span class="dot" style="background:${p.color}"></span><span>${esc(p.name)} <span class="muted">· ${data.profilesById[p.profile].name}</span></span><b>${p.prestige}</b>
+      <div class="bar"><div style="width:${Math.min(100, (p.prestige / data.rules.prestigeTarget) * 100)}%;background:${p.color}"></div></div>
+    </div>`).join('');
+  const props = s.proposals.filter((p) => p.to === 0);
+  $('#proposals').innerHTML = props.map((pr) => {
+    const from = s.players[pr.from];
+    const text = {
+      agreement: `<b>${esc(from.name)}</b> propose un accord commercial (+${data.rules.tradeAgreement.gold} Or/tour chacun, relation +${data.rules.tradeAgreement.relationPerTurn}/tour).`,
+      alliance: `<b>${esc(from.name)}</b> propose une alliance (+${Math.round(data.rules.alliance.pct * 100)}% Or, Science et Culture).`,
+      exchange: `<b>${esc(from.name)}</b> offre ${G.fmtBundle(s, pr.payload.give || {})} contre ${G.fmtBundle(s, pr.payload.want || {})}.`,
+      request: `<b>${esc(from.name)}</b> vous demande ${G.fmtBundle(s, pr.payload.want || {})}. Refuser dégradera vos relations.`,
+    }[pr.kind];
+    return `<div class="card proposal" style="border-left-color:${from.color}"><p>${text}</p><div class="row">
+      <button class="btn small primary" data-action="accept" data-id="${pr.id}">${pr.kind === 'request' ? 'Donner' : 'Accepter'}</button>
+      <button class="btn small" data-action="decline" data-id="${pr.id}">Refuser</button></div></div>`;
+  }).join('');
+  const entries = s.log.filter((l) => !l.who || l.who.includes(0)).slice(-30).reverse();
+  $('#journal').innerHTML = `<div class="section-title"><span>Journal</span></div>` + entries.map((l) => `<div class="log ${l.kind}"><span class="t">T${l.turn}</span>${esc(l.text)}</div>`).join('');
+}
+
+function costChips(def, isBuilding = true) { return chips(G.costOf(s, 0, def, isBuilding)); }
+
+function renderSelection() {
+  const el = $('#selection');
+  if (!sel) { el.hidden = true; return; }
+  el.hidden = false;
+  if (sel.kind === 'unit') {
+    const u = s.units.find((x) => x.id === sel.id);
+    if (!u) { sel = null; el.hidden = true; return; }
+    const def = G.unitDef(s, u.type);
+    const owner = s.players[u.owner];
+    const found = u.type === 'settler' ? G.canFound(s, u) : null;
+    el.innerHTML = `<h3><span class="dot" style="background:${owner.color}"></span>${def.name}${u.owner !== 0 ? ` <span class="muted">· ${esc(owner.name)}</span>` : ''}</h3>
+      <p class="muted" style="font-size:13px;margin:6px 0 0">${def.desc}</p>
+      <dl class="kv"><dt>Mouvements</dt><dd>${u.movesLeft.toFixed(1).replace('.0', '')} / ${G.unitMaxMoves(s, u)}</dd><dt>Vision</dt><dd>${G.unitVision(s, u)}</dd>
+      ${u.target ? `<dt>Destination</dt><dd>(${u.target.x}, ${u.target.y})</dd>` : ''}</dl>
+      ${u.owner === 0 ? `<div class="actions">
+        ${u.type === 'settler' ? `<button class="btn primary small" data-action="found" ${found.ok ? '' : 'disabled'}>Fonder une ville (F)</button>` : ''}
+        ${u.target ? '<button class="btn small" data-action="cancel-order">Annuler l\'ordre</button>' : ''}
+        <button class="btn small ghost" data-action="next-unit">Unité suivante (Espace)</button>
+      </div>
+      ${found && !found.ok ? `<div class="reason">${found.reason}</div>` : ''}
+      <div class="reason">Cliquez une case pour vous y rendre${u.type === 'caravan' ? ' — visez une ville étrangère pour ouvrir une route commerciale' : ''}.</div>` : ''}`;
+    return;
+  }
+  if (sel.kind === 'city') {
+    const c = s.cities.find((x) => x.id === sel.id);
+    if (!c) { sel = null; el.hidden = true; return; }
+    const owner = s.players[c.owner];
+    const cap = G.cityPopCap(s, c);
+    const need = data.rules.growthBase + data.rules.growthPerPop * c.pop;
+    const blds = s.buildings.filter((b) => b.cityId === c.id);
+    const mine = c.owner === 0;
+    el.innerHTML = `<h3><span class="dot" style="background:${owner.color}"></span>${esc(c.name)}${c.capital ? ' <span class="tag">Capitale</span>' : ''}${!mine ? ` <span class="muted">· ${esc(owner.name)}</span>` : ''}</h3>
+      <dl class="kv"><dt>Population</dt><dd>${c.pop} / ${cap}</dd>
+      ${mine ? `<dt>Croissance</dt><dd>${fmt(me().res.food)} / ${need} Nourriture</dd>` : `<dt>Relation</dt><dd>${Math.round(G.getRel(s, 0, c.owner))} · ${G.relStatus(G.getRel(s, 0, c.owner)).label}</dd>`}
+      <dt>Rayon du territoire</dt><dd>${c.radius}</dd><dt>Bâtiments</dt><dd>${blds.length}</dd></dl>
+      ${mine ? `<div class="section-title" style="margin-top:12px"><span>Former une unité</span><span>${c.trained ? '1 / tour — fait' : '1 / tour'}</span></div>
+      <div class="actions">${data.units.map((d) => {
+        const chk = G.canTrain(s, 0, c.id, d.id);
+        return `<button class="btn small unit-btn" data-action="train" data-unit="${d.id}" ${chk.ok ? '' : 'disabled'} title="${esc(chk.reason || d.desc)}">${d.name}<span class="cost">${Object.entries(G.costOf(s, 0, d, false)).map(([k, v]) => `${v} ${data.resources[k].name}`).join(' · ')}</span></button>`;
+      }).join('')}</div>
+      <div class="reason">Construisez dans le territoire de la ville avec la barre du bas.</div>` : ''}`;
+    return;
+  }
+  const t = s.map.tiles[sel.i];
+  const ter = data.terrain[t.type];
+  const b = G.buildingAt(s, t.x, t.y);
+  const explored = G.isExplored(s, 0, t.x, t.y);
+  if (!explored) { el.innerHTML = '<h3>Terre inconnue</h3><p class="muted" style="font-size:13px">Envoyez un explorateur pour révéler cette zone.</p>'; return; }
+  const bdef = b && G.buildingDef(s, b.type);
+  el.innerHTML = `<h3>${ter.name}</h3>
+    <dl class="kv"><dt>Coordonnées</dt><dd>${t.x}, ${t.y}</dd><dt>Propriétaire</dt><dd>${t.owner === -1 ? '—' : esc(s.players[t.owner].name)}</dd>
+    <dt>Déplacement</dt><dd>${ter.passable ? (t.road !== -1 ? `${data.rules.road.moveCost} (route)` : ter.move) : 'impraticable'}</dd></dl>
+    ${bdef ? `<div class="section-title" style="margin-top:10px"><span>${bdef.name}</span><span>${b.turnsLeft > 0 ? `${b.turnsLeft} tour(s)` : 'actif'}</span></div>
+      <div class="chips">${chips(bdef.yields, 'yield')}${bdef.prestige ? `<span class="chip yield">+${bdef.prestige} prestige</span>` : ''}</div>
+      <p class="muted" style="font-size:12.5px;margin:6px 0 0">${bdef.desc}</p>` : ''}`;
+}
+
+function renderBuildbar() {
+  const el = $('#buildbar');
+  if (!G.citiesOf(s, 0).length) { el.innerHTML = '<div class="muted" style="font-size:13px;padding:4px 2px">Fondez une ville pour débloquer la construction.</div>'; return; }
+  const tab = BUILD_TABS[buildTab];
+  const items = tab.ids.map((id) => {
+    if (id === 'road') {
+      const pressed = mode?.type === 'road';
+      return `<button class="build-item" data-action="mode-road" aria-pressed="${pressed}" title="Prolonge votre réseau ; relier vos villes à la capitale rapporte +${data.rules.road.connectedCityGold} Or par ville."><b>Route (R)</b><div class="chips">${chips(data.rules.road.cost)}</div><div class="line"><span class="chip yield">Déplacement ${data.rules.road.moveCost}</span></div></button>`;
+    }
+    const def = G.buildingDef(s, id);
+    const locked = def.tech && !G.hasTech(s, 0, def.tech);
+    const taken = def.wonder && s.wonders[id] !== undefined;
+    const reason = locked ? `Nécessite ${G.techDef(s, def.tech).name}` : taken ? `Construite par ${s.players[s.wonders[id]].name}` : def.desc;
+    const pressed = mode?.type === 'build' && mode.id === id;
+    return `<button class="build-item" data-action="mode-build" data-id="${id}" aria-pressed="${pressed}" aria-disabled="${locked || taken}" title="${esc(reason)}">
+      <b>${def.name}${def.wonder ? '' : ''}</b><div class="chips">${costChips(def)}</div>
+      <div class="line"><span class="chips">${chips(def.yields, 'yield')}${def.prestige ? `<span class="chip yield">+${def.prestige} prest.</span>` : ''}</span></div>
+      ${locked ? `<div class="chip" style="margin-top:3px">${G.techDef(s, def.tech).name}</div>` : taken ? '<div class="chip" style="margin-top:3px">Indisponible</div>' : ''}
+    </button>`;
+  }).join('');
+  el.innerHTML = `<div class="tabs" role="tablist">${Object.entries(BUILD_TABS).map(([k, v]) => `<button class="tab" role="tab" aria-selected="${k === buildTab}" data-action="tab" data-tab="${k}">${v.label}</button>`).join('')}</div><div class="build-list">${items}</div>`;
+}
+
+function renderHighlights() {
+  const list = [];
+  const W = s.map.width;
+  if (mode?.type === 'build') {
+    s.map.tiles.forEach((t, i) => { if (t.owner === 0 && G.canBuild(s, 0, mode.id, t.x, t.y).ok) list.push({ i, color: '#2bd17e' }); });
+  } else if (mode?.type === 'road') {
+    s.map.tiles.forEach((t, i) => { if (G.canRoad(s, 0, t.x, t.y).ok) list.push({ i, color: '#f5b700' }); });
+  } else if (sel?.kind === 'unit') {
+    const u = s.units.find((x) => x.id === sel.id);
+    if (u && u.owner === 0 && u.movesLeft > 0) {
+      for (const [i, d] of G.reachable(s, u)) if (d > 0) list.push({ i, color: '#ffffff' });
+      if (u.target) list.push({ i: u.target.y * W + u.target.x, color: '#ff6b4a' });
+    }
+  }
+  renderer.setHighlights(list);
+  let selIdx = null;
+  if (sel?.kind === 'unit') { const u = s.units.find((x) => x.id === sel.id); if (u) selIdx = u.y * W + u.x; }
+  if (sel?.kind === 'city') { const c = s.cities.find((x) => x.id === sel.id); if (c) selIdx = c.y * W + c.x; }
+  if (sel?.kind === 'tile') selIdx = sel.i;
+  renderer.setCursor(selIdx, 'select');
+  const hint = $('#hint');
+  if (mode?.type === 'build') { hint.hidden = false; hint.textContent = `${G.buildingDef(s, mode.id).name} : choisissez une case verte dans votre territoire — Échap pour annuler`; }
+  else if (mode?.type === 'road') { hint.hidden = false; hint.textContent = 'Route : cliquez les cases jaunes pour prolonger le réseau — Échap pour terminer'; }
+  else hint.hidden = true;
+}
+
+// ------------------------------------------------------------- interactions
+function select(next) { sel = next; mode = null; renderAll(); }
+
+function setMode(next) {
+  mode = next;
+  renderBuildbar(); renderHighlights();
+}
+
+function refreshWorld() { renderer.refresh(); renderAll(); }
+
+function handleTileClick(i, shift) {
+  if (s.winner) return;
+  const t = s.map.tiles[i];
+  if (mode?.type === 'build') {
+    const r = G.build(s, 0, mode.id, t.x, t.y);
+    if (!r.ok) { toast(r.reason, 'bad'); return; }
+    toast(`${G.buildingDef(s, mode.id).name} en construction.`, 'good');
+    if (!shift || !G.canAfford(s, 0, G.costOf(s, 0, G.buildingDef(s, mode.id)))) mode = null;
+    sel = { kind: 'tile', i };
+    refreshWorld(); save(); return;
+  }
+  if (mode?.type === 'road') {
+    const r = G.buildRoad(s, 0, t.x, t.y);
+    if (!r.ok) toast(r.reason, 'bad');
+    refreshWorld(); save(); return;
+  }
+  const u = sel?.kind === 'unit' ? s.units.find((x) => x.id === sel.id) : null;
+  if (u && u.owner === 0 && (u.x !== t.x || u.y !== t.y)) {
+    if (!G.isExplored(s, 0, t.x, t.y)) { toast('Destination inexplorée.', 'bad'); return; }
+    const r = G.orderMove(s, u.id, t.x, t.y);
+    if (!r.ok) { toast(r.reason, 'bad'); return; }
+    renderer.animateUnit(u.id, r.steps);
+    if (!s.units.includes(u)) { sel = null; toast('Route commerciale ouverte !', 'good'); }
+    refreshWorld(); save(); return;
+  }
+  const mineHere = s.units.filter((x) => x.x === t.x && x.y === t.y && G.isExplored(s, 0, t.x, t.y));
+  if (mineHere.length) {
+    const cur = u ? mineHere.findIndex((x) => x.id === u.id) : -1;
+    const city = G.cityAt(s, t.x, t.y);
+    if (cur === mineHere.length - 1 && city) { select({ kind: 'city', id: city.id }); return; }
+    select({ kind: 'unit', id: mineHere[(cur + 1) % mineHere.length].id });
+    return;
+  }
+  const city = G.cityAt(s, t.x, t.y);
+  if (city && G.isExplored(s, 0, t.x, t.y)) { select({ kind: 'city', id: city.id }); return; }
+  select({ kind: 'tile', i });
+}
+
+function nextUnit() {
+  const mine = s.units.filter((u) => u.owner === 0 && u.movesLeft > 0 && !u.target);
+  if (!mine.length) { toast('Toutes vos unités ont agi.'); return; }
+  const cur = sel?.kind === 'unit' ? mine.findIndex((u) => u.id === sel.id) : -1;
+  const u = mine[(cur + 1) % mine.length];
+  select({ kind: 'unit', id: u.id });
+  renderer.focus(u.x, u.y);
+}
+
+function foundSelected() {
+  if (sel?.kind !== 'unit') return;
+  const r = G.foundCity(s, sel.id);
+  if (!r.ok) { toast(r.reason, 'bad'); return; }
+  toast(`${r.city.name} est fondée !`, 'good');
+  sel = { kind: 'city', id: r.city.id };
+  refreshWorld(); save();
+}
+
+function endTurn() {
+  if (s.winner) { showEnd(); return; }
+  closeModal();
+  mode = null;
+  playAITurns(s);
+  G.endRound(s);
+  save();
+  refreshWorld();
+  if (s.winner) { showEnd(); return; }
+  if (!me().research && G.availableTechs(s, 0).length) toast('Choisissez une recherche (T).');
+  const props = s.proposals.filter((p) => p.to === 0).length;
+  if (props) toast(`${props} proposition(s) diplomatique(s) en attente.`);
+}
+
+// ---------------------------------------------------------------- modales
+function openModal(html) { const m = $('#modal'); m.innerHTML = html; m.hidden = false; m.querySelector('button, select, input')?.focus(); }
+function closeModal() { const m = $('#modal'); m.hidden = true; m.innerHTML = ''; }
+
+function showTech() {
+  const p = me();
+  const y = G.computeYields(s, 0).net.science;
+  const avail = new Set(G.availableTechs(s, 0).map((t) => t.id));
+  const col = (branch) => data.techs.filter((t) => t.branch === branch).sort((a, b) => a.tier - b.tier).map((t) => {
+    const done = p.techs.includes(t.id);
+    const cur = p.research === t.id;
+    const cls = done ? 'done' : cur ? 'current' : avail.has(t.id) ? 'available' : 'locked';
+    const eta = !done ? Math.max(0, Math.ceil((t.cost - p.sciencePool) / Math.max(0.1, y))) : 0;
+    const req = t.requires.map((r) => G.techDef(s, r).name).join(', ');
+    return `<button class="tech ${cls}" data-action="research" data-id="${t.id}" ${cls === 'locked' || done ? 'aria-disabled="true"' : ''}>
+      <b>${t.name}</b><span class="muted">${t.desc}</span>
+      <div class="meta"><span>${done ? 'Acquise' : cur ? `En cours · ${eta} tour(s)` : `${t.cost} science`}</span><span>${!done && req ? `Requiert ${req}` : `Palier ${t.tier}`}</span></div></button>`;
+  }).join('');
+  openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Technologies"><header><div><h2>Technologies</h2>
+    <div class="muted" style="font-size:13px;margin-top:2px">Science disponible : ${fmt(p.sciencePool)} · ${sign(y)} / tour · chaque technologie rapporte ${data.rules.prestige.perTechTier} prestige par palier</div></div>
+    <button class="btn" data-action="close">Fermer</button></header>
+    <div class="tech-grid">${Object.entries(BRANCHES).map(([k, v]) => `<div class="branch"><h4>${v}</h4>${col(k)}</div>`).join('')}</div></div>`);
+}
+
+function showDiplo() {
+  const resOpts = (sel0) => G.RES.map((k) => `<option value="${k}" ${k === sel0 ? 'selected' : ''}>${data.resources[k].name}</option>`).join('');
+  const dip = G.diplomacyPct(s, 0);
+  const cards = s.players.filter((p) => p.id !== 0).map((q) => {
+    const rel = Math.round(G.getRel(s, 0, q.id));
+    const st = G.relStatus(rel);
+    const agr = G.hasAgreement(s, 0, q.id), all = G.isAllied(s, 0, q.id), nb = G.areNeighbors(s, 0, q.id);
+    const routes = s.tradeRoutes.filter((r) => (r.a === 0 && r.b === q.id) || (r.a === q.id && r.b === 0)).length;
+    return `<div class="card civ"><h3><span class="dot" style="background:${q.color}"></span>${esc(q.name)} <span class="muted" style="font-weight:400;font-size:13px">· ${data.profilesById[q.profile].name} · ${q.prestige} prestige</span></h3>
+      <div class="rel" aria-label="Relation ${rel}"><span style="left:${(rel + 100) / 2}%"></span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:12px"><span class="tag ${st.tone}">${st.label} (${rel})</span>
+        ${all ? '<span class="tag good">Alliance</span>' : ''}${agr ? '<span class="tag good">Accord commercial</span>' : ''}
+        ${routes ? `<span class="tag good">${routes} route(s)</span>` : ''}${nb ? '<span class="tag warn">Voisin</span>' : ''}</div>
+      <div class="actions">
+        <button class="btn small" data-action="gift" data-id="${q.id}" ${me().res.gold < 25 ? 'disabled' : ''}>Offrir 25 Or</button>
+        ${agr ? `<button class="btn small" data-action="cancel-agr" data-id="${q.id}">Rompre l'accord</button>` : `<button class="btn small" data-action="agreement" data-id="${q.id}" title="Requiert Protocole et relation ≥ ${data.rules.tradeAgreement.minRelation}">Accord commercial</button>`}
+        ${all ? '' : `<button class="btn small" data-action="alliance" data-id="${q.id}" title="Requiert Ambassades et relation ≥ ${data.rules.alliance.minRelation}">Alliance</button>`}
+      </div>
+      <div class="form-row">
+        <label class="field">Je donne<span style="display:flex;gap:4px"><input type="number" min="1" value="20" id="give-amt-${q.id}" aria-label="Quantité donnée"><select id="give-res-${q.id}">${resOpts('wood')}</select></span></label>
+        <label class="field">Contre<span style="display:flex;gap:4px"><input type="number" min="1" value="20" id="want-amt-${q.id}" aria-label="Quantité demandée"><select id="want-res-${q.id}">${resOpts('gold')}</select></span></label>
+        <button class="btn small" data-action="exchange" data-id="${q.id}">Proposer l'échange</button>
+      </div></div>`;
+  }).join('');
+  openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Diplomatie"><header><div><h2>Diplomatie</h2>
+    <div class="muted" style="font-size:13px;margin-top:2px">Les voisins méfiants ou hostiles réduisent votre productivité. Les accords et alliances la renforcent.</div></div>
+    <button class="btn" data-action="close">Fermer</button></header>
+    <div class="diplo-grid">${cards}</div>
+    <div class="effects"><b>Effets actuels sur votre productivité</b>${dip.reasons.length ? `<ul>${dip.reasons.map((r) => `<li class="${r.tone}">${esc(r.text)} : ${r.value > 0 ? '+' : ''}${Math.round(r.value * 100)}%${r.res ? ' Or' : ''}</li>`).join('')}</ul>` : '<div class="muted" style="margin-top:4px">Aucun effet pour le moment.</div>'}</div></div>`);
+}
+
+function showEnd() {
+  const ranked = [...s.players].sort((a, b) => b.prestige - a.prestige);
+  const won = s.winner.pid === 0;
+  openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Fin de partie" style="width:min(520px,100%)">
+    <header><h2>${won ? 'Victoire !' : 'Partie terminée'}</h2></header>
+    <p>${esc(s.winner.reason)}</p>
+    ${ranked.map((p, k) => `<div class="score-row"><span class="dot" style="background:${p.color}"></span><span>${k + 1}. ${esc(p.name)} <span class="muted">· ${data.profilesById[p.profile].name}</span></span><b>${p.prestige}</b></div>`).join('')}
+    <div class="actions" style="margin-top:16px"><button class="btn primary" data-action="new-game">Nouvelle partie</button><button class="btn" data-action="close">Voir la carte</button></div></div>`);
+}
+
+// ---------------------------------------------------------------- événements
+function onAction(e) {
+  const b = e.target.closest('[data-action]');
+  if (!b || b.disabled || b.getAttribute('aria-disabled') === 'true') {
+    if (b?.dataset.action === 'mode-build') toast(b.title, 'bad');
+    return;
+  }
+  const id = Number(b.dataset.id);
+  const a = b.dataset.action;
+  switch (a) {
+    case 'end-turn': endTurn(); break;
+    case 'tech': showTech(); break;
+    case 'diplo': showDiplo(); break;
+    case 'close': closeModal(); break;
+    case 'tab': buildTab = b.dataset.tab; renderBuildbar(); break;
+    case 'mode-build': setMode(mode?.type === 'build' && mode.id === b.dataset.id ? null : { type: 'build', id: b.dataset.id }); break;
+    case 'mode-road': setMode(mode?.type === 'road' ? null : { type: 'road' }); break;
+    case 'found': foundSelected(); break;
+    case 'cancel-order': { const u = s.units.find((x) => x.id === sel.id); if (u) u.target = null; renderAll(); break; }
+    case 'next-unit': nextUnit(); break;
+    case 'train': {
+      const r = G.train(s, 0, sel.id, b.dataset.unit);
+      if (!r.ok) toast(r.reason, 'bad'); else { toast(`${G.unitDef(s, r.unit.type).name} formé.`, 'good'); sel = { kind: 'unit', id: r.unit.id }; }
+      refreshWorld(); save(); break;
+    }
+    case 'research': { const r = G.setResearch(s, 0, b.dataset.id); if (!r.ok) toast(r.reason, 'bad'); showTech(); renderAll(); save(); break; }
+    case 'accept': case 'decline': {
+      const r = G.respondProposal(s, id, a === 'accept');
+      if (!r.ok && r.reason) toast(r.reason, 'bad');
+      refreshWorld(); save(); break;
+    }
+    case 'gift': G.giveGift(s, 0, id, 25); showDiplo(); renderAll(); save(); break;
+    case 'agreement': case 'alliance': {
+      const r = G.propose(s, 0, id, a);
+      toast(r.ok ? (a === 'agreement' ? 'Accord commercial signé !' : 'Alliance conclue !') : r.reason, r.ok ? 'good' : 'bad');
+      showDiplo(); renderAll(); save(); break;
+    }
+    case 'cancel-agr': G.cancelAgreement(s, 0, id); showDiplo(); renderAll(); save(); break;
+    case 'exchange': {
+      const give = { [$(`#give-res-${id}`).value]: Math.max(1, Math.floor(Number($(`#give-amt-${id}`).value) || 0)) };
+      const want = { [$(`#want-res-${id}`).value]: Math.max(1, Math.floor(Number($(`#want-amt-${id}`).value) || 0)) };
+      if (Object.keys(give)[0] === Object.keys(want)[0]) { toast('Choisissez deux ressources différentes.', 'bad'); break; }
+      const r = G.propose(s, 0, id, 'exchange', { give, want });
+      toast(r.ok ? 'Échange accepté.' : r.reason, r.ok ? 'good' : 'bad');
+      showDiplo(); renderAll(); save(); break;
+    }
+    case 'new-game': closeModal(); try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ } for (const x of ['#topbar', '#side', '#buildbar', '#selection', '#hint']) $(x).hidden = true; showStart(); break;
+    default: break;
+  }
+}
+
+function bindInput() {
+  document.addEventListener('click', onAction);
+  $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
+  const canvas = renderer.renderer.domElement;
+  let down = null;
+  canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, b: e.button }; });
+  canvas.addEventListener('pointerup', (e) => {
+    if (!s || !down || down.b !== 0) return;
+    if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
+    const i = renderer.pick(e.clientX, e.clientY);
+    if (i !== null) handleTileClick(i, e.shiftKey);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!s) return;
+    const i = renderer.pick(e.clientX, e.clientY);
+    if (i === hoverIdx) return;
+    hoverIdx = i;
+    renderer.setCursor(i, 'hover');
+    if (mode && i !== null) {
+      const t = s.map.tiles[i];
+      const r = mode.type === 'build' ? G.canBuild(s, 0, mode.id, t.x, t.y) : G.canRoad(s, 0, t.x, t.y);
+      const base = mode.type === 'build' ? `${G.buildingDef(s, mode.id).name} : ` : 'Route : ';
+      $('#hint').textContent = base + (r.ok ? 'cliquez pour construire (Maj : en placer plusieurs)' : r.reason);
+    }
+  });
+  window.addEventListener('keydown', (e) => {
+    if (!s || e.target.matches('input, select, textarea')) return;
+    const modalOpen = !$('#modal').hidden;
+    if (e.key === 'Escape') { if (modalOpen) closeModal(); else if (mode) setMode(null); else select(null); return; }
+    if (modalOpen) return;
+    if (e.key === 'Enter') { e.preventDefault(); endTurn(); }
+    else if (e.key === ' ') { e.preventDefault(); nextUnit(); }
+    else if (e.key === 'f' || e.key === 'F') foundSelected();
+    else if (e.key === 'r' || e.key === 'R') setMode(mode?.type === 'road' ? null : { type: 'road' });
+    else if (e.key === 't' || e.key === 'T') showTech();
+    else if (e.key === 'd' || e.key === 'D') showDiplo();
+  });
+}
+
+// --------------------------------------------------------------------- boot
+(async function boot() {
+  data = await loadData();
+  renderer = new Renderer($('#viewport'));
+  renderer.setState(G.createGame({ data, seed: 7, aiCount: 3 }), 0);
+  renderer.state.players[0].explored.fill(1);
+  renderer.refresh();
+  bindInput();
+  showStart();
+  window.__expandto = { get state() { return s; }, G, renderer };
+})();

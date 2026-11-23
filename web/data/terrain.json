@@ -1,0 +1,11 @@
+{
+  "deep":     { "name": "Océan",     "color": "#4a86c8", "water": true,  "passable": false, "move": 99, "height": 0.08 },
+  "water":    { "name": "Lagune",    "color": "#6fb3e4", "water": true,  "passable": false, "move": 99, "height": 0.14 },
+  "sand":     { "name": "Plage",     "color": "#f0dba6", "water": false, "passable": true,  "move": 1,  "height": 0.26 },
+  "plains":   { "name": "Plaine",    "color": "#c2dc84", "water": false, "passable": true,  "move": 1,  "height": 0.34 },
+  "grass":    { "name": "Prairie",   "color": "#8fca62", "water": false, "passable": true,  "move": 1,  "height": 0.38 },
+  "forest":   { "name": "Forêt",     "color": "#5ea562", "water": false, "passable": true,  "move": 2,  "height": 0.42 },
+  "hills":    { "name": "Collines",  "color": "#cfa772", "water": false, "passable": true,  "move": 2,  "height": 0.66 },
+  "mountain": { "name": "Montagne",  "color": "#a39d97", "water": false, "passable": false, "move": 99, "height": 1.05 },
+  "snow":     { "name": "Sommet",    "color": "#f3f5f8", "water": false, "passable": false, "move": 99, "height": 1.45 }
+}
