@@ -43,6 +43,8 @@ const resColor = (k) => data.resources[k].color;
 const chips = (bundle, cls = '') => Object.entries(bundle || {}).map(([k, v]) => `<span class="chip ${cls}"><i style="background:${resColor(k)}"></i>${cls ? '+' : ''}${v} ${data.resources[k].name}</span>`).join('');
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const me = () => s.players[0];
+const tap = () => (window.matchMedia('(pointer: coarse)').matches ? 'touchez' : 'cliquez');
+const Tap = () => (window.matchMedia('(pointer: coarse)').matches ? 'Touchez' : 'Cliquez');
 const avatar = (p, size = 28) => avatarSVG({ color: p.color, profile: p.profile, skin: p.id, size, title: p.name });
 
 function toast(text, tone = '') {
@@ -342,20 +344,20 @@ function renderSelection() {
     const def = G.unitDef(s, u.type);
     const owner = s.players[u.owner];
     const found = u.type === 'settler' ? G.canFound(s, u) : null;
-    el.innerHTML = `<h3><span class="dot" style="background:${owner.color}"></span>${def.name}${u.owner !== 0 ? ` <span class="muted">· ${esc(owner.name)}</span>` : ''}</h3>
+    el.innerHTML = `<button class="btn small ghost close-sel" data-action="deselect" aria-label="Fermer la sélection">✕</button><h3><span class="dot" style="background:${owner.color}"></span>${def.name}${u.owner !== 0 ? ` <span class="muted">· ${esc(owner.name)}</span>` : ''}</h3>
       <p class="muted" style="font-size:13px;margin:6px 0 0">${def.desc}</p>
       <dl class="kv"><dt>Mouvements</dt><dd>${u.movesLeft.toFixed(1).replace('.0', '')} / ${G.unitMaxMoves(s, u)}</dd><dt>Vision</dt><dd>${G.unitVision(s, u)}</dd>
       ${u.target ? `<dt>Destination</dt><dd>(${u.target.x}, ${u.target.y})</dd>` : ''}</dl>
       ${u.owner === 0 ? `<div class="actions">
-        ${u.type === 'settler' ? `<button class="btn primary small" data-action="found" ${found.ok ? '' : 'disabled'}>Fonder une ville (F)</button>` : ''}
+        ${u.type === 'settler' ? `<button class="btn primary small" data-action="found" ${found.ok ? '' : 'disabled'}>Fonder une ville${tap() === 'cliquez' ? ' (F)' : ''}</button>` : ''}
         ${u.type === 'engineer' ? (() => { const a = G.canEngineerRoad(s, u), b2 = G.canClearForest(s, u);
           return `<button class="btn small" data-action="eng-road" ${a.ok ? '' : 'disabled'} title="${esc(a.reason || '')}">Route ici (1 Bois)</button><button class="btn small" data-action="eng-clear" ${b2.ok ? '' : 'disabled'} title="${esc(b2.reason || '')}">Défricher (+${s.rules.engineer.clearWood} Bois)</button>`; })() : ''}
         ${pendingMove && pendingMove.uid === u.id ? '<button class="btn primary small" data-action="confirm-move">Confirmer le déplacement</button><button class="btn small" data-action="cancel-move">Annuler</button>' : ''}
         ${u.target ? '<button class="btn small" data-action="cancel-order">Annuler l\'ordre</button>' : ''}
-        <button class="btn small ghost" data-action="next-unit">Unité suivante (Espace)</button>
+        <button class="btn small ghost" data-action="next-unit">Unité suivante${tap() === 'cliquez' ? ' (Espace)' : ''}</button>
       </div>
       ${found && !found.ok ? `<div class="reason">${found.reason}</div>` : ''}
-      <div class="reason">Cliquez une case pour vous y rendre${{ caravan: ' — visez une ville étrangère pour ouvrir une route commerciale', ship: ' — naviguez jusqu\'à une ville étrangère au bord de l\'eau pour une route maritime', emissary: ' — entrez dans une ville étrangère pour y ouvrir une ambassade', airship: ' — il survole montagnes et océans', engineer: ' — puis tracez une route ou défrichez' }[u.type] || ''}.</div>` : ''}`;
+      <div class="reason">${Tap()} une case pour vous y rendre${{ caravan: ' — visez une ville étrangère pour ouvrir une route commerciale', ship: ' — naviguez jusqu\'à une ville étrangère au bord de l\'eau pour une route maritime', emissary: ' — entrez dans une ville étrangère pour y ouvrir une ambassade', airship: ' — il survole montagnes et océans', engineer: ' — puis tracez une route ou défrichez' }[u.type] || ''}.</div>` : ''}`;
     return;
   }
   if (sel.kind === 'city') {
@@ -366,7 +368,7 @@ function renderSelection() {
     const need = s.rules.growthBase + s.rules.growthPerPop * c.pop;
     const blds = s.buildings.filter((b) => b.cityId === c.id);
     const mine = c.owner === 0;
-    el.innerHTML = `<h3><span class="dot" style="background:${owner.color}"></span>${esc(c.name)}${c.capital ? ' <span class="tag">Capitale</span>' : ''}${!mine ? ` <span class="muted">· ${esc(owner.name)}</span>` : ''}</h3>
+    el.innerHTML = `<button class="btn small ghost close-sel" data-action="deselect" aria-label="Fermer la sélection">✕</button><h3><span class="dot" style="background:${owner.color}"></span>${esc(c.name)}${c.capital ? ' <span class="tag">Capitale</span>' : ''}${!mine ? ` <span class="muted">· ${esc(owner.name)}</span>` : ''}</h3>
       <dl class="kv"><dt>Population</dt><dd>${c.pop} / ${cap}</dd>
       ${mine ? `<dt>Croissance</dt><dd>${fmt(me().res.food)} / ${need} Nourriture</dd>` : `<dt>Relation</dt><dd>${Math.round(G.getRel(s, 0, c.owner))} · ${G.relStatus(G.getRel(s, 0, c.owner)).label}</dd>`}
       <dt>Palier</dt><dd>${s.rules.tiers[c.tier || 0].name}</dd>
@@ -389,7 +391,7 @@ function renderSelection() {
   const explored = G.isExplored(s, 0, t.x, t.y);
   if (!explored) { el.innerHTML = '<h3>Terre inconnue</h3><p class="muted" style="font-size:13px">Envoyez un explorateur pour révéler cette zone.</p>'; return; }
   const bdef = b && G.buildingDef(s, b.type);
-  el.innerHTML = `<h3>${ter.name}</h3>
+  el.innerHTML = `<button class="btn small ghost close-sel" data-action="deselect" aria-label="Fermer la sélection">✕</button><h3>${ter.name}</h3>
     <dl class="kv"><dt>Coordonnées</dt><dd>${t.x}, ${t.y}</dd><dt>Propriétaire</dt><dd>${t.owner === -1 ? '—' : esc(s.players[t.owner].name)}</dd>
     <dt>Déplacement</dt><dd>${ter.passable ? (t.road !== -1 ? `${s.rules.road.moveCost} (route)` : ter.move) : 'impraticable'}</dd>
     ${t.luxury ? `<dt>Ressource rare</dt><dd>${data.resources[t.luxury].name}</dd>` : ''}</dl>
@@ -468,7 +470,7 @@ function renderHighlights() {
     if (u && pendingMove && pendingMove.uid === u.id) {
       const last = pendingMove.plan.steps[pendingMove.plan.steps.length - 1];
       const turns = pendingMove.plan.turns;
-      badges.push({ i: last.i, html: `<span>${turns === 1 ? 'Arrivée ce tour' : `Arrivée dans ${turns} tours`} · cliquez pour confirmer</span>`, lift: 0.75 });
+      badges.push({ i: last.i, html: `<span>${turns === 1 ? 'Arrivée ce tour' : `Arrivée dans ${turns} tours`} · ${tap()} pour confirmer</span>`, lift: 0.75 });
     }
   }
   if (showAdjacency && mode?.type !== 'build') {
@@ -490,9 +492,10 @@ function renderHighlights() {
   if (sel?.kind === 'tile') selIdx = sel.i;
   renderer.setCursor(selIdx, 'select');
   const hint = $('#hint');
-  if (mode?.type === 'build') { hint.hidden = false; hint.textContent = `${G.buildingDef(s, mode.id).name} : choisissez une case verte${G.footprintOf(s, mode.id) > 1 ? ' (coin nord-ouest du quartier 2×2)' : ''} — survolez pour voir les bonus d'adjacence — Échap pour annuler`; }
-  else if (mode?.type === 'road') { hint.hidden = false; hint.textContent = 'Route : cliquez les cases jaunes pour prolonger le réseau — Échap pour terminer'; }
-  else if (pendingMove) { hint.hidden = false; hint.textContent = `Déplacement prévu (${pendingMove.plan.turns === 1 ? 'arrivée ce tour' : `${pendingMove.plan.turns} tours`}) : cliquez à nouveau la destination pour confirmer — Échap pour annuler`; }
+  const setHint = (text, btn) => { hint.hidden = false; hint.innerHTML = `<span id="hint-text"></span><button class="btn small hint-btn" data-action="cancel-current">${btn}</button>`; $('#hint-text').textContent = text; };
+  if (mode?.type === 'build') setHint(`${G.buildingDef(s, mode.id).name} : choisissez une case verte${G.footprintOf(s, mode.id) > 1 ? ' (coin nord-ouest du quartier 2×2)' : ''}`, 'Annuler');
+  else if (mode?.type === 'road') setHint('Route : touchez les cases jaunes pour prolonger le réseau', 'Terminer');
+  else if (pendingMove) setHint(`Déplacement prévu (${pendingMove.plan.turns === 1 ? 'arrivée ce tour' : `${pendingMove.plan.turns} tours`}) : touchez à nouveau la destination pour confirmer`, 'Annuler');
   else hint.hidden = true;
 }
 
@@ -525,7 +528,11 @@ function handleTileClick(i, shift) {
     refreshWorld(); save(); return;
   }
   const u = sel?.kind === 'unit' ? s.units.find((x) => x.id === sel.id) : null;
-  if (u && u.owner === 0 && (u.x !== t.x || u.y !== t.y)) {
+  // Toucher une de vos unités ou une de vos villes la sélectionne (au lieu d'y envoyer l'unité choisie),
+  // sauf si c'est la destination déjà prévue : le second toucher confirme alors le trajet.
+  const ownThere = s.units.some((x) => x.owner === 0 && x.x === t.x && x.y === t.y) || G.cityAt(s, t.x, t.y)?.owner === 0;
+  const isPlanned = pendingMove && u && pendingMove.uid === u.id && pendingMove.x === t.x && pendingMove.y === t.y;
+  if (u && u.owner === 0 && (u.x !== t.x || u.y !== t.y) && (!ownThere || isPlanned)) {
     if (!G.isExplored(s, 0, t.x, t.y)) { toast('Destination inexplorée.', 'bad'); return; }
     const confirmed = pendingMove && pendingMove.uid === u.id && pendingMove.x === t.x && pendingMove.y === t.y;
     if (confirmMoves && !confirmed) {
@@ -559,6 +566,7 @@ function executeMove(u, x, y) {
   renderer.animateUnit(u.id, r.steps);
   Sound.sfx.move();
   if (!s.units.includes(u)) { sel = null; toast('Arrivée à destination : mission accomplie !', 'good'); }
+  else if (u.movesLeft < 0.5) sel = null; // plus de mouvement : on libère la sélection
   refreshWorld(); save();
 }
 
@@ -855,6 +863,8 @@ function onAction(e) {
     case 'mode-build': setMode(mode?.type === 'build' && mode.id === b.dataset.id ? null : { type: 'build', id: b.dataset.id }); break;
     case 'mode-road': setMode(mode?.type === 'road' ? null : { type: 'road' }); break;
     case 'found': foundSelected(); break;
+    case 'cancel-current': if (pendingMove) { pendingMove = null; renderSelection(); renderHighlights(); } else setMode(null); break;
+    case 'deselect': select(null); break;
     case 'confirm-move': { const u = s.units.find((x) => x.id === pendingMove?.uid); if (u) executeMove(u, pendingMove.x, pendingMove.y); break; }
     case 'cancel-move': pendingMove = null; renderSelection(); renderHighlights(); break;
     case 'toggle-sound': Sound.setSound(!Sound.soundEnabled()); showMenu(); break;
@@ -987,7 +997,7 @@ function bindInput() {
         const adj = Object.entries(G.adjacencyBonus(s, 0, mode.id, t.x, t.y)).filter(([, v]) => v);
         if (adj.length) extra = ` · adjacence ${adj.map(([k, v]) => `+${v} ${data.resources[k].name}`).join(', ')}`;
       }
-      $('#hint').textContent = base + (r.ok ? `cliquez pour construire${extra} (Maj : en placer plusieurs)` : r.reason);
+      const ht = $('#hint-text'); if (ht) ht.textContent = base + (r.ok ? `${tap()} pour construire${extra}` : r.reason);
     }
   });
   window.addEventListener('keydown', (e) => {

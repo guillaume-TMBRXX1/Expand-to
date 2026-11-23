@@ -336,3 +336,11 @@ html.compact .city-label { font-size: 11.5px; }
 }
 @media (max-width: 1240px) { html.compact .top-actions .btn { padding: 8px 9px; } html.compact #topbar { gap: 6px; } html.compact .resources { gap: 3px; } }
 @media (max-width: 1060px) { html.compact .res { padding: 4px 6px; } html.compact .res-research { max-width: 44px; } html.compact .top-actions .btn { padding: 8px 8px; font-size: 13px; } }
+
+#hint { display: flex; align-items: center; gap: 12px; }
+#hint[hidden] { display: none !important; }
+.hint-btn { background: rgba(255,255,255,.14); color: #fff; border-color: rgba(255,255,255,.35); flex: 0 0 auto; }
+.hint-btn:hover:not(:disabled) { background: rgba(255,255,255,.24); }
+#selection { position: absolute; }
+.close-sel { position: absolute; top: 6px; right: 6px; min-height: 32px !important; width: 36px; padding: 0 !important; font-size: 15px; }
+html.compact #hint { top: calc(70px + env(safe-area-inset-top)); bottom: auto !important; }
