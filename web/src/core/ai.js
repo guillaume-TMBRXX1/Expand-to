@@ -1,6 +1,7 @@
 // IA des joueurs ordinateurs : heuristiques simples pondérées par leur profil.
 import * as G from './game.js';
 import { aiPolicies } from './diversity.js';
+import { aiAbility } from './world.js';
 
 // Paramètres de l'IA : web/data/ai.json, éventuellement surchargés par joueur (s.aiOverrides[pid]) pour l'entraînement.
 function merge(a, b) {
@@ -22,6 +23,7 @@ function aiTurn(s, pid) {
   const w = P.branchWeights[p.profile];
   chooseResearch(s, pid, w);
   aiPolicies(s, pid);
+  aiAbility(s, pid);
   for (const u of s.units.filter((x) => x.owner === pid)) moveUnit(s, pid, u);
   trainUnits(s, pid, P);
   for (let i = 0; i < 2; i++) if (!buildSomething(s, pid, w, P.build)) break;
@@ -151,8 +153,9 @@ function buildSomething(s, pid, w, B) {
   if (!G.citiesOf(s, pid).length) return false;
   const y = p.lastYield ? p.lastYield.net : { food: 1, wood: 1, stone: 1, gold: 2 };
   const reserve = s.units.some((u) => u.owner === pid && u.type === 'settler') ? 0 : B.goldReserve;
-  const scored = s.data.buildings.map((def) => {
+  const scored = s.data.buildings.filter((def) => !def.profile || def.profile === p.profile).map((def) => {
     let score = 0;
+    if (def.profile) score += B.unique ?? 8; // bâtiment propre au profil
     for (const [k, v] of Object.entries(def.yields)) score += v * (w[YIELD_BRANCH[k]] || 1);
     if (def.yields.food && y.food < 2) score += B.foodNeed;
     if (def.yields.wood && (y.wood < 3 || p.res.wood < 20)) score += B.woodNeed;

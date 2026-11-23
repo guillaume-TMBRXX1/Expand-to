@@ -1,6 +1,7 @@
 // Point d'entrée : chargement des données, écran de départ, boucle de jeu et interface.
 import * as G from './core/game.js';
 import * as D from './core/diversity.js';
+import * as W from './core/world.js';
 import { playAITurns } from './core/ai.js';
 import { Renderer } from './render/renderer.js';
 import { avatarSVG } from './ui/avatar.js';
@@ -80,7 +81,7 @@ function showStart() {
       <p class="lead">Explorez, bâtissez, commercez et négociez. Aucune armée : la victoire se gagne par le <b>prestige</b> — culture, science, commerce et alliances. Premier à atteindre l'objectif de prestige ou à compléter une voie de victoire, sinon meilleur score à la fin des tours.</p>
       <div class="section-title">Profil de départ</div>
       <div class="profiles" role="radiogroup" aria-label="Profil de départ">
-        ${data.profiles.map((p) => `<button class="profile" role="radio" aria-checked="${p.id === profile}" data-profile="${p.id}">${avatarSVG({ color: G.PLAYER_COLORS[0], profile: p.id, skin: 0, size: 48, title: p.name })}<div><b>${p.name}</b><span>${p.desc}</span></div></button>`).join('')}
+        ${data.profiles.map((p) => `<button class="profile" role="radio" aria-checked="${p.id === profile}" data-profile="${p.id}">${avatarSVG({ color: G.PLAYER_COLORS[0], profile: p.id, skin: 0, size: 48, title: p.name })}<div><b>${p.name}</b><span>${p.desc}</span><span class="prof-extra">${p.unique ? `Bâtiment : ${data.buildingsById[p.unique].name}` : ''}${p.ability ? ` · Capacité : ${p.ability.name}` : ''}</span></div></button>`).join('')}
       </div>
       <div class="start-row">
         <label class="field">Nom du dirigeant<input id="f-name" value="Vous" maxlength="18"></label>
@@ -238,7 +239,7 @@ function renderTop() {
   });
   const research = p.research ? G.techDef(s, p.research) : null;
   items.push(`<span class="res" title="Science accumulée / coût de la recherche en cours"><i style="background:${resColor('science')}"></i><b>${research ? `<span class="res-research">${research.name}</span> ${fmt(p.sciencePool)}/${G.techCost(s, 0, research.id)}` : `${fmt(p.sciencePool)} · à choisir`}</b><small>${sign(y.net.science)}</small></span>`);
-  items.push(`<span class="res" title="Culture totale (1 prestige / ${s.rules.prestige.culturePerPoint})"><i style="background:${resColor('culture')}"></i><b>${fmt(p.cultureTotal)}</b><small>${sign(y.net.culture)}</small></span>`);
+  items.push(`<span class="res" title="Culture totale (1 prestige / ${s.rules.prestige.culturePerPoint}). Influence culturelle : ${Math.floor(p.influence || 0)} / ${W.influenceCost(s, 0)} pour annexer la prochaine case."><i style="background:${resColor('culture')}"></i><b>${fmt(p.cultureTotal)}</b><small>${sign(y.net.culture)}</small></span>`);
   const stockTotal = [...G.GOODS, ...G.LUXURIES].reduce((a, k) => a + Math.floor(p.res[k] || 0), 0);
   items.push(`<button class="res res-btn" data-action="stock" title="Entrepôt : biens transformés et ressources rares" aria-expanded="${!$('#stock').hidden}"><i style="background:${resColor('goods')}"></i><b><span class="lbl-long">Entrepôt</span><span class="lbl-short">Stock</span></b><small>${stockTotal}</small></button>`);
   items.push(`<span class="res" title="Prestige — objectif de victoire"><i style="background:var(--accent)"></i><b>${p.prestige}<span class="pt-target"> / ${s.rules.prestigeTarget}</span></b><small class="lbl-long">prestige</small><small class="lbl-short">★</small></span>`);
@@ -313,7 +314,8 @@ function setSide(open) {
   if (open) drawMinimap();
 }
 function updateSideBadge() {
-  const n = s.proposals.filter((p) => p.to === 0).length + myEvents().length + (s.congress?.status === 'open' && s.congress.votes[0] === undefined ? 1 : 0);
+  const n = s.proposals.filter((p) => p.to === 0).length + myEvents().length + myContracts().filter((c) => c.status === 'offered').length
+    + (s.congress?.status === 'open' && s.congress.votes[0] === undefined ? 1 : 0) + (crisisPending() ? 1 : 0);
   const b = $('#side-badge');
   b.hidden = n === 0; b.textContent = n;
   const free = freePolicySlots();
@@ -322,6 +324,30 @@ function updateSideBadge() {
 }
 
 const myEvents = () => (s.pendingEvents || []).filter((pe) => pe.pid === 0);
+const myContracts = () => (s.contracts || []).filter((c) => c.to === 0);
+const crisisPending = () => s.crisis?.status === 'open' && s.crisis.pledges[0] === undefined;
+function contractCards() {
+  return myContracts().map((c) => {
+    const from = s.players[c.from], r = data.resources[c.res];
+    const have = Math.floor(me().res[c.res] || 0);
+    const reward = `+${c.gold} Or, +${c.relation} relation, +${c.prestige} prestige`;
+    if (c.status === 'offered') {
+      return `<div class="card proposal contract" style="border-left-color:${from.color}"><div class="proposal-head">${avatar(from, 34)}<p><b>${esc(from.name)}</b> propose un <b>contrat</b> : livrer <b>${c.qty} ${r.name}</b> en ${s.rules.contracts.duration} tours. Récompense : ${reward}. Ne pas livrer coûte ${s.rules.contracts.failRelation} relation. <span class="muted">(stock : ${have})</span></p></div>
+        <div class="row"><button class="btn small primary" data-action="contract-accept" data-id="${c.id}">Accepter</button><button class="btn small" data-action="contract-decline" data-id="${c.id}">Refuser</button></div></div>`;
+    }
+    const left = c.deadline - s.turn;
+    return `<div class="card proposal contract active" style="border-left-color:${from.color}"><div class="event-head"><b>Contrat pour ${esc(from.name)}</b><span class="muted">${left > 0 ? `${left} tour(s) restant(s)` : 'Dernier tour'}</span></div>
+      <p>Livrer <b>${c.qty} ${r.name}</b> (stock : ${have}). ${reward}.</p>
+      <div class="row"><button class="btn small ${have >= c.qty ? 'primary' : ''}" data-action="contract-deliver" data-id="${c.id}" ${have >= c.qty ? '' : 'aria-disabled="true"'}>Livrer</button></div></div>`;
+  }).join('');
+}
+function crisisCard() {
+  if (!s.crisis) return '';
+  const def = W.crisisDef(s);
+  if (crisisPending()) return `<div class="card proposal crisis"><div class="event-head"><b>Crise mondiale : ${esc(def.name)}</b></div><p>${esc(def.text)}</p><div class="row"><button class="btn small primary" data-action="crisis">Congrès extraordinaire</button></div></div>`;
+  if (W.crisisActive(s)) return `<div class="resolution crisis-line">Crise : <b>${esc(def.name)}</b> <span class="muted">${s.crisis.status === 'open' ? 'en attente des contributions' : `jusqu'au tour ${s.crisis.until}`}</span></div>`;
+  return '';
+}
 const freePolicySlots = () => {
   const slots = D.policySlots(s, 0), pol = me().policies || [];
   const unlocked = (data.policies?.list || []).filter((d) => D.policyUnlocked(s, 0, d) && !pol.includes(d.id)).length;
@@ -353,7 +379,7 @@ function renderSide() {
       <div class="bar"><div style="width:${Math.min(100, (p.prestige / s.rules.prestigeTarget) * 100)}%;background:${p.color}"></div></div>
     </div>`).join('');
   const props = s.proposals.filter((p) => p.to === 0);
-  $('#proposals').innerHTML = eventCards() + props.map((pr) => {
+  $('#proposals').innerHTML = crisisCard() + eventCards() + contractCards() + props.map((pr) => {
     const from = s.players[pr.from];
     const text = {
       promise: `<b>${esc(from.name)}</b> vous demande de <b>promettre</b> de ne plus fonder de ville près de ses frontières. Rompre une promesse coûte très cher (${s.rules.promise.breakPenalty} relation, et les autres l'apprennent).`,
@@ -453,7 +479,9 @@ const chipsText = (b) => Object.entries(b || {}).map(([k, v]) => `+${v} ${data.r
 function renderBuildbar() {
   const el = $('#buildbar');
   if (!G.citiesOf(s, 0).length) { el.innerHTML = '<div class="muted" style="font-size:13px;padding:4px 2px">Fondez une ville pour débloquer la construction.</div>'; return; }
-  const tab = BUILD_TABS[buildTab];
+  const prof = data.profilesById[me().profile];
+  const tabs = { ...BUILD_TABS, ...(prof.unique ? { profile: { label: prof.name, ids: [prof.unique] } } : {}) };
+  const tab = tabs[buildTab] || BUILD_TABS.prod;
   const items = tab.ids.map((id) => {
     if (id === 'road') {
       const pressed = mode?.type === 'road';
@@ -475,8 +503,10 @@ function renderBuildbar() {
       ${locked ? `<div class="chip" style="margin-top:3px">${G.techDef(s, def.tech).name}</div>` : taken ? '<div class="chip" style="margin-top:3px">Indisponible</div>' : raceChip}
     </button>`;
   }).join('');
-  el.innerHTML = `<div class="tabs" role="tablist">${Object.entries(BUILD_TABS).map(([k, v]) => `<button class="tab" role="tab" aria-selected="${k === buildTab}" data-action="tab" data-tab="${k}">${v.label}</button>`).join('')}
-    <button class="tab adj-toggle" aria-pressed="${showAdjacency}" data-action="toggle-adj" title="Afficher les bonus d'adjacence de vos bâtiments sur la carte (A)">Bonus d'adjacence${showAdjacency ? ' : affichés' : ''}</button></div><div class="build-list">${items}</div>`;
+  const ab = prof.ability, wait = W.abilityReadyIn(s, 0), abOk = W.canUseAbility(s, 0);
+  const abBtn = ab ? `<button class="tab ability ${abOk.ok ? 'ready' : ''}" data-action="ability" ${abOk.ok ? '' : 'aria-disabled="true"'} title="${esc(`${ab.name} : ${ab.desc} Recharge : ${ab.cooldown} tours.${abOk.ok ? '' : ` ${abOk.reason}`}`)}">★ ${esc(ab.name)}${wait > 0 ? ` · ${wait} t.` : ''}</button>` : '';
+  el.innerHTML = `<div class="tabs" role="tablist">${Object.entries(tabs).map(([k, v]) => `<button class="tab" role="tab" aria-selected="${k === buildTab}" data-action="tab" data-tab="${k}">${v.label}</button>`).join('')}
+    ${abBtn}<button class="tab adj-toggle" aria-pressed="${showAdjacency}" data-action="toggle-adj" title="Afficher les bonus d'adjacence de vos bâtiments sur la carte (A)">Adjacences${showAdjacency ? ' ✓' : ''}</button></div><div class="build-list">${items}</div>`;
 }
 
 const bonusHtml = (bundle) => Object.entries(bundle).filter(([, v]) => v).map(([k, v]) => `<span><i style="background:${resColor(k)}"></i>+${v}</span>`).join('');
@@ -678,6 +708,9 @@ function endTurn() {
   if (evs) toast(`Événement : ${D.eventDef(s, myEvents().find((pe) => pe.turn === s.turn).ev).title}. Votre décision est attendue.`);
   if ((props || evs) && document.documentElement.classList.contains('compact')) setSide(true); // le tiroir s'ouvre quand une IA ou un événement vous sollicite
   if (s.congress?.status === 'open' && s.congress.votes[0] === undefined) { Sound.sfx.congress(); showCongress(); }
+  else if (crisisPending()) { Sound.sfx.congress(); showCrisis(); }
+  const offers = myContracts().filter((c) => c.status === 'offered' && c.turn === s.turn).length;
+  if (offers) toast(`${s.players[myContracts().find((c) => c.status === 'offered').from].name} vous propose un contrat.`);
 }
 
 // ---------------------------------------------------------------- modales
@@ -706,7 +739,7 @@ document.addEventListener('keydown', (e) => {
 
 // ------------------------------------------------------------ encyclopédie
 function showEncyclopedia(tab = 'buildings') {
-  const tabs = { buildings: 'Bâtiments', units: 'Unités', techs: 'Technologies', policies: 'Politiques', nature: 'Nature et événements', resources: 'Ressources', rules: 'Règles' };
+  const tabs = { buildings: 'Bâtiments', units: 'Unités', techs: 'Technologies', policies: 'Politiques', profiles: 'Profils', nature: 'Nature et événements', resources: 'Ressources', rules: 'Règles' };
   const cost = (c) => Object.entries(c || {}).map(([k, v]) => `${v} ${data.resources[k].name}`).join(', ');
   let body = '';
   if (tab === 'buildings') {
@@ -723,6 +756,9 @@ function showEncyclopedia(tab = 'buildings') {
   } else if (tab === 'policies') {
     body = `<div class="enc-item"><div class="muted">Emplacements : ${data.policies.slots.map((t) => `${t.slots} à ${t.techs} technologies`).join(', ')}. Remplacer une politique coûte ${G.fmtBundle(s, data.policies.swapCost)}.</div></div>`
       + Object.entries(BRANCHES).map(([k, v]) => `<div class="stock-group">${v}</div>` + data.policies.list.filter((d) => d.branch === k).map((d) => `<div class="enc-item"><div class="vhead"><b>${d.name}</b><span class="muted">${d.tech ? G.techDef(s, d.tech).name : 'Disponible'}</span></div><div class="muted">${d.desc}</div></div>`).join('')).join('');
+  } else if (tab === 'profiles') {
+    body = data.profiles.map((p) => `<div class="enc-item"><div class="vhead"><b>${p.name}</b><span class="muted">${data.buildingsById[p.unique]?.name || ''}</span></div><div class="muted">${p.desc}</div>
+      <div class="enc-line">Bâtiment : ${data.buildingsById[p.unique]?.desc || '—'}</div><div class="enc-line good">Capacité « ${p.ability.name} » : ${p.ability.desc} Recharge ${p.ability.cooldown} tours.</div></div>`).join('');
   } else if (tab === 'nature') {
     const NW = s.rules.naturalWonders, RU = s.rules.ruins;
     body = `<div class="stock-group">Merveilles naturelles</div><div class="enc-item"><div class="muted">Uniques et réparties sur la carte. Les découvrir rapporte ${NW.firstPrestige} prestige au premier, ${NW.laterPrestige} aux suivants. Dans votre territoire : leur rendement et +${NW.ownedPrestige} prestige. Tout bâtiment voisin gagne ${chipsText(NW.adjacency)}. On ne construit pas dessus.</div></div>`
@@ -734,10 +770,13 @@ function showEncyclopedia(tab = 'buildings') {
       + `<div class="stock-group">Terrains</div>` + Object.values(data.terrain).map((t) => `<div class="enc-item"><b>${t.name}</b> <span class="muted">· ${t.passable ? `déplacement ${t.move}` : 'impraticable'}</span></div>`).join('');
   } else {
     const R = s.rules;
-    body = `<div class="enc-item"><b>Victoire</b><div class="muted">Premier à ${R.prestigeTarget} prestige, ou une voie complète : Science (Observatoire Céleste + ${R.victory.scienceTechs} technologies), Culture (Amphithéâtre + ${R.victory.cultureTotal} culture), Économie (Grande Bourse + ${R.victory.economyGold} Or), Diplomatie (élu ${R.victory.secretaryWins} fois Secrétaire et allié de la moitié des rivaux, ou allié de tous après au moins une élection). Sinon, meilleur prestige au tour ${R.turnLimit}.</div></div>
+    body = `<div class="enc-item"><b>Victoire</b><div class="muted">Premier à ${R.prestigeTarget} prestige, ou une voie complète : Science (Observatoire Céleste + ${R.victory.scienceTechs} technologies), Culture (Amphithéâtre + ${R.victory.cultureTotal} culture), Économie (Grande Bourse + ${R.victory.economyGold} Or), Diplomatie (élu ${R.victory.secretaryWins} fois Secrétaire et allié de la moitié des rivaux, ou allié de tous et élu ${R.victory.allyAllElections ?? 1} fois). Sinon, meilleur prestige au tour ${R.turnLimit}.</div></div>
       <div class="enc-item"><b>Paliers de population</b><div class="muted">${R.tiers.map((t) => `${t.name}${t.minPop ? ` (${t.minPop} hab., ${G.fmtBundle(s, t.needs)} / tour)` : ''}`).join(' → ')}</div></div>
       <div class="enc-item"><b>Diplomatie</b><div class="muted">Voisins méfiants : ${Math.round(R.malus.waryPct * 100)} % de productivité, hostiles : ${Math.round(R.malus.hostilePct * 100)} %. Alliance : +${Math.round(R.alliance.pct * 100)} % Or, Science, Culture. Accord commercial : +${R.tradeAgreement.gold} Or/tour.</div></div>
       <div class="enc-item"><b>Congrès mondial</b><div class="muted">Tous les ${R.congress.every} tours : une résolution (durée ${R.congress.duration} tours) et l'élection du Secrétaire (+${R.congress.secretaryPrestige} prestige).</div></div>
+      <div class="enc-item"><b>Contrats commerciaux</b><div class="muted">Une IA demande une livraison (${s.rules.contracts.duration} tours pour livrer) contre de l'Or, +${s.rules.contracts.relation} relation et +${s.rules.contracts.prestige} prestige. Un contrat accepté puis non honoré coûte ${s.rules.contracts.failRelation} relation.</div></div>
+      <div class="enc-item"><b>Influence culturelle</b><div class="muted">Votre culture s'accumule en influence. À ${s.rules.influence.baseCost} points (+${s.rules.influence.costPerClaim} par case déjà annexée), votre territoire s'étend d'une case neutre voisine. Si votre culture dépasse ${s.rules.influence.flipFactor} fois celle d'un voisin, vous pouvez attirer une case de sa frontière (sans bâtiment, coût doublé, ${s.rules.influence.flipRelation} relation).</div></div>
+      <div class="enc-item"><b>Crise mondiale</b><div class="muted">Vers le milieu de la partie, une crise frappe tous les pays. Un Congrès extraordinaire réunit les contributions (objectif ${s.rules.crisis.goalPerPlayer} Or par pays). Atteint : la crise s'arrête et les contributeurs gagnent du prestige. Manqué : elle dure ${s.rules.crisis.failTurns} tours, et personne ne paie.</div></div>
       <div class="enc-item"><b>Marché</b><div class="muted">La Halle marchande vend à ${Math.round(R.market.baseRate * 100)} % de la valeur ; le prix baisse si l'on vend beaucoup et remonte de ${Math.round(R.market.recovery * 100)} points par tour.</div></div>`;
   }
   openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Encyclopédie"><header><h2>Encyclopédie</h2><button class="btn" data-action="close">Fermer</button></header>
@@ -857,6 +896,23 @@ function showCongress() {
       <div class="cands">${s.players.map((p) => `<label class="check"><input type="radio" name="secretary" value="${p.id}" ${p.id === 0 ? 'checked' : ''}> ${esc(p.name)} <span class="muted">· élu ${p.secretaryWins || 0} fois</span></label>`).join('')}</div>
       <div class="actions" style="margin-top:14px"><button class="btn primary" data-action="vote" data-yes="1">Voter pour la résolution</button><button class="btn" data-action="vote" data-yes="0">Voter contre</button></div>`
       : `<p style="margin-top:12px">Résultat : <b>${c.passed ? 'adoptée' : 'rejetée'}</b>${c.tally ? ` (${c.tally.yes.toFixed(1).replace('.0', '')} pour, ${c.tally.no.toFixed(1).replace('.0', '')} contre)` : ''}. Secrétaire : <b>${c.secretary !== null && c.secretary !== undefined ? esc(s.players[c.secretary].name) : 'aucun'}</b>. Prochain congrès au tour ${c.turn + R.every}.</p>`}
+  </div>`);
+}
+
+function showCrisis() {
+  const c = s.crisis;
+  if (!c) return;
+  const K = s.rules.crisis, def = W.crisisDef(s);
+  const open = c.status === 'open' && c.pledges[0] === undefined;
+  const lvName = (id) => K.levels.find((l) => l.id === (id || 'none')).name;
+  const rows = s.players.filter((p) => !p.isHuman).map((p) => `<div class="mem"><span>${esc(p.name)}</span><b>${lvName(c.pledges[p.id])}</b></div>`).join('');
+  const malus = Object.entries(def.yieldPct).map(([k, v]) => `${Math.round(v * 100)} % ${data.resources[k].name}`).join(', ');
+  openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Crise mondiale" style="width:min(620px,100%)">
+    <header><div><h2>Crise mondiale : ${esc(def.name)}</h2><div class="muted" style="font-size:13px">${esc(def.text)} Effet pour tous : ${malus}.</div></div><button class="btn" data-action="close">Fermer</button></header>
+    <p style="margin:4px 0 10px;font-size:13.5px">Un Congrès extraordinaire réunit les contributions. Objectif : <b>${W.crisisGoal(s)} Or</b> au total. S'il est atteint, la crise prend fin et chaque contributeur gagne du prestige. Sinon, elle dure ${K.failTurns} tours et <b>personne ne paie</b>.</p>
+    <div class="section-title"><span>Promesses des autres pays</span></div><div class="memories">${rows}</div>
+    ${open ? `<div class="actions crisis-levels" style="margin-top:14px">${K.levels.map((l) => `<button class="btn ${l.id === 'modest' ? 'primary' : ''}" data-action="pledge" data-level="${l.id}" ${me().res.gold < l.gold ? 'aria-disabled="true"' : ''}><b>${l.name}</b>${l.gold ? ` · ${l.gold} Or · +${l.prestige} prestige` : ''}</button>`).join('')}</div>`
+      : `<p style="margin-top:12px">${c.status === 'open' ? 'Votre promesse est enregistrée.' : c.status === 'resolved' ? `Crise surmontée (${c.total} Or réunis).` : `Contributions insuffisantes (${c.total} Or) : la crise dure jusqu'au tour ${c.until}.`}</p>`}
   </div>`);
 }
 
@@ -987,6 +1043,12 @@ function onAction(e) {
       refreshWorld(); save(); break;
     }
     case 'policies': showPolicies(); break;
+    case 'ability': { const r = W.useAbility(s, 0); toast(r.ok ? `${data.profilesById[me().profile].ability.name} !` : r.reason, r.ok ? 'good' : 'bad'); refreshWorld(); save(); break; }
+    case 'contract-accept': W.acceptContract(s, id); renderAll(); save(); break;
+    case 'contract-decline': W.declineContract(s, id); renderAll(); save(); break;
+    case 'contract-deliver': { const r = W.deliverContract(s, id); if (!r.ok) toast(r.reason, 'bad'); else toast('Contrat honoré !', 'good'); renderAll(); save(); break; }
+    case 'crisis': showCrisis(); break;
+    case 'pledge': { const r = W.pledgeCrisis(s, 0, b.dataset.level); if (!r.ok) { toast(r.reason || 'Impossible.', 'bad'); break; } showCrisis(); renderAll(); save(); break; }
     case 'policy-set': {
       const r = D.setPolicy(s, 0, Number(b.dataset.slot), b.dataset.policy || null);
       if (!r.ok) toast(r.reason, 'bad');

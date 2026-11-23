@@ -4,7 +4,7 @@
     "height": 26
   },
   "turnLimit": 60,
-  "prestigeTarget": 200,
+  "prestigeTarget": 210,
   "cityBaseYield": {
     "food": 3,
     "gold": 2,
@@ -200,7 +200,8 @@
     "scienceTechs": 14,
     "cultureTotal": 900,
     "economyGold": 1200,
-    "secretaryWins": 4
+    "secretaryWins": 4,
+    "allyAllElections": 2
   },
   "mapSizes": {
     "small": {
@@ -391,6 +392,92 @@
         "res": {
           "tools": 5,
           "planks": 5
+        }
+      }
+    ]
+  },
+  "contracts": {
+    "firstTurn": 7,
+    "every": [
+      4,
+      6
+    ],
+    "duration": 6,
+    "goods": [
+      "planks",
+      "tools",
+      "goods",
+      "wood",
+      "stone",
+      "food"
+    ],
+    "qtyBase": 10,
+    "qtyPerTurn": 0.35,
+    "rewardPerValue": 1.7,
+    "relation": 8,
+    "prestige": 3,
+    "failRelation": -10,
+    "minRelation": -20
+  },
+  "influence": {
+    "baseCost": 25,
+    "costPerClaim": 6,
+    "maxDist": 4,
+    "flipFactor": 1.5,
+    "flipCostMult": 2,
+    "flipRelation": -6
+  },
+  "crisis": {
+    "turnPct": 0.45,
+    "jitter": 3,
+    "failTurns": 8,
+    "goalPerPlayer": 60,
+    "levels": [
+      {
+        "id": "none",
+        "name": "Ne rien verser",
+        "gold": 0,
+        "prestige": 0
+      },
+      {
+        "id": "modest",
+        "name": "Aide modeste",
+        "gold": 40,
+        "prestige": 3
+      },
+      {
+        "id": "generous",
+        "name": "Aide généreuse",
+        "gold": 100,
+        "prestige": 7
+      }
+    ],
+    "list": [
+      {
+        "id": "plague",
+        "name": "Grande épidémie",
+        "text": "Une épidémie frappe tous les pays : la population s'affaiblit et la recherche ralentit.",
+        "yieldPct": {
+          "food": -0.15,
+          "science": -0.1
+        }
+      },
+      {
+        "id": "crash",
+        "name": "Krach financier",
+        "text": "Les grandes banques s'effondrent : le commerce mondial se grippe.",
+        "yieldPct": {
+          "gold": -0.2
+        }
+      },
+      {
+        "id": "storms",
+        "name": "Tempêtes du siècle",
+        "text": "Des tempêtes ravagent forêts et carrières sur tous les continents.",
+        "yieldPct": {
+          "food": -0.1,
+          "wood": -0.15,
+          "stone": -0.15
         }
       }
     ]

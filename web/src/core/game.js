@@ -3,6 +3,7 @@
 import { makeRng } from './rng.js';
 import { generateMap } from './mapgen.js';
 import { placeFeatures, onDiscover, exploreRuin, naturalYields, activeBuffs, activePolicies, eventsTick } from './diversity.js';
+import { contractsTick, influenceTick, crisisTick, crisisActive, crisisDef } from './world.js';
 
 export const RES = ['gold', 'food', 'wood', 'stone'];
 export const GOODS = ['planks', 'tools', 'goods'];
@@ -221,6 +222,15 @@ export function playerMods(s, pid) {
   for (const lux of activeLuxuries(s, pid)) apply(LUXURY_EFFECTS[lux]);
   for (const pol of activePolicies(s, pid)) apply(pol.effects);
   for (const b of activeBuffs(s, pid)) apply({ yieldPct: b.yieldPct });
+  if (crisisActive(s)) apply({ yieldPct: crisisDef(s).yieldPct });
+  // Bâtiments à effet global (une fois par type), ex. Relais des cartographes : +1 vision.
+  const seenTypes = new Set();
+  for (const b of s.buildings) {
+    if (b.owner !== pid || b.turnsLeft > 0 || seenTypes.has(b.type)) continue;
+    seenTypes.add(b.type);
+    const def = buildingDef(s, b.type);
+    if (def.visionBonus) apply({ visionBonus: def.visionBonus });
+  }
   if (!p.isHuman && s.data.ai) { // niveau de difficulté : bonus / malus des IA
     const d = s.data.ai.difficulty[s.difficulty || 'normal'];
     if (d?.aiYieldPct) apply({ yieldPct: Object.fromEntries(['gold', 'science', 'culture', 'wood', 'stone', 'food'].map((k) => [k, d.aiYieldPct])) });
@@ -336,6 +346,7 @@ export function canBuild(s, pid, type, x, y) {
   const t = tileAt(s, x, y);
   if (!def || !t) return { ok: false, reason: 'Invalide.' };
   if (def.tech && !hasTech(s, pid, def.tech)) return { ok: false, reason: `Nécessite ${techDef(s, def.tech).name}.` };
+  if (def.profile && s.players[pid].profile !== def.profile) return { ok: false, reason: `Réservé au profil ${s.data.profilesById[def.profile].name}.` };
   const tiles = footprintTiles(s, type, x, y);
   if (tiles.some((c) => !c)) return { ok: false, reason: 'Pas assez de place (2×2 cases).' };
   for (const c of tiles) {
@@ -756,7 +767,7 @@ export function techCost(s, pid, techId) {
   const allyKnows = s.players.some((q) => q.id !== pid && isAllied(s, pid, q.id) && q.techs.includes(techId));
   return Math.round(t.cost * (allyKnows ? 1 - s.rules.allyTechDiscount : 1));
 }
-function checkResearch(s, pid) {
+export function checkResearch(s, pid) {
   const p = s.players[pid];
   while (p.research && p.sciencePool >= techCost(s, pid, p.research)) {
     const t = techDef(s, p.research);
@@ -1142,6 +1153,7 @@ export function endRound(s) {
     marketTick(s, p.id);
     p.sciencePool += y.net.science;
     p.cultureTotal += y.net.culture;
+    influenceTick(s, p.id, y.net.culture);
     checkResearch(s, p.id);
     grow(s, p.id);
   }
@@ -1177,6 +1189,9 @@ export function endRound(s) {
     for (const [w, owner] of Object.entries(s.wonders)) {
       if (owner === a || owner === b) d += (buildingDef(s, w).relationPerTurn || 0);
     }
+    for (const bd of s.buildings) { // Chancellerie
+      if ((bd.owner === a || bd.owner === b) && !bd.turnsLeft && !buildingDef(s, bd.type).wonder) d += buildingDef(s, bd.type).relationPerTurn || 0;
+    }
     addRel(s, a, b, d);
     const breakBelow = Math.max(R.alliance.breakBelow, personalityOf(s, a)?.breakBelow ?? 0, personalityOf(s, b)?.breakBelow ?? 0);
     if (isAllied(s, a, b) && getRel(s, a, b) < breakBelow) {
@@ -1191,6 +1206,8 @@ export function endRound(s) {
   for (const u of s.units) u.movesLeft = unitMaxMoves(s, u);
   for (const u of s.units.filter((v) => v.owner === 0 && v.target)) advanceUnit(s, u);
   eventsTick(s);
+  contractsTick(s);
+  crisisTick(s);
   if (s.congress && s.congress.status === 'open') resolveCongress(s); // vote humain non exprimé : abstention
   for (const p of s.players) {
     const pr = computePrestige(s, p.id);
@@ -1220,7 +1237,8 @@ export const activeResolutions = (s) => (s.resolutions || []).filter((r) => r.un
 export function voteWeight(s, pid) {
   return 1 + s.alliances.filter((r) => r.a === pid || r.b === pid).length
     + 0.5 * s.agreements.filter((r) => r.a === pid || r.b === pid).length
-    + 0.5 * (s.embassies || []).filter((e) => e.to === pid).length;
+    + 0.5 * (s.embassies || []).filter((e) => e.to === pid).length
+    + s.buildings.filter((b) => b.owner === pid && !b.turnsLeft).reduce((a, b) => a + (buildingDef(s, b.type).voteWeight || 0), 0);
 }
 
 function openCongress(s) {
@@ -1299,7 +1317,7 @@ export function victoryProgress(s, pid) {
     science: { label: 'Science', done: s.wonders.observatory === pid && p.techs.length >= V.scienceTechs, text: `Observatoire Céleste ${s.wonders.observatory === pid ? '✓' : '✗'} · ${p.techs.length}/${V.scienceTechs} technologies`, pct: Math.min(1, (p.techs.length / V.scienceTechs) * 0.6 + (s.wonders.observatory === pid ? 0.4 : 0)) },
     culture: { label: 'Culture', done: s.wonders.amphitheatre === pid && p.cultureTotal >= V.cultureTotal, text: `Amphithéâtre ${s.wonders.amphitheatre === pid ? '✓' : '✗'} · ${Math.floor(p.cultureTotal)}/${V.cultureTotal} culture`, pct: Math.min(1, (p.cultureTotal / V.cultureTotal) * 0.6 + (s.wonders.amphitheatre === pid ? 0.4 : 0)) },
     economy: { label: 'Économie', done: s.wonders.exchange === pid && p.res.gold >= V.economyGold, text: `Grande Bourse ${s.wonders.exchange === pid ? '✓' : '✗'} · ${Math.floor(p.res.gold)}/${V.economyGold} Or en caisse`, pct: Math.min(1, Math.min(1, p.res.gold / V.economyGold) * 0.6 + (s.wonders.exchange === pid ? 0.4 : 0)) },
-    diplomacy: { label: 'Diplomatie', done: ((p.secretaryWins || 0) >= V.secretaryWins && others.filter((q) => isAllied(s, pid, q.id)).length >= Math.max(1, Math.floor(others.length / 2))) || (others.length >= 2 && (p.secretaryWins || 0) >= 1 && others.every((q) => isAllied(s, pid, q.id))), text: `Élu Secrétaire ${p.secretaryWins || 0}/${V.secretaryWins} fois (et allié de la moitié des rivaux) · ou allié de tous (${others.filter((q) => isAllied(s, pid, q.id)).length}/${others.length}) après au moins une élection`, pct: Math.min(1, Math.max((p.secretaryWins || 0) / V.secretaryWins, others.filter((q) => isAllied(s, pid, q.id)).length / Math.max(1, others.length))) },
+    diplomacy: { label: 'Diplomatie', done: ((p.secretaryWins || 0) >= V.secretaryWins && others.filter((q) => isAllied(s, pid, q.id)).length >= Math.max(1, Math.floor(others.length / 2))) || (others.length >= 2 && (p.secretaryWins || 0) >= (V.allyAllElections ?? 1) && others.every((q) => isAllied(s, pid, q.id))), text: `Élu Secrétaire ${p.secretaryWins || 0}/${V.secretaryWins} fois (et allié de la moitié des rivaux) · ou allié de tous (${others.filter((q) => isAllied(s, pid, q.id)).length}/${others.length}) et élu ${V.allyAllElections ?? 1} fois`, pct: Math.min(1, Math.max((p.secretaryWins || 0) / V.secretaryWins, others.filter((q) => isAllied(s, pid, q.id)).length / Math.max(1, others.length))) },
     prestige: { label: 'Prestige', done: p.prestige >= s.rules.prestigeTarget, text: `${p.prestige}/${s.rules.prestigeTarget} prestige`, pct: Math.min(1, p.prestige / s.rules.prestigeTarget) },
   };
 }

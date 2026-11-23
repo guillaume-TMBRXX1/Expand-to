@@ -82,8 +82,9 @@ h2, h3, h4 { margin: 0; }
 
 /* ----------------------------------------------------------- build bar */
 #buildbar { position: absolute; left: 344px; right: 304px; bottom: 12px; padding: 8px 10px 10px; }
-.tabs { display: flex; gap: 4px; margin-bottom: 8px; }
-.tab { border: 0; background: transparent; padding: 5px 10px; border-radius: 6px; font-size: 13px; color: var(--muted); cursor: pointer; font-weight: 500; }
+.tabs { display: flex; gap: 4px; margin-bottom: 8px; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { white-space: nowrap; flex: none; border: 0; background: transparent; padding: 5px 10px; border-radius: 6px; font-size: 13px; color: var(--muted); cursor: pointer; font-weight: 500; }
 .tab[aria-selected="true"] { background: var(--surface-2); color: var(--text); }
 .build-list { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
 .build-item { flex: 0 0 auto; min-width: 118px; text-align: left; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 8px 10px; cursor: pointer; font-size: 13px; }
@@ -377,3 +378,12 @@ html.touch .stepper .btn.small { width: 38px; min-height: 36px; }
 .policy-slot.b-culture { border-style: solid; background: #f7efff; }
 .policy-slot.b-diplomacy { border-style: solid; background: #eaf8f4; }
 @media (max-width: 900px) { .policy-slots { grid-template-columns: 1fr; } }
+
+/* ------------------------------------------- capacités, contrats, crise mondiale */
+.tab.ability { margin-left: auto; color: var(--muted); }
+.tab.ability.ready { color: #fff; background: var(--accent); font-weight: 800; }
+.tab.ability + .adj-toggle { margin-left: 0; }
+.prof-extra { display: block; margin-top: 3px; font-size: 11.5px; color: var(--accent-ink, var(--accent)); font-weight: 700; }
+.proposal.crisis { border-left-color: var(--bad); background: #fff6f4; }
+.crisis-line { border-left: 3px solid var(--bad); }
+.crisis-levels { display: flex; flex-wrap: wrap; gap: 8px; }

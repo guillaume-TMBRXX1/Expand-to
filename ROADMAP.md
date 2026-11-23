@@ -100,7 +100,7 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 - [x] Correctifs tactiles : sélection d'une autre unité au toucher, boutons « Annuler » / « Terminer » et ✕ à la place de la touche Échap.
 - [x] Entrepôt : seuil de vente automatique réglable par ressource.
 
-## Phase 6 — Diversité (v1.1) · en cours
+## Phase 6 — Diversité (v1.1) ✅
 
 Objectif : que deux parties ne se ressemblent plus, et que les choix soient plus marqués. Ces systèmes passent avant l'équilibrage, pour ne pas devoir le refaire ensuite.
 
@@ -109,13 +109,14 @@ Objectif : que deux parties ne se ressemblent plus, et que les choix soient plus
 - [x] **Merveilles naturelles** (6, uniques) : prestige à la découverte (3 au premier, 1 aux suivants), rendement et +2 prestige dans votre territoire, +1 Culture aux bâtiments voisins.
 - [x] **Ruines antiques** (environ 7 par carte moyenne) : fouillées par la première unité qui y entre. L'IA y envoie ses explorateurs.
 - [x] **Politiques** (`web/data/policies.json`, 13 cartes en 4 branches) : 1 à 3 emplacements selon le nombre de technologies, 30 Or pour remplacer une politique.
-- Réglages provisoires : objectif de prestige porté à 200 (les nouvelles sources de prestige raccourcissaient les parties) ; la voie « allié de tous » demande aussi d'avoir été élu Secrétaire au moins une fois.
 
-**Deuxième lot (à faire)**
-- [ ] **Profils vraiment asymétriques** : un bâtiment unique et une capacité active par profil.
-- [ ] **Contrats commerciaux** : les IA demandent des livraisons (« 20 planches d'ici 5 tours ») contre de l'Or, de la relation et du prestige.
-- [ ] **Influence culturelle** : une culture forte repousse les frontières et peut faire basculer des cases neutres ou contestées.
-- [ ] **Crise mondiale** en milieu de partie : un Congrès extraordinaire vote une réponse commune, les contributeurs gagnent du prestige.
+**Deuxième lot**
+- [x] **Profils vraiment asymétriques** : un bâtiment propre (Maison des Guildes, Académie royale, Atelier des maîtres, Chancellerie, Relais des cartographes) et une capacité active à recharge (Grande foire, Percée, Chantier éclair, Sommet, Grande expédition). L'IA les utilise.
+- [x] **Contrats commerciaux** : une IA demande une livraison (6 tours pour livrer) contre de l'Or, +8 relation et +3 prestige ; −10 relation si le contrat n'est pas honoré. Les IA se passent aussi des contrats entre elles.
+- [x] **Influence culturelle** : la culture annexe les cases neutres voisines (environ 7 cases par joueur et par partie), et peut attirer une case frontalière d'un voisin à la culture bien plus faible (coût doublé, −6 relation).
+- [x] **Crise mondiale** vers le milieu de la partie (épidémie, krach, tempêtes) : un Congrès extraordinaire réunit les contributions (60 Or par pays). Atteint : la crise s'arrête et les contributeurs gagnent 3 ou 7 prestige. Manqué : malus pendant 8 tours, et personne ne paie (environ une crise sur deux surmontée en simulation).
+
+**Réglages provisoires** : objectif de prestige porté à 210. La voie « allié de tous » demande aussi d'avoir été élu 2 fois Secrétaire. En simulation (partie normale), les victoires se répartissent ainsi : 12 au prestige, 6 en diplomatie, 1 en économie, 1 en culture sur 20 parties, contre 18 au prestige et 2 en diplomatie avant cette phase.
 
 **Écartés ou à repenser**
 - Cités-États : écartées sous cette forme, une autre façon de faire reste à trouver.
