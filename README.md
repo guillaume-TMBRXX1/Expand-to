@@ -46,7 +46,7 @@ node tools/sim.mjs 10 --size=large --type=archipelago --length=long --ais=7
 ## Paramètres de partie
 
 Sur l'écran d'accueil, vous choisissez :
-- la **taille de carte** : petite, moyenne ou grande, avec jusqu'à 7 IA sur une grande carte ;
+- la **taille de carte** : petite (32 × 24), moyenne (40 × 28) ou grande (50 × 34), avec jusqu'à 7 IA sur une grande carte ;
 - le **type de carte** : continent, pangée ou archipel. En archipel, la Navigation permet de traverser les lagunes ;
 - la **durée** : 40, 60 ou 80 tours ;
 - la **difficulté** : en Difficile, les IA jouent avec les paramètres entraînés (meilleurs choix de recherche et de construction), avec de petits bonus ;
@@ -82,7 +82,20 @@ Sur l'écran d'accueil, vous choisissez :
 - **Adjacences** : placez vos bâtiments les uns à côté des autres pour obtenir des bonus. Le gain s'affiche au survol pendant la construction.
 - **Halle marchande** (onglet Industrie) : elle permet de vendre dans l'Entrepôt vos biens, matériaux et ressources rares contre de l'Or. Le prix baisse si vous vendez beaucoup, puis remonte chaque tour. Une option vend automatiquement tout ce qui dépasse un seuil réglable pour chaque ressource (30 par défaut).
 - **Merveilles** : chacune est unique dans la partie. Le premier qui l'achève la garde, et les autres chantiers sont remboursés à 50 %. Si un rival en construit une, sa carte dans l'onglet Merveilles affiche son nom et le nombre de tours restants (et les vôtres si vous êtes en course). Le journal vous prévient dès qu'une course commence.
-- **Ressources rares** : épices, marbre et cristal s'exploitent avec un Comptoir. Le bouton **Entrepôt** affiche vos stocks et vos bonus actifs.
+- **Régions** : la carte est divisée en cinq régions climatiques (nord froid, terres tempérées, plaines fertiles, sud aride, côtes et lagunes), chacune avec sa teinte et son décor. Le nom de la région s'affiche au survol d'une case.
+- **Ressources rares** : neuf ressources, chacune présente dans une ou deux régions seulement. Il faut donc commercer pour toutes les avoir :
+  - au nord : fourrures et cristal ;
+  - dans les terres tempérées : marbre et vin ;
+  - dans les plaines fertiles : soie ;
+  - sur les côtes : perles et sel ;
+  - dans le sud aride : encens et épices.
+
+  Elles s'exploitent avec un Comptoir. Le bouton **Entrepôt** affiche vos stocks et vos bonus actifs.
+- **Rivières** : elles descendent des collines vers la mer.
+  - Une ville au bord d'une rivière gagne +2 Nourriture et +1 Or.
+  - Un bâtiment construit sur une rivière gagne +1 Or (une ferme, aussi +1 Nourriture).
+  - On s'y déplace plus vite.
+  - Le Moulin à eau et le port fluvial s'y construisent.
 - **Diplomatie** : les voisins méfiants ou hostiles réduisent votre productivité. Accords et alliances la renforcent.
 - **Victoire** : la première voie complétée l'emporte. Sinon, la victoire va au premier à 230 points de prestige, ou au meilleur score après 60 tours. Les voies (valeurs en partie normale) :
   - Science : Observatoire Céleste et 12 technologies ;

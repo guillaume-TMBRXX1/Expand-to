@@ -469,6 +469,23 @@ const LUX_PROPS = {
     const b = place(g, '#8fe3f0', 0.07, Y0, 0.03, { roughness: 0.2, metalness: 0.1 }); b.scale.set(0.7, 1.1, 0.7);
     return [a, b];
   },
+  furs: () => [rbox(0.13, 0.025, 0.1, '#a0714f', 0, Y0 - 0.06, 0, 0.012), rbox(0.12, 0.025, 0.09, '#e9e2d6', 0.01, Y0 - 0.035, 0.01, 0.012), rbox(0.11, 0.025, 0.085, '#7a5238', -0.005, Y0 - 0.01, -0.005, 0.012), sph(0.012, '#2b2b33', 0.05, Y0 + 0.006, 0.02)],
+  wine: () => {
+    const barrel = cyl(0.04, 0.04, 0.09, '#8a5634', -0.03, Y0 - 0.07, 0, 12); barrel.rotation.z = Math.PI / 2; barrel.position.y = Y0 - 0.03;
+    return [barrel, torus(0.041, 0.005, PAL.steelDark, -0.06, Y0 - 0.03, 0), torus(0.041, 0.005, PAL.steelDark, 0.0, Y0 - 0.03, 0),
+      sph(0.018, '#7b2a6a', 0.06, Y0 - 0.04, 0.03), sph(0.018, '#9b2d5a', 0.08, Y0 - 0.04, 0.0), sph(0.018, '#7b2a6a', 0.07, Y0 - 0.015, 0.015), sph(0.012, '#5fae5a', 0.075, Y0 + 0.005, 0.01)].map((m, k) => { if (k > 0 && k < 3) m.rotation.y = Math.PI / 2; return m; });
+  },
+  silk: () => {
+    const out = [];
+    [['#e98fd0', -0.04], ['#5fd3c4', 0.0], ['#ffd166', 0.04]].forEach(([c, x], k) => { const b = cyl(0.022, 0.022, 0.12, c, x, Y0 - 0.07 + k * 0.0, 0.0, 12); b.rotation.x = Math.PI / 2; b.position.y = Y0 - 0.045 + (k === 1 ? 0.035 : 0); out.push(b); });
+    return out;
+  },
+  pearls: () => {
+    const bottom = sph(0.06, '#e8d9c8', 0, Y0 - 0.05, 0, 0.35); const top = sph(0.06, '#d9c6b2', 0, Y0 - 0.02, -0.04, 0.3); top.rotation.x = -0.9;
+    return [bottom, top, sph(0.022, '#fbf7f2', 0, Y0 - 0.025, 0.005)];
+  },
+  salt: () => [cone(0.05, 0.07, '#f4f7f8', -0.03, Y0 - 0.07, 0, 10), cone(0.04, 0.055, '#e6ecef', 0.045, Y0 - 0.07, 0.03, 10), cone(0.03, 0.04, '#ffffff', 0.03, Y0 - 0.07, -0.04, 8)],
+  incense: () => [cyl(0.04, 0.025, 0.04, '#c99a3b', 0, Y0 - 0.07, 0, 12), cyl(0.045, 0.045, 0.008, '#e0b552', 0, Y0 - 0.03, 0, 12), sph(0.012, '#b8642a', -0.01, Y0 - 0.02, 0.01), sph(0.01, '#d98a3b', 0.015, Y0 - 0.02, -0.005), smoke(0, Y0 - 0.01, 0, 0.6)],
 };
 
 // Marqueur posé sur une case de ressource rare encore inexploitée.
@@ -497,7 +514,7 @@ BUILDERS.outpost = (lux = 'spices') => {
   p.push(crate(0.12, 0.12, PAL.wood, 0.08), crate(0.22, 0.12, PAL.wood, 0.08), crate(0.17, 0.22, PAL.wood, 0.08));
   const props = (LUX_PROPS[lux] || LUX_PROPS.spices)();
   const holder = group(props); holder.position.set(0.18, 0.04, -0.2); holder.scale.setScalar(1.4);
-  p.push(holder, cyl(0.006, 0.006, 0.28, PAL.ink, 0.32, Y0, 0.3, 6), rbox(0.09, 0.05, 0.008, { spices: '#e2573a', marble: '#cfc8bd', crystal: '#4cc3d9' }[lux] || PAL.gold, 0.365, Y0 + 0.22, 0.3, 0.004));
+  p.push(holder, cyl(0.006, 0.006, 0.28, PAL.ink, 0.32, Y0, 0.3, 6), rbox(0.09, 0.05, 0.008, { spices: '#e2573a', marble: '#cfc8bd', crystal: '#4cc3d9', furs: '#a0714f', wine: '#9b2d5a', silk: '#e98fd0', pearls: '#f3eadf', salt: '#dfe6ea', incense: '#c99a3b' }[lux] || PAL.gold, 0.365, Y0 + 0.22, 0.3, 0.004));
   return p;
 };
 
@@ -553,7 +570,22 @@ BUILDERS.lodge = () => { // Explorateur : chalet en rondins, tour de guet, globe
   return p;
 };
 
-const NO_ROTATE = new Set(['harbor', 'lighthouse', 'campus', 'artsquarter', 'merchantquarter', 'outpost']);
+BUILDERS.watermill = () => { // Moulin à eau : maison de pierre, roue à aubes qui tourne, bief d'eau
+  const p = [plinth('#cfe6c0')];
+  p.push(rbox(0.3, 0.2, 0.26, PAL.stoneLight, -0.08, Y0, -0.06, 0.025), rotY(gable(0.36, 0.13, 0.3, PAL.terracotta, -0.08, Y0 + 0.2, -0.06), 0));
+  p.push(door(-0.08, Y0, 0.072, PAL.woodDark), ...windowAt(-0.17, Y0 + 0.12, 0.072));
+  p.push(rbox(0.16, 0.025, 0.86, '#7cc4e8', 0.22, Y0 - 0.012, 0, 0.01));
+  const wheel = new THREE.Group();
+  wheel.add(cyl(0.12, 0.12, 0.03, PAL.wood, 0, -0.015, 0, 16));
+  for (let k = 0; k < 8; k++) { const b = rbox(0.03, 0.05, 0.05, PAL.woodDark, 0, 0, 0, 0.006); b.position.set(Math.cos(k * Math.PI / 4) * 0.12, 0, Math.sin(k * Math.PI / 4) * 0.12); b.rotation.y = -k * Math.PI / 4; wheel.add(b); }
+  wheel.rotation.z = Math.PI / 2;
+  const holder = new THREE.Group(); holder.add(wheel); holder.position.set(0.12, Y0 + 0.13, 0.02);
+  p.push(spin(holder, 'x', 1.2), rbox(0.04, 0.02, 0.02, PAL.woodDark, 0.09, Y0 + 0.13, 0.02, 0.005));
+  p.push(crate(-0.28, 0.28, '#f1c95a', 0.06), crate(-0.2, 0.3, '#f1c95a', 0.06), ...bush(-0.3, -0.3));
+  return p;
+};
+
+const NO_ROTATE = new Set(['watermill', 'harbor', 'lighthouse', 'campus', 'artsquarter', 'merchantquarter', 'outpost']);
 // variant : 0..3 (déterministe selon la case) ; progress : 0..1 pour un chantier.
 export function buildingModel(type, wip, lux, variant = 0, progress = 0) {
   REMAP = VARIANTS[variant % VARIANTS.length];

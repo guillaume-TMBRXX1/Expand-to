@@ -94,6 +94,7 @@ export class Renderer {
     this.scene.fog.far = Math.max(90, this.W * 2.2);
     if (this.tiles) { this.scene.remove(this.tiles, this.trees, this.trunks, this.peaks, this.base, this.water, ...(this.decor || [])); }
     for (const c of this.clouds || []) this.scene.remove(c);
+    if (this.rivers) this.scene.remove(this.rivers);
     for (const o of this.entityObjs.values()) this.entities.remove(o);
     this.entityObjs.clear();
     this.ready = false;
@@ -158,15 +159,47 @@ export class Renderer {
   }
 
   // Décor de terrain : fleurs, touffes d'herbe, rochers, coquillages (déterministe par case).
+  // Climat d'une case : sa région, ou pour les côtes celle de la terre la plus proche (palmiers au sud, pas au nord).
+  computeClimate(state) {
+    const W = this.W, H = this.H, out = new Array(W * H).fill('temperate');
+    state.map.tiles.forEach((t, i) => {
+      if (t.region && t.region !== 'coast') { out[i] = t.region; return; }
+      for (let r = 1; r <= 4; r++) {
+        let found = null;
+        for (let dy = -r; dy <= r && !found; dy++) for (let dx = -r; dx <= r && !found; dx++) {
+          const x = t.x + dx, y = t.y + dy;
+          if (x < 0 || y < 0 || x >= W || y >= H) continue;
+          const n = state.map.tiles[y * W + x];
+          if (n.region && n.region !== 'coast') found = n.region;
+        }
+        if (found) { out[i] = found; break; }
+      }
+    });
+    return out;
+  }
+
   buildDecor(state) {
+    this.climate = this.computeClimate(state);
+    const cl = (t) => this.climate[t.y * this.W + t.x];
     const hash = (x, y, k) => (((x * 73856093) ^ (y * 19349663) ^ (k * 83492791)) >>> 0) / 4294967296;
-    const slots = { flower: [], tuft: [], rock: [], shell: [], palm: [], pine: [], bush: [] };
+    const slots = { flower: [], tuft: [], rock: [], shell: [], palm: [], pine: [], bush: [], snowpine: [], cactus: [] };
     const nearMountain = (t) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const n = state.map.tiles[(t.y + dy) * this.W + t.x + dx]; return n && t.x + dx >= 0 && t.x + dx < this.W && (n.type === 'mountain' || n.type === 'snow'); });
     for (const t of state.map.tiles) {
       const r = hash(t.x, t.y, 91), dx = (hash(t.x, t.y, 92) - 0.5) * 0.5, dz = (hash(t.x, t.y, 93) - 0.5) * 0.5, sc = 0.8 + hash(t.x, t.y, 94) * 0.5;
+      const c = cl(t);
+      if (c === 'north') { // nord froid : sapins enneigés à la place des arbres ronds
+        if (t.type === 'forest') for (let k = 0; k < 3; k++) slots.snowpine.push({ t, dx: (hash(t.x, t.y, 120 + k) - 0.5) * 0.6, dz: (hash(t.x, t.y, 130 + k) - 0.5) * 0.6, sc: 0.8 + hash(t.x, t.y, 140 + k) * 0.4 });
+        else if ((t.type === 'plains' || t.type === 'hills' || t.type === 'grass') && r < 0.35) slots.snowpine.push({ t, dx, dz, sc });
+        continue;
+      }
+      if (c === 'arid') { // sud aride : cactus, palmiers sur le sable
+        if ((t.type === 'plains' || t.type === 'hills' || t.type === 'grass') && r < 0.35) slots.cactus.push({ t, dx, dz, sc, rot: hash(t.x, t.y, 96) * 6.28 });
+        if (t.type === 'sand' && r < 0.5) slots[r < 0.3 ? 'palm' : 'cactus'].push({ t, dx, dz, sc, rot: hash(t.x, t.y, 95) * 6.28 });
+        continue;
+      }
       if (t.type === 'sand' && r < 0.4) slots.palm.push({ t, dx, dz, sc, rot: hash(t.x, t.y, 95) * 6.28 });
       if ((t.type === 'hills' && r < 0.35) || (t.type === 'forest' && nearMountain(t) && r < 0.8)) slots.pine.push({ t, dx, dz, sc });
-      if (t.type === 'plains' && r < 0.25) slots.bush.push({ t, dx, dz, sc: sc * 0.9 });
+      if (t.type === 'plains' && r < (c === 'fertile' ? 0.4 : 0.25)) slots.bush.push({ t, dx, dz, sc: sc * 0.9 });
     }
     for (const t of state.map.tiles) {
       const n = 3;
@@ -174,7 +207,7 @@ export class Renderer {
         const r = hash(t.x, t.y, k + 11);
         const dx = (hash(t.x, t.y, k + 21) - 0.5) * 0.8, dz = (hash(t.x, t.y, k + 31) - 0.5) * 0.8;
         const sc = 0.7 + hash(t.x, t.y, k + 41) * 0.6;
-        if ((t.type === 'grass' || t.type === 'plains') && r < 0.45) slots[r < 0.18 ? 'flower' : 'tuft'].push({ t, dx, dz, sc, c: ['#ffffff', '#ffd23f', '#ff8fab', '#c4a7ff'][Math.floor(r * 40) % 4] });
+        if ((t.type === 'grass' || t.type === 'plains') && cl(t) !== 'north' && r < (cl(t) === 'arid' ? 0.15 : 0.45)) slots[r < 0.18 ? 'flower' : 'tuft'].push({ t, dx, dz, sc, c: ['#ffffff', '#ffd23f', '#ff8fab', '#c4a7ff'][Math.floor(r * 40) % 4] });
         if (t.type === 'hills' && r < 0.6) slots.rock.push({ t, dx, dz, sc: sc * 1.2 });
         if (t.type === 'mountain' && r < 0.4) slots.rock.push({ t, dx: dx * 1.1, dz: dz * 1.1, sc: sc * 1.6 });
         if (t.type === 'sand' && r < 0.3) slots.shell.push({ t, dx, dz, sc });
@@ -189,11 +222,12 @@ export class Renderer {
     ];
     this.decor[0].userData.kind = 'flower'; this.decor[1].userData.kind = 'tuft';
     const vc = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 });
-    for (const [geo, list] of [[this.palmGeo(), slots.palm], [this.pineGeo(), slots.pine], [this.bushGeo(), slots.bush]]) {
+    for (const [geo, list] of [[this.palmGeo(), slots.palm], [this.pineGeo(), slots.pine], [this.bushGeo(), slots.bush], [this.pineGeo(true), slots.snowpine], [this.cactusGeo(), slots.cactus]]) {
       const im = make(geo, vc, list); im.castShadow = true; this.decor.push(im);
     }
     this.scene.add(...this.decor);
     this.buildFoam(state);
+    this.buildRivers(state);
     this.buildClouds();
   }
 
@@ -220,13 +254,24 @@ export class Renderer {
     parts.push([new THREE.SphereGeometry(0.025, 8, 6), '#8a5634', M(0.05, 0.33, 0)]);
     return this.mergedGeo(parts);
   }
-  pineGeo() {
+  pineGeo(snow = false) {
     const M = (y, s) => new THREE.Matrix4().compose(new THREE.Vector3(0, y, 0), new THREE.Quaternion(), new THREE.Vector3(s, 1, s));
-    return this.mergedGeo([
+    const parts = [
       [new THREE.CylinderGeometry(0.018, 0.024, 0.1, 6), '#7a4e2e', M(0.05, 1)],
-      [new THREE.ConeGeometry(0.11, 0.18, 8), '#3f7f4f', M(0.17, 1)],
-      [new THREE.ConeGeometry(0.085, 0.15, 8), '#4a8f58', M(0.27, 1)],
-      [new THREE.ConeGeometry(0.055, 0.11, 8), '#5aa265', M(0.35, 1)],
+      [new THREE.ConeGeometry(0.11, 0.18, 8), snow ? '#3d6f55' : '#3f7f4f', M(0.17, 1)],
+      [new THREE.ConeGeometry(0.085, 0.15, 8), snow ? '#46785d' : '#4a8f58', M(0.27, 1)],
+      [new THREE.ConeGeometry(0.055, 0.11, 8), snow ? '#ffffff' : '#5aa265', M(0.35, 1)],
+    ];
+    if (snow) parts.push([new THREE.ConeGeometry(0.1, 0.05, 8), '#f4f8fb', M(0.23, 1)], [new THREE.ConeGeometry(0.078, 0.045, 8), '#f4f8fb', M(0.32, 1)]);
+    return this.mergedGeo(parts);
+  }
+  cactusGeo() {
+    const M = (x, y, z, rz = 0) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, rz)), new THREE.Vector3(1, 1, 1));
+    return this.mergedGeo([
+      [new THREE.CapsuleGeometry(0.03, 0.16, 4, 8), '#5f9e5a', M(0, 0.11, 0)],
+      [new THREE.CapsuleGeometry(0.018, 0.06, 4, 8), '#6aab62', M(0.045, 0.14, 0, -0.2)],
+      [new THREE.CapsuleGeometry(0.016, 0.05, 4, 8), '#6aab62', M(-0.04, 0.1, 0, 0.25)],
+      [new THREE.SphereGeometry(0.014, 6, 5), '#ff8fab', M(0, 0.23, 0)],
     ]);
   }
   bushGeo() {
@@ -237,6 +282,54 @@ export class Renderer {
       [new THREE.SphereGeometry(0.035, 9, 7), '#5fae5a', M(-0.035, 0.03, 0.03, 1)],
       [new THREE.SphereGeometry(0.012, 6, 5), '#ff8fab', M(0.02, 0.075, 0.01, 1)],
     ]);
+  }
+
+  // Rivières : un demi-segment d'eau de chaque case vers chacune de ses voisines reliées (amont et aval),
+  // posé à la hauteur de la case ; on voit de petites cascades entre deux terrasses.
+  buildRivers(state) {
+    const segs = [];
+    const W = this.W;
+    state.map.tiles.forEach((t, i) => {
+      if (!t.river) return;
+      segs.push({ i, dx: 0, dy: 0, center: true });
+      const to = state.map.tiles[t.riverTo];
+      if (to) segs.push({ i, dx: Math.sign(to.x - t.x), dy: Math.sign(to.y - t.y), mouth: !!state.data.terrain[to.type].water });
+      if (to) segs.push({ i, j: t.riverTo, dx: Math.sign(to.x - t.x), dy: Math.sign(to.y - t.y), fall: true }); // cascade entre deux terrasses
+    });
+    state.map.tiles.forEach((t, i) => { // côté aval : demi-segment depuis chaque affluent
+      if (!t.river) return;
+      const to = state.map.tiles[t.riverTo];
+      if (to && to.river) segs.push({ i: t.riverTo, dx: Math.sign(t.x - to.x), dy: Math.sign(t.y - to.y) });
+    });
+    this.riverSegs = segs;
+    const mat = new THREE.MeshStandardMaterial({ color: '#6cc4ee', roughness: 0.25, metalness: 0.05, emissive: '#1d6fa5', emissiveIntensity: 0.08 });
+    this.rivers = new THREE.InstancedMesh(new RoundedBoxGeometry(1, 0.03, 0.26, 1, 0.012), mat, Math.max(1, segs.length));
+    this.rivers.receiveShadow = true;
+    this.scene.add(this.rivers);
+  }
+  refreshRivers() {
+    if (!this.rivers) return;
+    const p = this.state.players[this.viewer];
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
+    this.riverSegs.forEach((sg, k) => {
+      const t = this.state.map.tiles[sg.i];
+      const ex = p.explored[sg.i] === 1;
+      const h = this.heights[sg.i] + 0.012;
+      if (sg.fall) {
+        const h2 = this.heights[sg.j] + (this.state.data.terrain[this.state.map.tiles[sg.j].type].water ? 0.008 : 0.012);
+        const drop = h - h2;
+        q.setFromAxisAngle(Y, sg.dx ? 0 : Math.PI / 2);
+        const show = ex && drop > 0.02;
+        m.compose(v.set(this.wx(t.x) + sg.dx * 0.5, h2 + drop / 2, this.wz(t.y) + sg.dy * 0.5), q, sc.set(show ? 0.06 : 0.0001, show ? drop / 0.03 : 0.0001, show ? 1 : 0.0001));
+      } else if (sg.center) { q.identity(); m.compose(v.set(this.wx(t.x), h, this.wz(t.y)), q, sc.set(ex ? 0.24 : 0.0001, 1, ex ? 1 : 0.0001)); }
+      else {
+        q.setFromAxisAngle(Y, sg.dx ? 0 : Math.PI / 2);
+        const len = sg.mouth ? 0.62 : 0.5;
+        m.compose(v.set(this.wx(t.x) + sg.dx * len / 2, h, this.wz(t.y) + sg.dy * len / 2), q, sc.set(ex ? len : 0.0001, 1, ex ? 1 : 0.0001));
+      }
+      this.rivers.setMatrixAt(k, m);
+    });
+    this.rivers.instanceMatrix.needsUpdate = true;
   }
 
   // Écume blanche le long des rivages (côté eau).
@@ -337,7 +430,7 @@ export class Renderer {
     const s = this.state, p = s.players[this.viewer];
     const m = new THREE.Matrix4(), c = new THREE.Color(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3();
     const vis = this.computeVisible();
-    const memo = new THREE.Color('#a59e98');
+    const memo = new THREE.Color('#a59e98'), tint = new THREE.Color();
     s.map.tiles.forEach((t, i) => {
       const ex = p.explored[i] === 1;
       const h = this.tileHeight(t, ex);
@@ -345,6 +438,8 @@ export class Renderer {
       m.compose(v.set(this.wx(t.x), h / 2, this.wz(t.y)), q, sc.set(ex ? 1 : 1.021, h, ex ? 1 : 1.021));
       this.tiles.setMatrixAt(i, m);
       c.set(ex ? s.data.terrain[t.type].color : FOG_COLOR);
+      const reg = s.rules.regions?.[this.climate?.[i]];
+      if (ex && reg && !s.data.terrain[t.type].water && t.type !== 'snow') c.lerp(tint.set(reg.tint), reg.tintAmount * (t.type === 'mountain' ? 0.4 : 1));
       if (ex && !s.data.terrain[t.type].water) c.offsetHSL(0, 0, ((t.x * 7 + t.y * 13) % 5) * 0.006 - 0.012);
       if (ex && !vis[i]) c.lerp(memo, 0.38);
       this.tiles.setColorAt(i, c);
@@ -357,6 +452,7 @@ export class Renderer {
       for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) occupied.add((b.y + dy) * this.W + b.x + dx);
     }
     this.refreshDecor(occupied, vis);
+    this.refreshRivers();
     const wq = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
     this.waterTiles.forEach((t, k) => {
       const i = t.y * this.W + t.x;
@@ -376,7 +472,7 @@ export class Renderer {
     this.foam.instanceMatrix.needsUpdate = true;
     this.treeSlots.forEach((sl, k) => {
       const i = sl.t.y * this.W + sl.t.x;
-      const ex = p.explored[i] === 1 && sl.t.type === 'forest' && !occupied.has(i);
+      const ex = p.explored[i] === 1 && sl.t.type === 'forest' && !occupied.has(i) && this.climate?.[i] !== 'north';
       const k0 = ex ? sl.s : 0.0001;
       m.compose(v.set(this.wx(sl.t.x) + sl.dx, this.heights[i] + 0.11 * sl.s, this.wz(sl.t.y) + sl.dz), q, sc.setScalar(k0));
       this.trunks.setMatrixAt(k, m);
