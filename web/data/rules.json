@@ -144,5 +144,62 @@
     "recovery": 0.04,
     "minPrice": 0.5,
     "autoSellKeep": 30
+  },
+  "promise": {
+    "keepBonus": 5,
+    "declinePenalty": -5,
+    "breakPenalty": -30,
+    "reputationPenalty": -5
+  },
+  "allyTechDiscount": 0.25,
+  "jointProject": {
+    "cost": {
+      "gold": 50,
+      "planks": 10
+    },
+    "yields": {
+      "science": 2,
+      "culture": 2
+    },
+    "prestige": 6,
+    "maxPerPair": 2,
+    "minRelation": 50
+  },
+  "congress": {
+    "every": 10,
+    "duration": 10,
+    "secretaryPrestige": 8,
+    "resolutions": {
+      "science": {
+        "name": "Programme scientifique mondial",
+        "desc": "+10% Science pour tous pendant 10 tours.",
+        "yieldPct": {
+          "science": 0.1
+        }
+      },
+      "culture": {
+        "name": "Festival mondial des arts",
+        "desc": "+10% Culture pour tous pendant 10 tours.",
+        "yieldPct": {
+          "culture": 0.1
+        }
+      },
+      "trade": {
+        "name": "Accords de libre-échange",
+        "desc": "+2 Or par route commerciale pour tous pendant 10 tours.",
+        "routeGold": 2
+      },
+      "embargo": {
+        "name": "Embargo contre le meneur",
+        "desc": "Le joueur le plus prestigieux perd l'Or de ses routes et 10% d'Or pendant 10 tours.",
+        "targeted": true
+      }
+    }
+  },
+  "victory": {
+    "scienceTechs": 14,
+    "cultureTotal": 900,
+    "economyGold": 1200,
+    "secretaryWins": 3
   }
 }
