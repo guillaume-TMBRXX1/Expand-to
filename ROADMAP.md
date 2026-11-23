@@ -152,7 +152,8 @@ Mesuré sur 100 parties simulées par réglage (`tools/sim.mjs` et scripts de me
   - Essai : 8 générations de 5 candidats sur 40 parties. Sur 200 cartes jamais vues, l'IA entraînée gagne 32,5 % des parties contre 24 % pour les réglages actuels.
   - Pas retenue : elle déséquilibre les profils (Érudit 40 %, Négociant 13 %, et 0 % en partie longue), car l'objectif ne récompense que la force brute.
   - En ne gardant que ses choix de construction : 30,5 %, mais le Négociant tombe encore à 16 %.
-- [ ] À suivre : un objectif d'entraînement qui récompense la force **et** l'équilibre entre profils ; l'IA entraînée pourrait aussi servir au niveau Difficile.
+- [x] **Niveau Difficile** : les IA y jouent avec les paramètres entraînés (`trained` dans `web/data/ai.json`), et leurs bonus chiffrés sont réduits (rendement +8 % au lieu de +15 %, coûts −5 % au lieu de −10 %). Un joueur jouant comme l'IA standard y gagne 8 % des parties (contre 8,7 % avant), mais la difficulté vient davantage du jeu des IA. Repères : Facile 38 %, Normal 27 %.
+- [ ] À suivre : un objectif d'entraînement qui récompense la force **et** l'équilibre entre profils.
 - [ ] À suivre : en partie rapide, presque tout se gagne au prestige ; en partie longue, le Bâtisseur est faible (aucune merveille de voie propre) ; l'IA construit encore peu de laboratoires.
 
 ---

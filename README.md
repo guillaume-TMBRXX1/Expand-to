@@ -49,7 +49,8 @@ Sur l'écran d'accueil, vous choisissez :
 - la **taille de carte** : petite, moyenne ou grande, avec jusqu'à 7 IA sur une grande carte ;
 - le **type de carte** : continent, pangée ou archipel. En archipel, la Navigation permet de traverser les lagunes ;
 - la **durée** : 40, 60 ou 80 tours ;
-- la **difficulté** et le **profil**.
+- la **difficulté** : en Difficile, les IA jouent avec les paramètres entraînés (meilleurs choix de recherche et de construction), avec de petits bonus ;
+- le **profil**.
 
 À la fin d'une partie, des graphiques et un tableau résument la partie. Les 10 dernières parties s'affichent sur l'accueil.
 

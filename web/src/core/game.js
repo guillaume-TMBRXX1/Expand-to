@@ -232,7 +232,7 @@ export function playerMods(s, pid) {
     const def = buildingDef(s, b.type);
     if (def.visionBonus) apply({ visionBonus: def.visionBonus });
   }
-  if (!p.isHuman && s.data.ai) { // niveau de difficulté : bonus / malus des IA
+  if (pid !== 0 && s.data.ai) { // niveau de difficulté : bonus / malus des IA (le joueur 0 est toujours l'humain)
     const d = s.data.ai.difficulty[s.difficulty || 'normal'];
     if (d?.aiYieldPct) apply({ yieldPct: Object.fromEntries(['gold', 'science', 'culture', 'wood', 'stone', 'food'].map((k) => [k, d.aiYieldPct])) });
     if (d?.aiCostPct) apply({ costPct: d.aiCostPct });

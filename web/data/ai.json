@@ -1,26 +1,176 @@
 {
   "branchWeights": {
-    "merchant": { "economy": 3, "science": 1.2, "culture": 1, "diplomacy": 1.8 },
-    "scholar": { "economy": 1, "science": 3, "culture": 1.2, "diplomacy": 1.3 },
-    "builder": { "economy": 1.8, "science": 1.2, "culture": 2.5, "diplomacy": 1 },
-    "diplomat": { "economy": 1.5, "science": 1, "culture": 1.2, "diplomacy": 3 },
-    "explorer": { "economy": 1.5, "science": 1.3, "culture": 2.2, "diplomacy": 1.2 }
+    "merchant": {
+      "economy": 3,
+      "science": 1.2,
+      "culture": 1,
+      "diplomacy": 1.8
+    },
+    "scholar": {
+      "economy": 1,
+      "science": 3,
+      "culture": 1.2,
+      "diplomacy": 1.3
+    },
+    "builder": {
+      "economy": 1.8,
+      "science": 1.2,
+      "culture": 2.5,
+      "diplomacy": 1
+    },
+    "diplomat": {
+      "economy": 1.5,
+      "science": 1,
+      "culture": 1.2,
+      "diplomacy": 3
+    },
+    "explorer": {
+      "economy": 1.5,
+      "science": 1.3,
+      "culture": 2.2,
+      "diplomacy": 1.2
+    }
   },
   "build": {
-    "foodNeed": 12, "woodNeed": 10, "stoneNeed": 9, "wonderPrestige": 1, "monumentPrestige": 1.5, "popCap": 6,
-    "sawmill": 14, "forge": 13, "manufactory": 13, "outpost": 16, "markethall": 10, "quarter": 4, "lab": 0,
-    "diversity": 1.2, "goldReserve": 35, "saveForWonders": 1, "pathWonder": 20, "pathMaterials": 15, "unique": 8
+    "foodNeed": 12,
+    "woodNeed": 10,
+    "stoneNeed": 9,
+    "wonderPrestige": 1,
+    "monumentPrestige": 1.5,
+    "popCap": 6,
+    "sawmill": 14,
+    "forge": 13,
+    "manufactory": 13,
+    "outpost": 16,
+    "markethall": 10,
+    "quarter": 4,
+    "lab": 0,
+    "diversity": 1.2,
+    "goldReserve": 35,
+    "saveForWonders": 1,
+    "pathWonder": 20,
+    "pathMaterials": 15,
+    "unique": 8
   },
-  "expansion": { "targetCities": 5, "explorerTargetCities": 6 },
+  "expansion": {
+    "targetCities": 5,
+    "explorerTargetCities": 6
+  },
   "researchFocus": 2,
   "personalities": {
-    "loyal": { "name": "Loyale", "desc": "Fidèle en alliance, rancunière : n'oublie ni les services rendus ni les trahisons.", "allianceMin": 45, "breakBelow": 10, "proposeRate": 1, "tradeGreed": 1.05, "grudge": 1.5, "favor": 1.3, "borderTension": 1 },
-    "opportunist": { "name": "Opportuniste", "desc": "Aime les bonnes affaires, oublie vite, mais lâche ses alliés quand ça l'arrange.", "allianceMin": 50, "breakBelow": 35, "proposeRate": 1.5, "tradeGreed": 0.95, "grudge": 0.6, "favor": 0.8, "borderTension": 1 },
-    "isolationist": { "name": "Isolationniste", "desc": "Préfère rester seule : difficile à convaincre, n'aime pas les voisins trop proches.", "allianceMin": 65, "breakBelow": 25, "proposeRate": 0.5, "tradeGreed": 1.2, "grudge": 1, "favor": 1, "borderTension": 2 }
+    "loyal": {
+      "name": "Loyale",
+      "desc": "Fidèle en alliance, rancunière : n'oublie ni les services rendus ni les trahisons.",
+      "allianceMin": 45,
+      "breakBelow": 10,
+      "proposeRate": 1,
+      "tradeGreed": 1.05,
+      "grudge": 1.5,
+      "favor": 1.3,
+      "borderTension": 1
+    },
+    "opportunist": {
+      "name": "Opportuniste",
+      "desc": "Aime les bonnes affaires, oublie vite, mais lâche ses alliés quand ça l'arrange.",
+      "allianceMin": 50,
+      "breakBelow": 35,
+      "proposeRate": 1.5,
+      "tradeGreed": 0.95,
+      "grudge": 0.6,
+      "favor": 0.8,
+      "borderTension": 1
+    },
+    "isolationist": {
+      "name": "Isolationniste",
+      "desc": "Préfère rester seule : difficile à convaincre, n'aime pas les voisins trop proches.",
+      "allianceMin": 65,
+      "breakBelow": 25,
+      "proposeRate": 0.5,
+      "tradeGreed": 1.2,
+      "grudge": 1,
+      "favor": 1,
+      "borderTension": 2
+    }
   },
   "difficulty": {
-    "easy": { "name": "Facile", "aiYieldPct": -0.15, "aiCostPct": 0.1, "aiRelation": 10 },
-    "normal": { "name": "Normal", "aiYieldPct": 0, "aiCostPct": 0, "aiRelation": 0 },
-    "hard": { "name": "Difficile", "aiYieldPct": 0.15, "aiCostPct": -0.1, "aiRelation": -10 }
+    "easy": {
+      "name": "Facile",
+      "aiYieldPct": -0.15,
+      "aiCostPct": 0.1,
+      "aiRelation": 10,
+      "desc": "IA moins productives (−15 %), constructions plus chères, relations de départ meilleures."
+    },
+    "normal": {
+      "name": "Normal",
+      "aiYieldPct": 0,
+      "aiCostPct": 0,
+      "aiRelation": 0,
+      "desc": "IA sans bonus ni malus."
+    },
+    "hard": {
+      "name": "Difficile",
+      "aiYieldPct": 0.08,
+      "aiCostPct": -0.05,
+      "aiRelation": -10,
+      "useTrained": true,
+      "desc": "IA entraînées (meilleurs choix de recherche et de construction), +8 % de rendement, −5 % de coûts, relations de départ plus froides."
+    }
+  },
+  "trained": {
+    "_note": "Paramètres issus de python -m expandto.train (8 générations, 40 parties), utilisés par les IA en difficulté Difficile.",
+    "branchWeights": {
+      "merchant": {
+        "economy": 2.92,
+        "science": 1.39,
+        "culture": 1,
+        "diplomacy": 1.8
+      },
+      "scholar": {
+        "economy": 1.12,
+        "science": 2.53,
+        "culture": 1.2,
+        "diplomacy": 1.31
+      },
+      "builder": {
+        "economy": 1.8,
+        "science": 1.35,
+        "culture": 2.5,
+        "diplomacy": 0.8
+      },
+      "diplomat": {
+        "economy": 1.5,
+        "science": 1,
+        "culture": 1.17,
+        "diplomacy": 3
+      },
+      "explorer": {
+        "economy": 1.51,
+        "science": 1.41,
+        "culture": 2.2,
+        "diplomacy": 1.1
+      }
+    },
+    "build": {
+      "foodNeed": 12.58,
+      "woodNeed": 6.0,
+      "stoneNeed": 8.4,
+      "wonderPrestige": 1.22,
+      "monumentPrestige": 1.78,
+      "popCap": 5.37,
+      "sawmill": 21.03,
+      "forge": 12.09,
+      "manufactory": 13.49,
+      "outpost": 9.79,
+      "markethall": 5.6,
+      "quarter": 4.32,
+      "lab": 0.95,
+      "diversity": 0.04,
+      "goldReserve": 52.61,
+      "saveForWonders": 1,
+      "pathWonder": 18.24,
+      "pathMaterials": 11.55,
+      "unique": 9.39
+    },
+    "researchFocus": 1.76
   }
 }

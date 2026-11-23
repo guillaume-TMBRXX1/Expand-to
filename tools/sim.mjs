@@ -1,7 +1,7 @@
 // Simulation headless : fait jouer l'IA à la place de tous les joueurs pour vérifier les règles et calibrer la durée.
 // Usage : node tools/sim.mjs [nombre_de_parties] [graine] [--check] [--quiet]
 //   --check : code de sortie 1 si la durée moyenne sort de [35, 60] tours (utilisé par la CI).
-//   --size=small|medium|large --type=continent|pangaea|archipelago --length=quick|normal|long --ais=N
+//   --size=small|medium|large --type=continent|pangaea|archipelago --length=quick|normal|long --ais=N --difficulty=easy|normal|hard
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,11 +24,12 @@ const seed0 = Number(args[1] || 1234);
 const opt = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').split('=')[1] || d;
 const size = opt('size', 'medium'), mapType = opt('type', 'continent'), length = opt('length', 'normal');
 const aiCount = Number(opt('ais', data.rules.mapSizes[size].defaultAI));
+const difficulty = opt('difficulty', 'normal');
 const profileStats = {};
 const victoryTypes = {};
 const results = [];
 for (let g = 0; g < games; g++) {
-  const s = G.createGame({ data, seed: seed0 + g * 101, profile: data.profiles[g % data.profiles.length].id, size, mapType, length, aiCount });
+  const s = G.createGame({ data, seed: seed0 + g * 101, profile: data.profiles[g % data.profiles.length].id, size, mapType, length, aiCount, difficulty });
   s.players[0].isHuman = false; // l'IA joue aussi le joueur 0
   if (override) s.aiOverrides = { 0: override };
   const t0 = Date.now();
