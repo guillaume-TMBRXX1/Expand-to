@@ -156,6 +156,50 @@ Mesuré sur 100 parties simulées par réglage (`tools/sim.mjs` et scripts de me
 - [ ] À suivre : un objectif d'entraînement qui récompense la force **et** l'équilibre entre profils.
 - [ ] À suivre : en partie rapide, presque tout se gagne au prestige ; en partie longue, le Bâtisseur est faible (aucune merveille de voie propre) ; l'IA construit encore peu de laboratoires.
 
+## Phase 8 — Cartes, régions et ressources (fondations) · à venir
+
+Cette phase passe en premier : le commerce mondial (phase 9) repose sur des ressources réparties par région.
+
+- [ ] **Tailles de carte revues.** Aujourd'hui, la petite carte offre environ 57 cases praticables par joueur (43 avec 3 IA), contre environ 69 sur les cartes moyenne et grande. Elle est occupée à 99 % en fin de partie et ne compte qu'environ 8 ressources rares et 2 merveilles naturelles.
+  - Objectif : environ 70 cases praticables par joueur, quelle que soit la taille, avec le nombre d'IA par défaut.
+  - Piste : petite 32 × 24, moyenne 40 × 28, grande 50 × 34, en vérifiant la durée d'un tour et les performances sur iPad.
+  - Les quantités (ressources rares, merveilles naturelles, ruines) restent proportionnelles à la surface.
+- [ ] **Régions de la carte.** La carte est découpée en grandes régions climatiques, selon la latitude et un bruit de génération : nord froid, terres tempérées, plaines fertiles, côtes et lagunes, sud aride. Chaque région a sa teinte de terrain, son décor et ses ressources propres. Le nom de la région s'affiche au survol et sur la mini-carte.
+- [ ] **Ressources rares régionales, plus nombreuses.** On passe de 3 à environ 9 ressources rares, chacune présente dans une ou deux régions seulement. Aucun joueur ne peut tout avoir, il faut commercer.
+  - Pistes : fourrures et cristal au nord ; marbre et vin dans les collines tempérées ; soie dans les plaines fertiles ; perles et sel sur les côtes ; encens et épices dans le sud aride.
+  - Chaque ressource a son bonus et son modèle 3D. Le prestige de diversité et la consommation sont à rééquilibrer.
+- [ ] **Rivières.** Elles partent des montagnes et rejoignent la mer. Elles donnent un bonus de nourriture et d'Or aux villes et bâtiments riverains, accélèrent les déplacements, et apportent des adjacences (moulin, port fluvial). Elles sont rendues en 3D avec de l'eau animée.
+- [ ] La génération de carte reste identique entre JavaScript et Python (tests pour chaque type de carte).
+
+## Phase 9 — Commerce et économie mondiale · à venir
+
+- [ ] **Prix mondiaux dynamiques.** Un marché commun à tous les joueurs : chaque ressource a un prix qui dépend de ce que tout le monde produit, vend et consomme. Inonder le marché fait chuter le prix pour tous. Un graphique de cours s'affiche dans l'Entrepôt.
+- [ ] **Bulles spéculatives**, inspirées de la tulipomanie : une ressource devient à la mode, son prix s'envole pendant quelques tours, puis s'effondre. Vendre au bon moment rapporte gros.
+- [ ] **Monopoles**, inspirés des guildes : le seul producteur d'une ressource rare en fixe le prix, et les autres paient plus cher pour l'obtenir, jusqu'à ce qu'un rival en exploite à son tour.
+- [ ] **Ligue marchande**, inspirée de la Hanse : une alliance commerciale entre plusieurs joueurs. Les routes entre membres rapportent davantage, en échange d'une cotisation. Un membre qui ne respecte pas les règles peut être exclu.
+
+## Phase 10 — Diplomatie et grands rendez-vous · à venir
+
+- [ ] **Traités à clauses**, inspirés du Congrès de Vienne : durée limitée, clauses au choix (pas de ville près de la frontière, libre passage, partage de technologie, tarifs préférentiels), renégociation à l'échéance. Ils prolongent les promesses actuelles.
+- [ ] **Expositions universelles et Jeux**, environ tous les 15 tours, à tour de rôle. Les joueurs se portent candidats et un vote désigne l'hôte, qui investit et gagne du prestige. Les participants envoient leurs meilleurs produits pour un concours.
+- [ ] **Normes communes**, inspirées de l'Union postale universelle et du système métrique : elles sont votées au Congrès, et chaque signataire en tire un bonus (par exemple +10 % sur les routes entre signataires).
+
+## Phase 11 — Science, culture et tourisme · à venir
+
+- [ ] **Défis scientifiques**, inspirés des académies et des prix : des objectifs ouverts à tous (« premier à découvrir la Chimie avec 3 bibliothèques »), qui font une course comme les merveilles.
+- [ ] **Œuvres d'art uniques**, inspirées des mécènes de la Renaissance : tableaux, opéras ou sculptures à commander et à exposer dans ses théâtres et quartiers des arts, voire à prêter à un voisin contre de la relation.
+- [ ] **Patrimoine mondial**, inspiré de l'UNESCO : faire classer une merveille naturelle ou un monument, ce qui protège la case et attire des visiteurs.
+- [ ] **Tourisme** : une nouvelle ressource, qui vient de la culture, des merveilles, du patrimoine et de la beauté du territoire, et qui se convertit en Or et en prestige.
+
+## Phase 12 — Climat et société · à venir
+
+- [ ] **Saisons**, à l'image des moussons et des récoltes : un cycle de quelques tours (récoltes en automne, déplacements plus lents en hiver), en accord avec le cycle jour/nuit.
+- [ ] **Écologie** : les ateliers (forge, manufacture) polluent les cases voisines, ce qui réduit la nourriture et la qualité de vie. On s'en protège avec des parcs et des forêts replantées. C'est un arbitrage entre croissance et cadre de vie.
+- [ ] **Migrations** : les habitants rejoignent les villes les plus attractives, y compris chez les voisins. L'attractivité devient une forme de concurrence pacifique.
+- [ ] **Santé** : aqueduc et hôpital deviennent nécessaires aux grandes villes pour continuer à grandir, en complément des paliers de population.
+
+> Ordre proposé : la phase 8 d'abord (cartes, régions, ressources), puis la phase 9, qui en dépend. Les phases 10 à 12 peuvent ensuite se faire dans l'ordre que l'on préfère. Chaque phase se termine par un passage d'équilibrage en simulation.
+
 ---
 
 ## Méthode de travail proposée
