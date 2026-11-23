@@ -26,8 +26,15 @@ export function mat(color, opts = {}) {
 const geoCache = new Map();
 const cached = (key, make) => { if (!geoCache.has(key)) geoCache.set(key, make()); return geoCache.get(key); };
 
+// Variantes : pendant la construction d'un modèle, certaines couleurs sont remplacées (toits, murs).
+let REMAP = null;
+const VARIANTS = [
+  null,
+  { '#e0674f': '#d98a4e', '#4f86d9': '#3f9ac9', '#5cb56b': '#4fa88a', '#e2574c': '#c9564b', '#f6ead6': '#f1e1c9', '#8b79d9': '#b06fd0' },
+  { '#e0674f': '#b8675a', '#4f86d9': '#6a7fd6', '#5cb56b': '#79b84f', '#e2574c': '#e07a5f', '#f6ead6': '#f3dcc8', '#8b79d9': '#7a8fe0' },
+];
 function place(geo, color, x, y, z, opts) {
-  const m = new THREE.Mesh(geo, mat(color, opts));
+  const m = new THREE.Mesh(geo, mat((REMAP && REMAP[color]) || color, opts));
   m.position.set(x, y, z);
   return m;
 }
@@ -191,13 +198,21 @@ function bake(root) {
 
 // --------------------------------------------------------------------- villes
 const WALLS = [PAL.cream, '#f3d9c4', '#dfe9f2', '#f5e3a8', '#e6dcf3'];
-export function cityModel(color, pop, capital) {
+export function cityModel(color, pop, capital, tier = 0) {
   const parts = [plinth(PAL.paving, 0.92, 0.92)];
+  // Palier Artisans : place avec fontaine et étal ; palier Savants : maisons à étage et tour à coupole.
+  if (tier >= 1) {
+    parts.push(cyl(0.075, 0.08, 0.035, PAL.stoneLight, 0, Y0, 0.3, 18), cyl(0.06, 0.06, 0.01, PAL.water, 0, Y0 + 0.03, 0.3, 18), cyl(0.012, 0.016, 0.07, PAL.stoneLight, 0, Y0 + 0.03, 0.3, 8), sph(0.016, PAL.glassLight, 0, Y0 + 0.11, 0.3));
+    parts.push(rbox(0.1, 0.05, 0.06, PAL.wood, 0.32, Y0, 0.05, 0.01), ...awning(0.1, [PAL.roofRed, PAL.white], 0.32, Y0 + 0.08, -0.02));
+  }
+  if (tier >= 2) {
+    parts.push(cyl(0.05, 0.06, 0.34, PAL.white, -0.32, Y0, 0.32, 12), dome(0.05, color, -0.32, Y0 + 0.34, 0.32), sph(0.012, PAL.gold, -0.32, Y0 + 0.4, 0.32));
+  }
   const spots = [[-0.24, -0.22, 0], [0.24, -0.24, 0], [-0.26, 0.2, 1], [0.25, 0.22, 1], [0, -0.3, 0], [-0.3, -0.02, 1]];
   const n = Math.min(spots.length, 2 + pop);
   for (let i = 0; i < n; i++) {
     const [x, z] = spots[i];
-    const g = group(cottage({ w: 0.17, h: 0.13 + (i % 2) * 0.04, d: 0.15, wall: WALLS[i % WALLS.length], roof: i % 2 ? color : PAL.terracotta, x: 0, z: 0, y: Y0, chimney: i % 3 === 0 }));
+    const g = group(cottage({ w: 0.17, h: 0.13 + (i % 2) * 0.04 + (tier >= 2 ? 0.07 : 0), d: 0.15, wall: WALLS[i % WALLS.length], roof: i % 2 ? color : PAL.terracotta, x: 0, z: 0, y: Y0, chimney: i % 3 === 0 }));
     g.position.set(x, 0, z); g.rotation.y = spots[i][2] ? Math.PI : 0;
     parts.push(g);
   }
@@ -486,19 +501,38 @@ BUILDERS.outpost = (lux = 'spices') => {
   return p;
 };
 
-export function buildingModel(type, wip, lux) {
-  const g = bake(group((BUILDERS[type] || BUILDERS.market)(lux)));
+const NO_ROTATE = new Set(['harbor', 'lighthouse', 'campus', 'artsquarter', 'merchantquarter', 'outpost']);
+// variant : 0..3 (déterministe selon la case) ; progress : 0..1 pour un chantier.
+export function buildingModel(type, wip, lux, variant = 0, progress = 0) {
+  REMAP = VARIANTS[variant % VARIANTS.length];
+  let body;
+  try { body = bake(group((BUILDERS[type] || BUILDERS.market)(lux))); } finally { REMAP = null; }
+  const g = new THREE.Group();
+  g.add(body);
+  if (!NO_ROTATE.has(type)) body.rotation.y = (variant % 4) * (Math.PI / 2);
   if (wip) {
-    g.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.45; o.castShadow = false; } });
-    // Échafaudage jaune et cônes de chantier
+    // Le bâtiment « monte » au fil des tours, sous un échafaudage, avec une grue qui pivote.
+    body.scale.y = 0.25 + 0.65 * progress;
+    body.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.55; o.castShadow = false; } });
     const big = type === 'campus' || type === 'artsquarter' || type === 'merchantquarter';
     const sc = bake(group(
       ...[[-0.38, -0.38], [0.38, -0.38], [-0.38, 0.38], [0.38, 0.38]].map(([x, z]) => rbox(0.02, 0.42, 0.02, PAL.gold, x, Y0, z, 0.006)),
       rbox(0.78, 0.02, 0.02, PAL.gold, 0, Y0 + 0.4, 0.38, 0.006), rbox(0.78, 0.02, 0.02, PAL.gold, 0, Y0 + 0.4, -0.38, 0.006),
+      rbox(0.78, 0.02, 0.02, PAL.gold, 0, Y0 + 0.2, 0.38, 0.006), rbox(0.02, 0.02, 0.78, PAL.gold, 0.38, Y0 + 0.2, 0, 0.006),
       cyl(0.0, 0.03, 0.07, '#ff8a3d', 0.3, Y0, 0.42, 12), cyl(0.0, 0.03, 0.07, '#ff8a3d', -0.3, Y0, 0.42, 12),
+      rbox(0.06, 0.06, 0.06, PAL.wood, -0.3, Y0, 0.3, 0.01), rbox(0.05, 0.05, 0.05, PAL.stoneLight, -0.24, Y0, 0.32, 0.01),
     ));
     if (big) sc.scale.set(2.2, 1.3, 2.2);
     g.add(sc);
+    const crane = new THREE.Group();
+    crane.add(rbox(0.035, 0.62, 0.035, PAL.gold, 0, 0, 0, 0.008));
+    const jib = group(rbox(0.5, 0.025, 0.03, PAL.gold, 0.15, 0, 0, 0.006), rbox(0.08, 0.05, 0.05, PAL.ink, -0.12, -0.012, 0, 0.01),
+      cyl(0.003, 0.003, 0.18, PAL.ink, 0.34, -0.18, 0, 4), rbox(0.03, 0.03, 0.03, PAL.roofRed, 0.34, -0.21, 0, 0.006));
+    jib.position.y = 0.6;
+    crane.add(anim(jib, { type: 'spin', axis: 'y', speed: 0.5 }));
+    crane.position.set(big ? 0.85 : 0.33, Y0, big ? -0.85 : -0.33);
+    crane.userData.keep = true;
+    g.add(crane);
   }
   return g;
 }

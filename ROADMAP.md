@@ -72,7 +72,7 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 - [x] Moteur plus rapide (file de priorité pour les chemins) : environ 0,35 s par partie simulée.
 - [ ] À suivre : les IA atteignent rarement les victoires Science, Culture et Économie, et les parties longues finissent vers le tour 47 sur 80 (seuils à ajuster selon vos parties) ; lancer un vrai entraînement de l'IA, plus long, dans Colab (l'outil n'a tourné que sur quelques parties de test).
 
-## Phase 4 — Présentation (v0.5) · ~2 à 3 semaines · deuxième passage en cours
+## Phase 4 — Présentation (v0.5) · ~2 à 3 semaines ✅
 
 - [x] Direction artistique « jouet en argile » : modèles arrondis sur socles-dioramas, personnages toy, portraits SVG, palette chaude (voir DESIGN.md).
 - [x] **Design enrichi** (premier passage) : décor de terrain (fleurs, touffes, rochers, coquillages), flancs de falaise ombrés, eau animée avec reflets, moulin sur les fermes, petits animaux, faisceau du phare, bateau au port, antenne du laboratoire.
@@ -82,7 +82,7 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 - [x] Interface : infobulle au survol des cases, liste des bâtiments dans le panneau de ville (avec leurs adjacences), encyclopédie (touche E) générée depuis les données.
 - [x] Déplacements : tracé du chemin, nombre de tours et confirmation par un second clic (désactivable dans le menu).
 - [x] Accessibilité : focus piégé dans les fenêtres et rendu à la fermeture, respect du réglage « moins d'animations », boutons plus grands sur tablette.
-- [ ] **Deuxième passage design (en cours)** : variantes de bâtiments, villes qui changent d'allure avec leur palier, effets de construction et d'achèvement, décor de terrain plus varié.
+- [x] **Deuxième passage design** : variantes de bâtiments (couleurs et orientation), villes qui changent d'allure avec leur palier, chantiers qui montent avec grue et échafaudages, effets d'achèvement (rebond, poussière, étincelles), palmiers, sapins, buissons, écume sur les côtes et nuages qui dérivent.
 
 ## Phase 5 — Version 1.0 ✅
 

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/MapControls.js';
 import { RoundedBoxGeometry } from 'three/addons/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/BufferGeometryUtils.js';
 import { cityModel, buildingModel, unitModel, luxuryModel } from './models.js';
 
 const FOG_COLOR = new THREE.Color('#e4dcd6');
@@ -92,8 +93,12 @@ export class Renderer {
     this.controls.maxDistance = Math.max(45, this.W * 1.25);
     this.scene.fog.far = Math.max(90, this.W * 2.2);
     if (this.tiles) { this.scene.remove(this.tiles, this.trees, this.trunks, this.peaks, this.base, this.water, ...(this.decor || [])); }
+    for (const c of this.clouds || []) this.scene.remove(c);
     for (const o of this.entityObjs.values()) this.entities.remove(o);
     this.entityObjs.clear();
+    this.ready = false;
+    for (const e of this.effects || []) this.scene.remove(e.obj);
+    this.effects = [];
     for (const l of this.labels.values()) l.remove();
     this.labels.clear();
 
@@ -155,7 +160,14 @@ export class Renderer {
   // Décor de terrain : fleurs, touffes d'herbe, rochers, coquillages (déterministe par case).
   buildDecor(state) {
     const hash = (x, y, k) => (((x * 73856093) ^ (y * 19349663) ^ (k * 83492791)) >>> 0) / 4294967296;
-    const slots = { flower: [], tuft: [], rock: [], shell: [] };
+    const slots = { flower: [], tuft: [], rock: [], shell: [], palm: [], pine: [], bush: [] };
+    const nearMountain = (t) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const n = state.map.tiles[(t.y + dy) * this.W + t.x + dx]; return n && t.x + dx >= 0 && t.x + dx < this.W && (n.type === 'mountain' || n.type === 'snow'); });
+    for (const t of state.map.tiles) {
+      const r = hash(t.x, t.y, 91), dx = (hash(t.x, t.y, 92) - 0.5) * 0.5, dz = (hash(t.x, t.y, 93) - 0.5) * 0.5, sc = 0.8 + hash(t.x, t.y, 94) * 0.5;
+      if (t.type === 'sand' && r < 0.4) slots.palm.push({ t, dx, dz, sc, rot: hash(t.x, t.y, 95) * 6.28 });
+      if ((t.type === 'hills' && r < 0.35) || (t.type === 'forest' && nearMountain(t) && r < 0.8)) slots.pine.push({ t, dx, dz, sc });
+      if (t.type === 'plains' && r < 0.25) slots.bush.push({ t, dx, dz, sc: sc * 0.9 });
+    }
     for (const t of state.map.tiles) {
       const n = 3;
       for (let k = 0; k < n; k++) {
@@ -176,14 +188,117 @@ export class Renderer {
       make(new THREE.SphereGeometry(0.018, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#fbe9d7', roughness: 0.5 }), slots.shell),
     ];
     this.decor[0].userData.kind = 'flower'; this.decor[1].userData.kind = 'tuft';
+    const vc = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 });
+    for (const [geo, list] of [[this.palmGeo(), slots.palm], [this.pineGeo(), slots.pine], [this.bushGeo(), slots.bush]]) {
+      const im = make(geo, vc, list); im.castShadow = true; this.decor.push(im);
+    }
     this.scene.add(...this.decor);
+    this.buildFoam(state);
+    this.buildClouds();
+  }
+
+  // Petites géométries fusionnées à couleurs de sommets (un seul appel de dessin par type).
+  mergedGeo(parts) {
+    const geos = parts.map(([g, color, m]) => {
+      let geo = g.index ? g.toNonIndexed() : g.clone();
+      for (const k of Object.keys(geo.attributes)) if (!['position', 'normal'].includes(k)) geo.deleteAttribute(k);
+      if (m) geo.applyMatrix4(m);
+      const c = new THREE.Color(color), n = geo.attributes.position.count, arr = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) arr.set([c.r, c.g, c.b], i * 3);
+      geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+      return geo;
+    });
+    return mergeGeometries(geos, false);
+  }
+  palmGeo() {
+    const M = (x, y, z, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new THREE.Vector3(sx, sy, sz));
+    const parts = [[new THREE.CylinderGeometry(0.016, 0.026, 0.34, 7), '#a8774a', M(0.02, 0.17, 0, 0, 0, -0.12)]];
+    for (let k = 0; k < 5; k++) {
+      const a = (k / 5) * Math.PI * 2;
+      parts.push([new THREE.BoxGeometry(0.2, 0.012, 0.06), k % 2 ? '#5fae5a' : '#4f9e55', M(0.06 + Math.cos(a) * 0.08, 0.33, Math.sin(a) * 0.08, 0, -a, -0.35)]);
+    }
+    parts.push([new THREE.SphereGeometry(0.025, 8, 6), '#8a5634', M(0.05, 0.33, 0)]);
+    return this.mergedGeo(parts);
+  }
+  pineGeo() {
+    const M = (y, s) => new THREE.Matrix4().compose(new THREE.Vector3(0, y, 0), new THREE.Quaternion(), new THREE.Vector3(s, 1, s));
+    return this.mergedGeo([
+      [new THREE.CylinderGeometry(0.018, 0.024, 0.1, 6), '#7a4e2e', M(0.05, 1)],
+      [new THREE.ConeGeometry(0.11, 0.18, 8), '#3f7f4f', M(0.17, 1)],
+      [new THREE.ConeGeometry(0.085, 0.15, 8), '#4a8f58', M(0.27, 1)],
+      [new THREE.ConeGeometry(0.055, 0.11, 8), '#5aa265', M(0.35, 1)],
+    ]);
+  }
+  bushGeo() {
+    const M = (x, y, z, s) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion(), new THREE.Vector3(s, s * 0.8, s));
+    return this.mergedGeo([
+      [new THREE.SphereGeometry(0.05, 9, 7), '#6fb85a', M(0, 0.035, 0, 1)],
+      [new THREE.SphereGeometry(0.04, 9, 7), '#86c96a', M(0.045, 0.03, 0.02, 1)],
+      [new THREE.SphereGeometry(0.035, 9, 7), '#5fae5a', M(-0.035, 0.03, 0.03, 1)],
+      [new THREE.SphereGeometry(0.012, 6, 5), '#ff8fab', M(0.02, 0.075, 0.01, 1)],
+    ]);
+  }
+
+  // Écume blanche le long des rivages (côté eau).
+  buildFoam(state) {
+    const edges = [];
+    state.map.tiles.forEach((t) => {
+      if (!state.data.terrain[t.type].water) return;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = t.x + dx, ny = t.y + dy;
+        if (nx < 0 || ny < 0 || nx >= this.W || ny >= this.H) continue;
+        const n = state.map.tiles[ny * this.W + nx];
+        if (!state.data.terrain[n.type].water) edges.push({ t, dx, dy });
+      }
+    });
+    this.foamEdges = edges;
+    const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.4, transparent: true, opacity: 0.75, depthWrite: false });
+    this.foam = new THREE.InstancedMesh(new RoundedBoxGeometry(0.9, 0.02, 0.08, 1, 0.01), mat, Math.max(1, edges.length));
+    this.foam.renderOrder = 2;
+    this.decor.push(this.foam);
+  }
+
+  // Quelques nuages qui dérivent lentement et projettent une ombre douce.
+  buildClouds() {
+    if (this.clouds) for (const c of this.clouds) this.scene.remove(c);
+    const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1, transparent: true, opacity: 0.8, depthWrite: false });
+    const geo = this.mergedGeo([
+      [new THREE.SphereGeometry(0.6, 12, 9), '#ffffff', new THREE.Matrix4().makeScale(1.2, 0.55, 0.9)],
+      [new THREE.SphereGeometry(0.45, 12, 9), '#ffffff', new THREE.Matrix4().compose(new THREE.Vector3(0.65, 0.05, 0.1), new THREE.Quaternion(), new THREE.Vector3(1, 0.6, 0.9))],
+      [new THREE.SphereGeometry(0.42, 12, 9), '#f6f6f6', new THREE.Matrix4().compose(new THREE.Vector3(-0.6, 0, -0.1), new THREE.Quaternion(), new THREE.Vector3(1, 0.55, 0.85))],
+    ]);
+    mat.vertexColors = true;
+    this.clouds = [];
+    const n = Math.round((this.W * this.H) / 160);
+    for (let k = 0; k < n; k++) {
+      const c = new THREE.Mesh(geo, mat);
+      c.castShadow = true;
+      c.position.set((Math.random() - 0.5) * (this.W + 10), 5 + Math.random() * 1.5, (Math.random() - 0.5) * this.H);
+      c.scale.setScalar(0.7 + Math.random() * 0.8);
+      this.clouds.push(c); this.scene.add(c);
+    }
+  }
+  driftClouds(dt) {
+    const half = this.W / 2 + 8;
+    // De près, les nuages s'effacent progressivement pour ne jamais gêner la lecture de la carte.
+    const d = this.camera.position.distanceTo(this.controls.target);
+    const k = Math.min(1, Math.max(0, (d - 18) / 14));
+    this.clouds[0].material.opacity = 0.8 * k;
+    for (const c of this.clouds) {
+      if (!this.reducedMotion) c.position.x += dt * 0.25;
+      if (c.position.x > half) c.position.x = -half;
+      c.visible = k > 0.02;
+    }
   }
 
   refreshDecor(occupied, visible) {
     const s = this.state, p = s.players[this.viewer];
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), c = new THREE.Color();
+    const Y = new THREE.Vector3(0, 1, 0);
     for (const mesh of this.decor) {
+      if (!mesh.userData.slots) continue;
       mesh.userData.slots.forEach((sl, k) => {
+        q.setFromAxisAngle(Y, sl.rot || 0);
         const i = sl.t.y * this.W + sl.t.x;
         const show = p.explored[i] === 1 && !occupied.has(i) && !s.cities.some((ct) => ct.x === sl.t.x && ct.y === sl.t.y);
         const h = this.heights[i];
@@ -249,6 +364,15 @@ export class Renderer {
       this.water.setMatrixAt(k, m);
     });
     this.water.instanceMatrix.needsUpdate = true;
+    const fq = new THREE.Quaternion(), fv = new THREE.Vector3(), fs = new THREE.Vector3();
+    this.foamEdges.forEach((e, k) => {
+      const i = e.t.y * this.W + e.t.x;
+      const ex = p.explored[i] === 1;
+      fq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), e.dx ? Math.PI / 2 : 0);
+      m.compose(fv.set(this.wx(e.t.x) + e.dx * 0.43, this.heights[i] + 0.012, this.wz(e.t.y) + e.dy * 0.43), fq, fs.setScalar(ex ? 1 : 0.0001));
+      this.foam.setMatrixAt(k, m);
+    });
+    this.foam.instanceMatrix.needsUpdate = true;
     this.treeSlots.forEach((sl, k) => {
       const i = sl.t.y * this.W + sl.t.x;
       const ex = p.explored[i] === 1 && sl.t.type === 'forest' && !occupied.has(i);
@@ -437,7 +561,10 @@ export class Renderer {
       const target = new THREE.Vector3(this.wx(x), this.heights[i] + yOff, this.wz(y));
       if (off) target.add(off);
       if (!obj) {
+        const prefix = key.split(':')[0] + ':';
+        const prev = [...this.entityObjs.keys()].find((k) => k.startsWith(prefix));
         obj = make(); obj.position.copy(target); obj.userData.path = [];
+        if (this.ready && obj.visible !== false && visible(x, y)) this.onAppear(key, prev, obj, target);
         const anims = [];
         obj.traverse((o) => { if (o.userData.anim) { o.userData.base = o.position.clone(); o.userData.phase0 = Math.random() * 6.28; anims.push(o); } });
         obj.userData.anims = anims;
@@ -451,16 +578,20 @@ export class Renderer {
       return obj;
     };
     for (const c of s.cities) {
-      const o = place(`c${c.id}:${Math.min(c.pop, 5)}:${c.capital}`, () => cityModel(s.players[c.owner].color, c.pop, c.capital), c.x, c.y);
+      const o = place(`c${c.id}:${Math.min(c.pop, 5)}:${c.capital}:${c.tier || 0}`, () => cityModel(s.players[c.owner].color, c.pop, c.capital, c.tier || 0), c.x, c.y);
       this.label(c, o);
     }
     for (const b of s.buildings) {
       const f = s.data.buildingsById[b.type].footprint || 1;
-      if (f === 1) { place(`b${b.id}:${b.turnsLeft > 0}`, () => buildingModel(b.type, b.turnsLeft > 0, b.luxury), b.x, b.y); continue; }
+      const def = s.data.buildingsById[b.type];
+      const variant = (((b.x * 73856093) ^ (b.y * 19349663)) >>> 0) % 12;
+      const bkey = `b${b.id}:${b.turnsLeft > 0 ? `w${b.turnsLeft}` : 'done'}`;
+      const progress = b.turnsLeft > 0 ? 1 - b.turnsLeft / Math.max(1, def.turns) : 1;
+      if (f === 1) { place(bkey, () => buildingModel(b.type, b.turnsLeft > 0, b.luxury, variant, progress), b.x, b.y); continue; }
       // Quartier 2×2 : centré sur son empreinte, posé sur la case la plus haute.
       let top = 0;
       for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) top = Math.max(top, this.heights[(b.y + dy) * this.W + b.x + dx]);
-      const o = place(`b${b.id}:${b.turnsLeft > 0}`, () => buildingModel(b.type, b.turnsLeft > 0), b.x, b.y);
+      const o = place(bkey, () => buildingModel(b.type, b.turnsLeft > 0, undefined, variant, progress), b.x, b.y);
       o.position.set(this.wx(b.x) + (f - 1) / 2, top, this.wz(b.y) + (f - 1) / 2);
     }
     s.map.tiles.forEach((t, i) => {
@@ -478,6 +609,7 @@ export class Renderer {
     for (const [key, obj] of this.entityObjs) {
       if (!seen.has(key)) { this.entities.remove(obj); this.entityObjs.delete(key); }
     }
+    this.ready = true;
     for (const [id, el] of this.labels) if (!s.cities.some((c) => c.id === id)) { el.remove(); this.labels.delete(id); }
   }
 
@@ -530,6 +662,76 @@ export class Renderer {
     const delta = t.clone().sub(this.controls.target);
     if (instant) { this.controls.target.add(delta); this.camera.position.add(delta); return; }
     this.focusAnim = { delta, left: 1 };
+  }
+
+  // ------------------------------------------------------------- effets
+  // Apparition d'un objet : achèvement d'un chantier, nouvelle ville, ville qui grandit, nouvelle unité.
+  onAppear(key, prevKey, obj, at) {
+    if (this.reducedMotion) return;
+    const kind = key[0];
+    if (kind === 'b' && key.endsWith(':done') && prevKey && prevKey.includes(':w')) {
+      this.popIn(obj, 0.65, 0.7); this.dust(at, 10, 0.55); this.sparkles(at);
+    } else if (kind === 'b' && !prevKey) {
+      this.dust(at, 6, 0.4);
+    } else if (kind === 'c') {
+      this.popIn(obj, prevKey ? 0.85 : 0.5, prevKey ? 0.45 : 0.8);
+      if (!prevKey) { this.dust(at, 12, 0.6); this.sparkles(at); }
+    } else if (kind === 'u' && !prevKey) {
+      this.popIn(obj, 0.4, 0.5);
+    }
+  }
+  addEffect(obj, dur, update) {
+    this.effects = this.effects || [];
+    if (obj && !obj.parent) this.scene.add(obj);
+    this.effects.push({ obj, t: 0, dur, update });
+  }
+  popIn(obj, from, dur) {
+    const base = obj.scale.clone();
+    obj.scale.copy(base).multiplyScalar(from);
+    this.addEffect(null, dur, (k) => {
+      const e = 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2); // léger dépassement puis retour
+      obj.scale.copy(base).multiplyScalar(from + (1 - from) * Math.min(1.08, e));
+      if (k >= 1) obj.scale.copy(base);
+    });
+  }
+  dust(at, n, dur) {
+    if (!this.dustGeo) { this.dustGeo = new THREE.SphereGeometry(0.05, 8, 6); this.dustMat = new THREE.MeshStandardMaterial({ color: '#efe4d6', roughness: 1, transparent: true, opacity: 0.8, depthWrite: false }); }
+    const g = new THREE.Group();
+    const puffs = [];
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(this.dustGeo, this.dustMat);
+      const a = (i / n) * Math.PI * 2 + Math.random() * 0.4;
+      m.userData.dir = new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
+      g.add(m); puffs.push(m);
+    }
+    g.position.copy(at).add(new THREE.Vector3(0, 0.06, 0));
+    this.addEffect(g, dur, (k) => {
+      for (const m of puffs) { m.position.copy(m.userData.dir).multiplyScalar(0.12 + k * 0.45); m.position.y = k * 0.12; m.scale.setScalar((1 - k) * 1.4 + 0.2); }
+      if (k >= 1) this.scene.remove(g);
+    });
+  }
+  sparkles(at) {
+    if (!this.sparkGeo) { this.sparkGeo = new THREE.OctahedronGeometry(0.03, 0); this.sparkMat = new THREE.MeshBasicMaterial({ color: '#ffd23f' }); }
+    const g = new THREE.Group();
+    const items = [];
+    for (let i = 0; i < 8; i++) {
+      const m = new THREE.Mesh(this.sparkGeo, this.sparkMat);
+      m.userData.a = (i / 8) * Math.PI * 2; m.userData.h = 0.4 + Math.random() * 0.35;
+      g.add(m); items.push(m);
+    }
+    g.position.copy(at);
+    this.addEffect(g, 1.1, (k) => {
+      for (const m of items) {
+        const r = 0.15 + k * 0.3;
+        m.position.set(Math.cos(m.userData.a + k * 2) * r, 0.2 + m.userData.h * Math.sin(k * Math.PI), Math.sin(m.userData.a + k * 2) * r);
+        m.rotation.y += 0.2; m.scale.setScalar(1 - k * 0.8);
+      }
+      if (k >= 1) this.scene.remove(g);
+    });
+  }
+  updateEffects(dt) {
+    if (!this.effects?.length) return;
+    this.effects = this.effects.filter((e) => { e.t += dt; const k = Math.min(1, e.t / e.dur); e.update(k); return k < 1; });
   }
 
   // Animations légères : fumée, rotations, drapeaux, balancement.
@@ -587,6 +789,8 @@ export class Renderer {
     this.time += dt;
     this.waterUniform.value = this.time;
     if (!this.reducedMotion) this.animate(dt);
+    this.updateEffects(dt);
+    if (this.clouds) this.driftClouds(dt);
     if (this.dayNight && !this.reducedMotion) this.updateLight();
     for (const obj of this.entityObjs.values()) {
       if (!obj.userData.isUnit) continue;
@@ -594,6 +798,8 @@ export class Renderer {
       if (!path.length) continue;
       const d = path[0].clone().sub(obj.position);
       const step = dt * 5;
+      obj.userData.dustT = (obj.userData.dustT || 0) + dt;
+      if (!this.reducedMotion && obj.userData.dustT > 0.18 && obj.visible) { obj.userData.dustT = 0; this.dust(obj.position.clone(), 3, 0.45); }
       if (d.length() <= step) { obj.position.copy(path[0]); path.shift(); } else obj.position.add(d.setLength(step));
     }
     if (this.cursors?.select.visible) this.cursors.select.position.y += Math.sin(performance.now() / 300) * 0.0008;
