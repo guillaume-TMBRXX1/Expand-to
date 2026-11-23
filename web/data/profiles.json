@@ -1,7 +1,7 @@
 [
-  {"id": "merchant", "name": "Négociant", "desc": "Commerce dès le départ, +60 Or, +15% Or, +3 prestige par route commerciale et par accord.", "mods": {"startRes": {"gold": 60}, "startTechs": ["commerce"], "yieldPct": {"gold": 0.15}, "tradePrestige": 3}},
-  {"id": "scholar", "name": "Érudit", "desc": "Écriture dès le départ, +10% Science.", "mods": {"startTechs": ["writing"], "yieldPct": {"science": 0.1}}},
+  {"id": "merchant", "name": "Négociant", "desc": "Commerce dès le départ, +60 Or, 6 Biens, +15% Or, +4 prestige par route commerciale et par accord.", "mods": {"startRes": {"gold": 60, "goods": 6}, "startTechs": ["commerce"], "yieldPct": {"gold": 0.15}, "tradePrestige": 4}},
+  {"id": "scholar", "name": "Érudit", "desc": "Écriture dès le départ, 6 Outils, +20% Science, +1 prestige par palier de technologie.", "mods": {"startTechs": ["writing"], "yieldPct": {"science": 0.2}, "startRes": {"tools": 6}, "techPrestige": 1}},
   {"id": "builder", "name": "Bâtisseur", "desc": "Arts dès le départ, bâtiments -20%, merveilles -35%, +1 prestige tous les 3 bâtiments, +30 Bois, +20 Pierre.", "mods": {"startRes": {"wood": 30, "stone": 20}, "costPct": -0.2, "wonderCostPct": -0.25, "startTechs": ["arts"], "buildingPrestigePer": 3}},
   {"id": "diplomat", "name": "Diplomate", "desc": "Protocole dès le départ, +20 relation initiale, +0,5 relation/tour.", "mods": {"startTechs": ["protocol"], "relationStart": 20, "relationPerTurn": 0.5}},
-  {"id": "explorer", "name": "Explorateur", "desc": "Un explorateur en plus, +1 mouvement, +1 vision, +10% Culture, jusqu'à +28 prestige selon la part de carte explorée.", "mods": {"extraUnits": ["explorer"], "moveBonus": 1, "visionBonus": 1, "yieldPct": {"culture": 0.1}, "discoveryPrestige": 28}}
+  {"id": "explorer", "name": "Explorateur", "desc": "Un explorateur en plus, +1 mouvement, +1 vision, +10% Culture, jusqu'à +20 prestige selon la part de carte explorée.", "mods": {"extraUnits": ["explorer"], "moveBonus": 1, "visionBonus": 1, "yieldPct": {"culture": 0.1}, "discoveryPrestige": 20}}
 ]

@@ -17,6 +17,10 @@ def building_payback(data: dict | None = None) -> list[dict]:
     for b in data["buildings"]:
         cost = resource_value(data, b["cost"])
         gain = resource_value(data, b["yields"]) - b.get("upkeep", 0)
+        if b.get("process"):  # transformation : valeur ajoutée
+            gain += resource_value(data, b["process"]["out"]) - resource_value(data, b["process"]["in"])
+        if b.get("luxuryOnly"):  # comptoir : 1 ressource rare par tour
+            gain += 3.5
         out.append({
             "id": b["id"], "nom": b["name"], "merveille": bool(b.get("wonder")),
             "cout": round(cost, 1), "gain_par_tour": round(gain, 1),

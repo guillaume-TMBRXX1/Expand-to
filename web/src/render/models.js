@@ -326,18 +326,110 @@ const BUILDERS = {
     colors.forEach((c, i) => { const x = -0.36 + i * 0.18; p.push(cyl(0.006, 0.006, 0.3, PAL.ink, x, Y0, 0.32, 6), rbox(0.09, 0.05, 0.008, c, x + 0.045, Y0 + 0.24, 0.32, 0.004)); });
     return p;
   },
+  sawmill: () => {
+    const p = [plinth('#e9dcc5')];
+    p.push(rbox(0.34, 0.2, 0.26, PAL.wood, -0.12, Y0, -0.12, 0.02), rotY(gable(0.4, 0.12, 0.3, PAL.roofRed, -0.12, Y0 + 0.2, -0.12), 0));
+    p.push(door(-0.12, Y0, 0.012, PAL.woodDark), ...windowAt(-0.24, Y0 + 0.1, 0.012));
+    for (let i = 0; i < 4; i++) p.push(rbox(0.3, 0.025, 0.09, i % 2 ? '#e2b27a' : PAL.planksLight || '#d9a46a', 0.18, Y0 + i * 0.026, 0.2, 0.006));
+    const saw = cyl(0.08, 0.08, 0.012, PAL.steel, 0.2, Y0 + 0.1, -0.12, 22); saw.rotation.x = Math.PI / 2; p.push(rbox(0.2, 0.08, 0.08, PAL.roofBlue, 0.2, Y0, -0.12, 0.015), saw);
+    p.push(...lollipopTree(0.34, -0.34, 0.7));
+    return p;
+  },
+  manufactory: () => {
+    const p = [plinth(PAL.paving)];
+    p.push(rbox(0.5, 0.24, 0.32, PAL.brick, -0.05, Y0, -0.1, 0.02));
+    for (let i = 0; i < 3; i++) p.push(rotY(gable(0.18, 0.08, 0.34, i % 2 ? PAL.white : PAL.roofBlue, -0.22 + i * 0.17, Y0 + 0.24, -0.1), 0));
+    p.push(cyl(0.035, 0.045, 0.32, PAL.brick, 0.26, Y0, -0.24, 12), torus(0.04, 0.008, PAL.white, 0.26, Y0 + 0.3, -0.24), sph(0.04, '#eeeeee', 0.27, Y0 + 0.4, -0.24), sph(0.03, '#f6f6f6', 0.3, Y0 + 0.46, -0.22));
+    p.push(...windowAt(-0.2, Y0 + 0.1, 0.062), ...windowAt(0.1, Y0 + 0.1, 0.062), rbox(0.12, 0.14, 0.014, PAL.gold, -0.05, Y0, 0.062, 0.006));
+    p.push(rbox(0.5, 0.025, 0.08, PAL.ink, 0.0, Y0 + 0.02, 0.25, 0.01));
+    for (let i = 0; i < 4; i++) p.push(rbox(0.05, 0.05, 0.05, ['#e0677e', PAL.gold, '#e0677e', PAL.roofBlue][i], -0.18 + i * 0.12, Y0 + 0.045, 0.25, 0.01));
+    return p;
+  },
+  forge: () => {
+    const p = [plinth(PAL.stoneLight)];
+    p.push(rbox(0.4, 0.22, 0.3, PAL.stone, -0.1, Y0, -0.1, 0.03), rotY(gable(0.46, 0.12, 0.34, PAL.terracottaDark, -0.1, Y0 + 0.22, -0.1), 0));
+    p.push(rbox(0.07, 0.34, 0.07, PAL.stone, 0.06, Y0 + 0.08, -0.18, 0.015), sph(0.035, '#d6d6d6', 0.07, Y0 + 0.48, -0.18));
+    p.push(rbox(0.14, 0.12, 0.014, '#ff9a3c', -0.1, Y0, 0.052, 0.01));
+    p.push(rbox(0.1, 0.05, 0.06, PAL.ink, 0.22, Y0 + 0.06, 0.2, 0.012), rbox(0.05, 0.06, 0.05, PAL.ink, 0.22, Y0, 0.2, 0.01));
+    p.push(...[0, 1, 2].map((i) => rbox(0.03, 0.03, 0.14, PAL.steelDark, -0.3 + i * 0.05, Y0, 0.25, 0.008)));
+    p.push(rbox(0.1, 0.1, 0.1, PAL.wood, 0.3, Y0, -0.3, 0.015));
+    return p;
+  },
+  campus: () => {
+    const p = [rbox(1.86, 0.07, 1.86, PAL.paving, 0, 0, 0, 0.04), rbox(0.7, 0.012, 0.7, PAL.grass, 0, Y0, 0.15, 0.01)];
+    p.push(rbox(0.7, 0.32, 0.4, PAL.cream, -0.45, Y0, -0.55, 0.03), rotY(gable(0.48, 0.16, 0.76, PAL.roofBlue, -0.45, Y0 + 0.32, -0.55), Math.PI / 2));
+    for (let i = 0; i < 4; i++) p.push(...windowAt(-0.7 + i * 0.17, Y0 + 0.14, -0.348));
+    p.push(cyl(0.22, 0.24, 0.3, PAL.white, 0.5, Y0, -0.5, 24), dome(0.22, PAL.glassLight, 0.5, Y0 + 0.3, -0.5));
+    p.push(rbox(0.36, 0.3, 0.5, PAL.white, 0.6, Y0, 0.45, 0.03), rbox(0.38, 0.04, 0.52, PAL.roofBlue, 0.6, Y0 + 0.3, 0.45, 0.012));
+    p.push(rbox(0.3, 0.06, 0.06, PAL.ink, -0.55, Y0, 0.55, 0.01), cyl(0.012, 0.012, 0.5, PAL.ink, -0.2, Y0, 0.15, 6), dome(0.06, PAL.white, -0.2, Y0 + 0.5, 0.15));
+    for (const [x, z] of [[-0.75, 0.75], [0.15, 0.75], [-0.75, -0.05], [0.25, 0.05]]) p.push(...lollipopTree(x, z, 1.1));
+    p.push(bench(-0.1, 0.45), bench(0.15, 0.45), ...lamp(-0.4, 0.2), ...lamp(0.35, 0.2));
+    return p;
+  },
+  artsquarter: () => {
+    const p = [rbox(1.86, 0.07, 1.86, PAL.paving, 0, 0, 0, 0.04), cyl(0.3, 0.32, 0.03, PAL.creamDark, 0, Y0, 0.2, 28)];
+    p.push(rbox(0.8, 0.3, 0.45, '#efe0f5', -0.35, Y0, -0.55, 0.03), dome(0.22, PAL.roofPurple, -0.35, Y0 + 0.3, -0.55));
+    for (let i = 0; i < 5; i++) p.push(cyl(0.02, 0.022, 0.3, PAL.white, -0.65 + i * 0.15, Y0, -0.3, 10));
+    p.push(rbox(0.4, 0.26, 0.5, '#f5e3a8', 0.6, Y0, -0.45, 0.03), rotY(gable(0.56, 0.14, 0.46, PAL.terracotta, 0.6, Y0 + 0.26, -0.45), Math.PI / 2));
+    p.push(rbox(0.12, 0.12, 0.12, PAL.white, 0, Y0 + 0.03, 0.2, 0.015), sph(0.08, PAL.gold, 0, Y0 + 0.22, 0.2));
+    p.push(rbox(0.5, 0.2, 0.3, PAL.cream, 0.55, Y0, 0.55, 0.025), ...awning(0.5, [PAL.roofPurple, PAL.white], 0.55, Y0 + 0.17, 0.7));
+    for (const [x, z] of [[-0.75, 0.75], [-0.4, 0.75], [-0.75, 0.3]]) p.push(...bush(x, z, 1.4));
+    p.push(...lamp(-0.3, 0.2), ...lamp(0.3, 0.2), bench(0, 0.6));
+    return p;
+  },
+  merchantquarter: () => {
+    const p = [rbox(1.86, 0.07, 1.86, PAL.paving, 0, 0, 0, 0.04)];
+    const shops = [[-0.5, -0.5, PAL.roofGreen, '#f3d9c4'], [0.45, -0.5, PAL.roofRed, PAL.cream], [-0.5, 0.45, PAL.roofBlue, '#dfe9f2'], [0.45, 0.45, PAL.gold, '#f5e3a8']];
+    for (const [x, z, roof, wall] of shops) {
+      p.push(...shop({ w: 0.6, h: 0.28 + (x > 0 ? 0.06 : 0), d: 0.5, wall, roof, x, z: z - 0.05 }));
+      p.push(...awning(0.6, [roof, PAL.white], x, Y0 + 0.22, z + 0.2), rbox(0.3, 0.14, 0.012, PAL.glassLight, x, Y0 + 0.02, z + 0.205, 0.006));
+    }
+    p.push(cyl(0.12, 0.14, 0.04, PAL.stoneLight, 0, Y0, 0, 20), cyl(0.03, 0.03, 0.12, PAL.stoneLight, 0, Y0 + 0.04, 0, 10), sph(0.05, PAL.water, 0, Y0 + 0.17, 0));
+    p.push(...lamp(-0.1, 0.0), ...lamp(0.1, 0.0));
+    return p;
+  },
 };
 
-export function buildingModel(type, wip) {
-  const g = bake(group((BUILDERS[type] || BUILDERS.market)()));
+const LUX_PROPS = {
+  spices: () => [sph(0.06, '#4f9e55', 0, Y0 - 0.02, 0), sph(0.02, '#e2573a', 0.04, Y0 + 0.03, 0.02), sph(0.02, '#e2573a', -0.03, Y0 + 0.04, -0.01), sph(0.02, '#f08a24', 0.0, Y0 + 0.06, 0.03)],
+  marble: () => [rbox(0.1, 0.08, 0.1, '#f1ede6', -0.02, Y0 - 0.06, 0, 0.012), rbox(0.07, 0.06, 0.07, '#e4ded4', 0.07, Y0 - 0.06, 0.05, 0.01), rbox(0.06, 0.05, 0.06, '#f6f3ee', 0.0, Y0 + 0.02, 0.0, 0.01)],
+  crystal: () => {
+    const g = new THREE.OctahedronGeometry(0.06, 0);
+    const a = place(g, '#4cc3d9', 0, Y0 + 0.03, 0, { roughness: 0.2, metalness: 0.1 }); a.scale.y = 1.6;
+    const b = place(g, '#8fe3f0', 0.07, Y0, 0.03, { roughness: 0.2, metalness: 0.1 }); b.scale.set(0.7, 1.1, 0.7);
+    return [a, b];
+  },
+};
+
+// Marqueur posé sur une case de ressource rare encore inexploitée.
+export function luxuryModel(lux) {
+  const g = bake(group((LUX_PROPS[lux] || LUX_PROPS.marble)()));
+  g.scale.setScalar(1.6);
+  return g;
+}
+
+BUILDERS.outpost = (lux = 'spices') => {
+  const p = [plinth('#e9dcc5')];
+  p.push(rbox(0.26, 0.16, 0.2, PAL.wood, -0.15, Y0, -0.15, 0.02), rotY(gable(0.32, 0.1, 0.24, PAL.roofGreen, -0.15, Y0 + 0.16, -0.15), 0), door(-0.15, Y0, -0.048));
+  p.push(crate(0.12, 0.12, PAL.wood, 0.08), crate(0.22, 0.12, PAL.wood, 0.08), crate(0.17, 0.22, PAL.wood, 0.08));
+  const props = (LUX_PROPS[lux] || LUX_PROPS.spices)();
+  const holder = group(props); holder.position.set(0.18, 0.04, -0.2); holder.scale.setScalar(1.4);
+  p.push(holder, cyl(0.006, 0.006, 0.28, PAL.ink, 0.32, Y0, 0.3, 6), rbox(0.09, 0.05, 0.008, { spices: '#e2573a', marble: '#cfc8bd', crystal: '#4cc3d9' }[lux] || PAL.gold, 0.365, Y0 + 0.22, 0.3, 0.004));
+  return p;
+};
+
+export function buildingModel(type, wip, lux) {
+  const g = bake(group((BUILDERS[type] || BUILDERS.market)(lux)));
   if (wip) {
     g.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.45; o.castShadow = false; } });
     // Échafaudage jaune et cônes de chantier
+    const big = type === 'campus' || type === 'artsquarter' || type === 'merchantquarter';
     const sc = bake(group(
       ...[[-0.38, -0.38], [0.38, -0.38], [-0.38, 0.38], [0.38, 0.38]].map(([x, z]) => rbox(0.02, 0.42, 0.02, PAL.gold, x, Y0, z, 0.006)),
       rbox(0.78, 0.02, 0.02, PAL.gold, 0, Y0 + 0.4, 0.38, 0.006), rbox(0.78, 0.02, 0.02, PAL.gold, 0, Y0 + 0.4, -0.38, 0.006),
       cyl(0.0, 0.03, 0.07, '#ff8a3d', 0.3, Y0, 0.42, 12), cyl(0.0, 0.03, 0.07, '#ff8a3d', -0.3, Y0, 0.42, 12),
     ));
+    if (big) sc.scale.set(2.2, 1.3, 2.2);
     g.add(sc);
   }
   return g;
@@ -358,6 +450,7 @@ function character(color, skin, hat = 'beanie', s = 1) {
   p.push(sph(0.018 * s, skin, 0, 0.205 * s, 0.085 * s));                                 // nez
   if (hat === 'beanie') p.push(dome(0.09 * s, color, 0, 0.255 * s, 0), torus(0.086 * s, 0.014 * s, color, 0, 0.26 * s, 0), sph(0.02 * s, PAL.white, 0, 0.35 * s, 0));
   else if (hat === 'straw') p.push(cyl(0.13 * s, 0.13 * s, 0.01 * s, PAL.hay, 0, 0.27 * s, 0, 20), cyl(0.07 * s, 0.08 * s, 0.06 * s, PAL.hay, 0, 0.27 * s, 0, 16), cyl(0.081 * s, 0.081 * s, 0.015 * s, color, 0, 0.275 * s, 0, 16));
+  else if (hat === 'hardhat') p.push(dome(0.095 * s, PAL.gold, 0, 0.26 * s, 0), cyl(0.11 * s, 0.11 * s, 0.012 * s, PAL.gold, 0, 0.26 * s, 0, 20));
   else if (hat === 'cap') { p.push(dome(0.09 * s, color, 0, 0.255 * s, 0)); const v = rbox(0.1 * s, 0.01 * s, 0.07 * s, color, 0, 0.255 * s, 0.08 * s, 0.004 * s); p.push(v); }
   return p;
 }
@@ -374,6 +467,24 @@ export function unitModel(type, color, skinIdx = 0) {
     for (const [x, z] of [[-0.04, 0.095], [0.14, 0.095], [-0.04, -0.095], [0.14, -0.095]]) { const w = cyl(0.04, 0.04, 0.02, PAL.woodDark, x, 0.0, z, 16); w.rotation.x = Math.PI / 2; w.position.y = 0.045; cart.push(w); }
     const guy = group(character(color, skin, 'straw', 0.9)); guy.position.set(-0.16, 0, 0.02);
     parts = [...cart, guy];
+  } else if (type === 'engineer') {
+    parts = [...character(color, skin, 'hardhat', 1.15), rbox(0.02, 0.14, 0.02, PAL.steelDark, 0.1, 0.06, 0.04, 0.006), rbox(0.06, 0.03, 0.03, PAL.steelDark, 0.1, 0.19, 0.04, 0.008)];
+  } else if (type === 'emissary') {
+    const scroll = cyl(0.025, 0.025, 0.1, PAL.cream, 0.1, 0.1, 0.05, 10); scroll.rotation.z = Math.PI / 2; scroll.position.y = 0.12;
+    parts = [...character(color, skin, 'cap', 1.15), scroll, rbox(0.012, 0.03, 0.012, PAL.roofRed, 0.1, 0.105, 0.05, 0.004)];
+  } else if (type === 'ship') {
+    parts = [
+      rbox(0.42, 0.08, 0.18, PAL.wood, 0, 0.02, 0, 0.04), rbox(0.36, 0.02, 0.14, '#d9a46a', 0, 0.1, 0, 0.01),
+      cyl(0.008, 0.008, 0.36, PAL.woodDark, 0.02, 0.1, 0, 6), rbox(0.012, 0.22, 0.18, PAL.white, 0.03, 0.18, 0, 0.01),
+      rbox(0.016, 0.06, 0.1, color, 0.035, 0.46, 0, 0.005), crate(0.13, 0, PAL.gold, 0.06), crate(-0.12, 0, color, 0.06),
+    ];
+    parts[parts.length - 1].position.y = 0.14; parts[parts.length - 2].position.y = 0.14;
+  } else if (type === 'airship') {
+    const balloon = sph(0.16, color, 0, 0.28, 0); balloon.scale.set(1.8, 0.9, 0.9);
+    parts = [balloon, torus(0.15, 0.012, PAL.white, 0, 0.28, 0), rbox(0.16, 0.06, 0.08, PAL.wood, 0, 0.08, 0, 0.02),
+      cyl(0.004, 0.004, 0.12, PAL.ink, -0.05, 0.12, 0, 4), cyl(0.004, 0.004, 0.12, PAL.ink, 0.05, 0.12, 0, 4),
+      rbox(0.05, 0.08, 0.01, PAL.white, -0.3, 0.26, 0, 0.005)];
+    parts[1].rotation.set(0, 0, Math.PI / 2); parts[1].scale.set(1, 1, 1);
   } else {
     // Caravane : petit camion arrondi
     parts = [

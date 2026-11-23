@@ -1,5 +1,9 @@
 [
-  { "id": "explorer", "name": "Explorateur", "cost": { "gold": 20 },              "moves": 4, "vision": 3, "desc": "Révèle la carte." },
-  { "id": "settler",  "name": "Colon",       "cost": { "gold": 40, "food": 15 },  "moves": 2, "vision": 2, "popCost": 1, "desc": "Fonde une nouvelle ville (coûte 1 pop.)." },
-  { "id": "caravan",  "name": "Caravane",    "cost": { "gold": 30, "wood": 10 },  "moves": 3, "vision": 2, "tech": "commerce", "desc": "Véhicule : entre dans une ville étrangère pour ouvrir une route commerciale." }
+  {"id": "explorer", "name": "Explorateur", "cost": {"gold": 20}, "moves": 4, "vision": 3, "desc": "Révèle la carte."},
+  {"id": "settler", "name": "Colon", "cost": {"gold": 40, "food": 15}, "moves": 2, "vision": 2, "popCost": 1, "desc": "Fonde une nouvelle ville (coûte 1 pop.)."},
+  {"id": "caravan", "name": "Caravane", "cost": {"gold": 30, "wood": 10}, "moves": 3, "vision": 2, "tech": "commerce", "desc": "Véhicule : entre dans une ville étrangère pour ouvrir une route commerciale."},
+  {"id": "ship", "name": "Navire marchand", "cost": {"gold": 40, "planks": 15}, "moves": 5, "vision": 3, "naval": true, "tech": "navigation", "requiresBuilding": "harbor", "desc": "Véhicule naval : rejoignez une ville étrangère côtière pour une route maritime (+4 Or)."},
+  {"id": "airship", "name": "Dirigeable", "cost": {"gold": 50, "tools": 10}, "moves": 6, "vision": 4, "flying": true, "tech": "chemistry", "desc": "Survole montagnes et océans pour explorer."},
+  {"id": "engineer", "name": "Ingénieur", "cost": {"gold": 30, "planks": 5}, "moves": 3, "vision": 2, "desc": "Trace des routes partout (1 Bois) et défriche les forêts (+10 Bois)."},
+  {"id": "emissary", "name": "Émissaire", "cost": {"gold": 40}, "moves": 3, "vision": 2, "tech": "protocol", "desc": "Entrez dans une ville étrangère pour y ouvrir une ambassade (+15 relation, +1/tour)."}
 ]

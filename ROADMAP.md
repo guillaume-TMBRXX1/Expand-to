@@ -51,13 +51,14 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 
 ## Phase 2 — Profondeur de gestion (v0.3) · ~3 semaines
 
-- [ ] **Adjacences façon Anno** : bonus de proximité (bibliothèque à côté d'un laboratoire, marché à côté d'un port…).
-- [ ] **Chaînes de production** : bois → planches, pierre → outils, nourriture → biens de consommation.
-- [ ] **Besoins de la population** par paliers (citoyens → artisans → savants), qui débloquent des bâtiments.
-- [ ] Ressources rares sur la carte (épices, marbre, cristal) : échangeables, elles servent de levier diplomatique.
-- [ ] Véhicules supplémentaires : navire marchand (routes maritimes), dirigeable d'exploration.
-- [ ] Unités civiles supplémentaires : ingénieur (routes hors territoire, terraformation légère), diplomate (ambassade dans une ville étrangère).
-- [ ] Quartiers spécialisés (scientifique, culturel, portuaire) qui occupent plusieurs cases.
+- [x] **Adjacences façon Anno** : chaque bâtiment gagne des bonus selon ses voisins (bibliothèque à côté d'un laboratoire, scierie entourée de forêts, marché collé à une ville…). L'aperçu s'affiche au survol pendant la construction.
+- [x] **Chaînes de production** : Menuiserie (bois → planches), Forge (pierre + bois → outils), Manufacture (nourriture → biens). Ces biens servent aux bâtiments avancés et aux merveilles.
+- [x] **Paliers de population** : Citoyens → Artisans (4 habitants, 1 bien par tour) → Savants (6 habitants, 1 bien et 1 outil par tour). Chaque palier donne des bonus et de la population maximale.
+- [x] Ressources rares (épices, marbre, cristal) exploitées par un Comptoir : bonus actifs tant qu'il en reste, +3 prestige par ressource active, échangeables avec les IA (qui les valorisent davantage quand elles en manquent).
+- [x] Véhicules : navire marchand (routes maritimes à +4 Or, une par port) et dirigeable (survole montagnes et océans).
+- [x] Unités civiles : Ingénieur (routes partout, défrichage) et Émissaire (ambassade : +15 relation, +1 par tour).
+- [x] Quartiers 2×2 : Campus, Quartier des arts, Quartier marchand.
+- [ ] Notes pour plus tard : l'IA construit encore peu de quartiers 2×2 et de laboratoires, et le moteur pourrait être optimisé (une simulation prend environ 0,5 s par partie).
 
 ## Phase 3 — Diplomatie et IA (v0.4) · ~3 semaines
 
