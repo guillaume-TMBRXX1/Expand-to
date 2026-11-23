@@ -149,6 +149,10 @@ Mesuré sur 100 parties simulées par réglage (`tools/sim.mjs` et scripts de me
   - après : 39 prestige, 20 science, 19 culture, 15 diplomatie, 7 économie.
 - [x] **Durées** : partie normale environ 39 tours (objectif de prestige 230). Partie longue environ 50 tours (contre 42) : seuils des voies ×3 et technologies 60 % plus chères. Partie rapide environ 31 tours.
 - [x] **Entraînement de l'IA** : nouveaux paramètres entraînables (concentration de la recherche, merveille de voie, matériaux), et comparaison équitable des candidats (mêmes cartes à chaque génération).
+  - Essai : 8 générations de 5 candidats sur 40 parties. Sur 200 cartes jamais vues, l'IA entraînée gagne 32,5 % des parties contre 24 % pour les réglages actuels.
+  - Pas retenue : elle déséquilibre les profils (Érudit 40 %, Négociant 13 %, et 0 % en partie longue), car l'objectif ne récompense que la force brute.
+  - En ne gardant que ses choix de construction : 30,5 %, mais le Négociant tombe encore à 16 %.
+- [ ] À suivre : un objectif d'entraînement qui récompense la force **et** l'équilibre entre profils ; l'IA entraînée pourrait aussi servir au niveau Difficile.
 - [ ] À suivre : en partie rapide, presque tout se gagne au prestige ; en partie longue, le Bâtisseur est faible (aucune merveille de voie propre) ; l'IA construit encore peu de laboratoires.
 
 ---
