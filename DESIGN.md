@@ -53,4 +53,13 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
 - Les géométries et matériaux sont mis en cache.
 - Animations : les pièces animées sont marquées `anim(...)` dans `models.js` (types `spin`, `flag`, `bob`, `smoke`). Elles ne sont pas fusionnées, et le renderer les anime (coupées si `prefers-reduced-motion`).
 - Terrain : flancs assombris par un shader, décor instancié (fleurs, touffes, rochers, coquillages), eau animée (vaguelettes et reflets), zones hors de vue grisées.
-- Prochaines étapes : variantes de bâtiments selon l'époque, effets de construction, et éventuellement des modèles glTF faits main dans le même style.
+
+## Deuxième passage
+
+- **Variantes** : chaque bâtiment tire une variante de sa position (même case, même allure à chaque partie). Les couleurs des toits et des murs changent par une table de correspondance (`VARIANTS` dans `models.js`), et l'orientation tourne d'un quart de tour, sauf pour les bâtiments liés à la côte ou aux quartiers.
+- **Villes par palier** : les Artisans ajoutent une place avec une fontaine et un étal sous auvent. Les Savants ajoutent une tour à dôme aux couleurs du joueur et des maisons plus hautes.
+- **Chantiers** : le bâtiment monte au fil des tours (de 25 à 90 % de sa hauteur, translucide), entouré d'échafaudages, de caisses et d'une grue dont la flèche tourne.
+- **Effets** : à l'achèvement, le bâtiment apparaît avec un léger rebond, suivi d'un nuage de poussière et d'étincelles. Une nouvelle ville apparaît de la même façon, une ville qui grandit rebondit, une nouvelle unité apparaît en douceur, et une unité en marche laisse une petite traînée de poussière. Ces effets ne se jouent que pour les cases visibles, et pas au chargement d'une partie.
+- **Décor** : palmiers sur les plages, sapins sur les collines et au pied des montagnes, buissons dans les plaines (instanciés, avec couleurs de sommets). Une frange d'écume borde les côtes.
+- **Ciel** : quelques nuages dérivent et projettent leur ombre. Ils s'effacent progressivement quand on zoome pour ne jamais gêner la lecture.
+- Pistes pour la suite : éventuellement des modèles glTF faits main dans le même style.
