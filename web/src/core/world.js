@@ -2,6 +2,7 @@
 // Importé par game.js : les fonctions du moteur ne sont utilisées qu'à l'exécution.
 import * as G from './game.js';
 import { addBonusPrestige } from './diversity.js';
+import { leagueBrokenContract } from './economy.js';
 
 const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const name = (s, pid) => s.players[pid].name;
@@ -78,6 +79,7 @@ export function contractsTick(s) {
       s.contracts = s.contracts.filter((x) => x !== c);
       G.remember(s, c.to, c.from, `Contrat non honoré (${c.qty} ${s.data.resources[c.res].name})`, C.failRelation);
       G.log(s, `Contrat non honoré : ${name(s, c.from)} est déçu (${C.failRelation} relation).`, [c.to], 'bad');
+      leagueBrokenContract(s, c.to);
     }
   }
   if (s.turn < C.firstTurn) return;

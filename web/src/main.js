@@ -2,6 +2,7 @@
 import * as G from './core/game.js';
 import * as D from './core/diversity.js';
 import * as W from './core/world.js';
+import * as ECO from './core/economy.js';
 import { playAITurns } from './core/ai.js';
 import { Renderer } from './render/renderer.js';
 import { avatarSVG } from './ui/avatar.js';
@@ -271,12 +272,32 @@ function renderStock() {
   const active = new Set(G.activeLuxuries(s, 0));
   const canSell = G.hallCount(s, 0) > 0;
   const auto = p.autoSell || {};
+  const spark = (k) => {
+    const h = s.world?.history?.[k] || [];
+    if (h.length < 2) return '';
+    const max = Math.max(1.6, ...h), min = Math.min(0.4, ...h);
+    const pts = h.map((v, i) => `${(i / (h.length - 1)) * 54},${16 - ((v - min) / (max - min)) * 14}`).join(' ');
+    const up = h[h.length - 1] >= h[0];
+    return `<svg class="spark" viewBox="-1 0 56 18" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${up ? 'var(--good)' : 'var(--bad)'}" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+  };
+  const marketTags = (k) => {
+    const f = ECO.worldFactor(s, k), h = s.world?.history?.[k] || [];
+    const prev = h.length > 3 ? h[h.length - 4] : f;
+    const trend = f > prev * 1.05 ? '▲' : f < prev * 0.95 ? '▼' : '';
+    const b = s.world?.bubble;
+    const m = ECO.monopolist(s, k);
+    return `<span class="mk-tags"><span class="muted" title="Cours mondial (1 = prix de référence)">cours ${f.toFixed(2).replace('.', ',')}${trend ? ` ${trend}` : ''}</span>${spark(k)}`
+      + (b && b.res === k ? `<span class="tag ${b.phase === 'rise' ? 'warn' : 'bad'}">${b.phase === 'rise' ? 'Bulle !' : 'Krach'}</span>` : '')
+      + (m !== null ? `<span class="tag ${m === 0 ? 'good' : 'neutral'}" title="Seul producteur : prix de vente +${Math.round(s.rules.economy.monopolyBonus * 100)} %">Monopole : ${m === 0 ? 'vous' : esc(s.players[m].name)}</span>` : '') + '</span>';
+  };
   const sellBar = (k) => {
     if (!canSell) return '';
     const stock = Math.floor(p.res[k] || 0);
     const q5 = G.quoteSale(s, 0, k, Math.min(5, stock)).gold, q10 = G.quoteSale(s, 0, k, Math.min(10, stock)).gold;
     const price = G.unitPrice(s, 0, k);
-    return `<div class="sell-row"><span class="muted">${price.toFixed(1).replace('.', ',')} Or/u</span>
+    const cb = ECO.canBuy(s, 0, k), qb = ECO.quoteBuy(s, 0, k, 5).gold;
+    return `<div class="mk-row">${marketTags(k)}<button class="btn small" data-action="buy" data-res="${k}" data-qty="5" ${cb.ok && p.res.gold >= qb ? '' : 'aria-disabled="true"'} title="${cb.ok ? `Acheter 5 au marché mondial : ${qb} Or` : esc(cb.reason)}">Acheter 5 · ${qb} Or</button></div>
+      <div class="sell-row"><span class="muted">${price.toFixed(1).replace('.', ',')} Or/u</span>
       <button class="btn small" data-action="sell" data-res="${k}" data-qty="5" ${stock >= 1 ? '' : 'disabled'} title="Vendre 5 : +${q5} Or">−5 · +${q5}</button>
       <button class="btn small" data-action="sell" data-res="${k}" data-qty="10" ${stock >= 1 ? '' : 'disabled'} title="Vendre 10 : +${q10} Or">−10 · +${q10}</button>
       <span class="auto-sell"><label class="check small" title="Chaque fin de tour, vendre tout ce qui dépasse le seuil"><input type="checkbox" data-action="autosell" data-res="${k}" ${auto[k] !== undefined ? 'checked' : ''}> auto au-delà de</label>
@@ -287,7 +308,7 @@ function renderStock() {
   };
   const row = (k) => `<div class="stock-row"><span><i style="background:${resColor(k)}"></i>${data.resources[k].name}</span><b>${fmt(p.res[k] || 0)}</b><small class="${(y.net[k] || 0) < 0 ? 'neg' : ''}">${sign(y.net[k] || 0)}</small></div>${sellBar(k)}`;
   el.innerHTML = `<div class="section-title"><span>Entrepôt</span><button class="btn small ghost" data-action="stock">Fermer</button></div>
-    ${canSell ? `<p class="muted" style="font-size:12px;margin:0 0 4px">Halle marchande : vente à ${Math.round(G.sellRate(s, 0) * 100)}% de la valeur. Le prix baisse si vous vendez beaucoup, puis remonte chaque tour.</p>` : '<p class="muted" style="font-size:12px;margin:0 0 4px">Construisez une <b>Halle marchande</b> (onglet Industrie, technologie Commerce) pour vendre vos surplus contre de l\'Or.</p>'}
+    ${canSell ? `<p class="muted" style="font-size:12px;margin:0 0 4px">Marché mondial : les cours sont communs à tous les joueurs. Chaque vente fait baisser le cours, chaque achat le fait monter, et il revient peu à peu selon la rareté. Votre Halle vend à ${Math.round(G.sellRate(s, 0) * 100)} % du cours${ECO.inLeague(s, 0) ? ` (+${Math.round(s.rules.league.sellBonus * 100)} % grâce à la Ligue)` : ''}.</p>` : '<p class="muted" style="font-size:12px;margin:0 0 4px">Construisez une <b>Halle marchande</b> (onglet Industrie, technologie Commerce) pour vendre vos surplus contre de l\'Or.</p>'}
     <div class="stock-group">Biens transformés</div>${G.GOODS.map(row).join('')}
     ${canSell ? `<div class="stock-group">Matériaux</div>${['wood', 'stone', 'food'].map(row).join('')}` : ''}
     <div class="stock-group">Ressources rares</div>${G.LUXURIES.map((k) => row(k) + `<div class="stock-desc ${active.has(k) ? 'good' : ''}">${active.has(k) ? 'Actif : ' : ''}${data.resources[k].desc}</div>`).join('')}
@@ -382,6 +403,7 @@ function renderSide() {
   $('#proposals').innerHTML = crisisCard() + eventCards() + contractCards() + props.map((pr) => {
     const from = s.players[pr.from];
     const text = {
+      league: `<b>${esc(from.name)}</b> vous invite dans la <b>Ligue marchande</b> : cotisation de ${s.rules.league.dues} Or par tour, +${s.rules.league.routeGold} Or et +${s.rules.league.routePrestige} prestige par route entre membres, ventes à la Halle +${Math.round(s.rules.league.sellBonus * 100)} %. Un conflit ouvert avec un membre ou un contrat non honoré vaut l'exclusion.`,
       promise: `<b>${esc(from.name)}</b> vous demande de <b>promettre</b> de ne plus fonder de ville près de ses frontières. Rompre une promesse coûte très cher (${s.rules.promise.breakPenalty} relation, et les autres l'apprennent).`,
       project: `<b>${esc(from.name)}</b>, votre allié, propose un <b>projet commun</b> : ${G.fmtBundle(s, s.rules.jointProject.cost)} chacun, puis +${s.rules.jointProject.prestige} prestige et ${chipsText(s.rules.jointProject.yields)} par tour pour les deux.`,
       agreement: `<b>${esc(from.name)}</b> propose un accord commercial (+${s.rules.tradeAgreement.gold} Or/tour chacun, relation +${s.rules.tradeAgreement.relationPerTurn}/tour).`,
@@ -783,7 +805,9 @@ function showEncyclopedia(tab = 'buildings') {
       <div class="enc-item"><b>Contrats commerciaux</b><div class="muted">Une IA demande une livraison (${s.rules.contracts.duration} tours pour livrer) contre de l'Or, +${s.rules.contracts.relation} relation et +${s.rules.contracts.prestige} prestige. Un contrat accepté puis non honoré coûte ${s.rules.contracts.failRelation} relation.</div></div>
       <div class="enc-item"><b>Influence culturelle</b><div class="muted">Votre culture s'accumule en influence. À ${s.rules.influence.baseCost} points (+${s.rules.influence.costPerClaim} par case déjà annexée), votre territoire s'étend d'une case neutre voisine. Si votre culture dépasse ${s.rules.influence.flipFactor} fois celle d'un voisin, vous pouvez attirer une case de sa frontière (sans bâtiment, coût doublé, ${s.rules.influence.flipRelation} relation).</div></div>
       <div class="enc-item"><b>Crise mondiale</b><div class="muted">Vers le milieu de la partie, une crise frappe tous les pays. Un Congrès extraordinaire réunit les contributions (objectif ${s.rules.crisis.goalPerPlayer} Or par pays). Atteint : la crise s'arrête et les contributeurs gagnent du prestige. Manqué : elle dure ${s.rules.crisis.failTurns} tours, et personne ne paie.</div></div>
-      <div class="enc-item"><b>Marché</b><div class="muted">La Halle marchande vend à ${Math.round(R.market.baseRate * 100)} % de la valeur ; le prix baisse si l'on vend beaucoup et remonte de ${Math.round(R.market.recovery * 100)} points par tour.</div></div>`;
+      <div class="enc-item"><b>Marché mondial</b><div class="muted">Les cours sont communs à tous les joueurs : chaque vente fait baisser le cours, chaque achat le fait monter, et il revient peu à peu vers un niveau qui dépend de la rareté (nombre de producteurs). Avec une Halle marchande, on vend à ${Math.round(R.market.baseRate * 100)} % du cours et on achète avec une marge de ${Math.round((R.economy.buySpread - 1) * 100)} %, si un autre joueur produit la ressource.</div></div>
+      <div class="enc-item"><b>Bulles et monopoles</b><div class="muted">De temps en temps, une ressource devient à la mode : son cours s'envole pendant quelques tours, puis la bulle éclate. Le seul producteur d'une ressource rare détient un monopole : il la vend ${Math.round(R.economy.monopolyBonus * 100)} % plus cher, les autres la paient plus cher, et il touche une part de leurs achats.</div></div>
+      <div class="enc-item"><b>Ligue marchande</b><div class="muted">Une seule par partie (${G.techDef(s, R.league.tech).name}, ${G.fmtBundle(s, R.league.foundCost)}). Cotisation de ${R.league.dues} Or par tour. Les routes entre membres rapportent +${R.league.routeGold} Or et +${R.league.routePrestige} prestige, et les ventes à la Halle sont payées ${Math.round(R.league.sellBonus * 100)} % de plus. Un conflit ouvert entre membres (relation sous ${R.league.excludeBelow}), une cotisation impayée ou un contrat non honoré vaut l'exclusion.</div></div>`;
   }
   openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Encyclopédie"><header><h2>Encyclopédie</h2><button class="btn" data-action="close">Fermer</button></header>
     <div class="tabs" role="tablist">${Object.entries(tabs).map(([k, v]) => `<button class="tab" role="tab" aria-selected="${k === tab}" data-action="enc-tab" data-tab="${k}">${v}</button>`).join('')}</div>
@@ -844,6 +868,19 @@ function showPolicies() {
     <div class="tech-grid">${list}</div></div>`);
 }
 
+function leagueBox() {
+  const L = s.rules.league, lg = s.league;
+  const perks = `cotisation ${L.dues} Or/tour · +${L.routeGold} Or et +${L.routePrestige} prestige par route entre membres · ventes +${Math.round(L.sellBonus * 100)} %`;
+  if (!lg) {
+    const can = ECO.canFoundLeague(s, 0);
+    return `<div class="league card"><b>Ligue marchande</b> <span class="muted">— aucune pour l'instant. ${perks}.</span>
+      <button class="btn small ${can.ok ? 'primary' : ''}" data-action="league-found" ${can.ok ? '' : 'aria-disabled="true"'} title="${esc(can.ok ? `Fonder la ligue : ${G.fmtBundle(s, L.foundCost)}, +${L.foundPrestige} prestige` : can.reason)}">Fonder (${G.fmtBundle(s, L.foundCost)})</button></div>`;
+  }
+  return `<div class="league card"><b>Ligue marchande</b> <span class="muted">fondée au tour ${lg.turn} · ${perks}.</span>
+    <div class="league-members">${lg.members.map((m) => `${avatar(s.players[m], 22)} ${esc(s.players[m].name)}${m === lg.founder ? ' <span class="muted">(fondateur)</span>' : ''}`).join(' · ')}</div>
+    ${ECO.inLeague(s, 0) ? '<button class="btn small" data-action="league-leave">Quitter la Ligue</button>' : '<span class="muted">Un membre peut vous inviter.</span>'}</div>`;
+}
+
 function showDiplo() {
   Tuto.flag(s, 'diplo');
   const resOpts = (sel0) => G.STOCK.map((k) => `<option value="${k}" ${k === sel0 ? 'selected' : ''}>${data.resources[k].name}</option>`).join('');
@@ -864,10 +901,11 @@ function showDiplo() {
         ${all ? '<span class="tag good">Alliance</span>' : ''}${agr ? '<span class="tag good">Accord commercial</span>' : ''}
         ${routes ? `<span class="tag good">${routes} route(s)</span>` : ''}${nb ? '<span class="tag warn">Voisin</span>' : ''}
         ${G.hasEmbassy(s, 0, q.id) ? '<span class="tag good">Votre ambassade</span>' : ''}${G.hasEmbassy(s, q.id, 0) ? '<span class="tag neutral">Son ambassade</span>' : ''}
-        ${promised ? '<span class="tag warn">Promesse : pas de ville près de chez lui</span>' : ''}${nProj ? `<span class="tag good">${nProj} projet(s) commun(s)</span>` : ''}</div>
+        ${promised ? '<span class="tag warn">Promesse : pas de ville près de chez lui</span>' : ''}${ECO.inLeague(s, q.id) ? '<span class="tag good">Ligue marchande</span>' : ''}${nProj ? `<span class="tag good">${nProj} projet(s) commun(s)</span>` : ''}</div>
       ${mem.length ? `<div class="memories"><div class="stock-group" style="margin-top:8px">Ce qu'il retient de vous</div>${mem.map((m) => `<div class="mem ${m.value < 0 ? 'bad' : 'good'}"><span>${esc(m.text)}</span><b>${m.value > 0 ? '+' : ''}${m.value}</b></div>`).join('')}</div>` : ''}
       <div class="actions">
         <button class="btn small" data-action="gift" data-id="${q.id}" ${me().res.gold < 25 ? 'disabled' : ''}>Offrir 25 Or</button>
+        ${ECO.inLeague(s, 0) && !ECO.inLeague(s, q.id) ? `<button class="btn small" data-action="league-invite" data-id="${q.id}" title="Relation minimale ${s.rules.league.minRelation}">Inviter dans la Ligue</button>` : ''}
         ${agr ? `<button class="btn small" data-action="cancel-agr" data-id="${q.id}">Rompre l'accord</button>` : `<button class="btn small" data-action="agreement" data-id="${q.id}" title="Requiert Protocole et relation ≥ ${s.rules.tradeAgreement.minRelation}">Accord commercial</button>`}
         ${all ? `<button class="btn small" data-action="project" data-id="${q.id}" ${nProj >= s.rules.jointProject.maxPerPair ? 'disabled' : ''} title="Coûte ${G.fmtBundle(s, s.rules.jointProject.cost)} à chacun : +${s.rules.jointProject.prestige} prestige et ${chipsText(s.rules.jointProject.yields)} par tour pour les deux">Projet commun</button>`
           : `<button class="btn small" data-action="alliance" data-id="${q.id}" title="Requiert Ambassades et relation ≥ ${pers?.allianceMin ?? s.rules.alliance.minRelation}">Alliance</button>`}
@@ -881,6 +919,7 @@ function showDiplo() {
   openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Diplomatie"><header><div><h2>Diplomatie</h2>
     <div class="muted" style="font-size:13px;margin-top:2px">Les voisins méfiants ou hostiles réduisent votre productivité. Les accords et alliances la renforcent. Vos alliés partagent leurs technologies (−25 % de coût).</div></div>
     <button class="btn" data-action="close">Fermer</button></header>
+    ${leagueBox()}
     <div class="diplo-grid">${cards}</div>
     <div class="effects"><b>Effets actuels sur votre productivité</b>${dip.reasons.length ? `<ul>${dip.reasons.map((r) => `<li class="${r.tone}">${esc(r.text)} : ${r.value > 0 ? '+' : ''}${Math.round(r.value * 100)}%${r.res ? ' Or' : ''}</li>`).join('')}</ul>` : '<div class="muted" style="margin-top:4px">Aucun effet pour le moment.</div>'}</div></div>`);
 }
@@ -1091,6 +1130,14 @@ function onAction(e) {
     case 'toggle-side': setSide(!document.documentElement.classList.contains('side-open')); break;
     case 'dismiss-rotate': rotateDismissed = true; applyLayout(); break;
     case 'toggle-adj': showAdjacency = !showAdjacency; renderBuildbar(); renderHighlights(); break;
+    case 'buy': {
+      const r = ECO.buy(s, 0, b.dataset.res, Number(b.dataset.qty));
+      if (!r.ok) toast(r.reason, 'bad'); else toast(`${r.qty} ${data.resources[b.dataset.res].name} achetés : −${r.gold} Or.`, 'good');
+      renderTop(); renderStock(); save(); break;
+    }
+    case 'league-found': { const r = ECO.foundLeague(s, 0); toast(r.ok ? 'Ligue marchande fondée !' : r.reason, r.ok ? 'good' : 'bad'); showDiplo(); renderAll(); save(); break; }
+    case 'league-invite': { const r = ECO.inviteToLeague(s, 0, id); toast(r.ok ? `${s.players[id].name} rejoint la Ligue.` : r.reason || 'Refus.', r.ok ? 'good' : 'bad'); showDiplo(); renderAll(); save(); break; }
+    case 'league-leave': ECO.leaveLeague(s, 0); showDiplo(); renderAll(); save(); break;
     case 'sell': {
       const r = G.sell(s, 0, b.dataset.res, Number(b.dataset.qty));
       if (!r.ok) toast(r.reason, 'bad'); else toast(`${r.qty} ${data.resources[b.dataset.res].name} vendus : +${r.gold} Or.`, 'good');

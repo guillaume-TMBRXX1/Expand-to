@@ -4,7 +4,7 @@
     "height": 28
   },
   "turnLimit": 60,
-  "prestigeTarget": 230,
+  "prestigeTarget": 250,
   "cityBaseYield": {
     "food": 3,
     "gold": 2,
@@ -282,9 +282,15 @@
       "planks",
       "tools",
       "goods",
-      "spices",
+      "furs",
+      "crystal",
       "marble",
-      "crystal"
+      "wine",
+      "silk",
+      "pearls",
+      "salt",
+      "spices",
+      "incense"
     ],
     "baseRate": 0.75,
     "perHall": 0.05,
@@ -677,5 +683,43 @@
     },
     "farmFood": 1,
     "moveCost": 1
+  },
+  "economy": {
+    "recovery": 0.15,
+    "saturation": 0.985,
+    "minFactor": 0.35,
+    "maxFactor": 3.2,
+    "buySpread": 1.35,
+    "scarceTarget": 1.5,
+    "monopolyTarget": 1.35,
+    "perProducer": 0.06,
+    "minTarget": 0.8,
+    "monopolyBonus": 0.25,
+    "monopolyShare": 0.2,
+    "bubbleFirst": 10,
+    "bubbleEvery": 10,
+    "bubbleRise": [
+      3,
+      5
+    ],
+    "bubblePeak": 2.6,
+    "bubbleSpeed": 0.35,
+    "crashFactor": 0.45,
+    "crashTurns": 2,
+    "aiSellAbove": 1.7,
+    "aiBuyGold": 220
+  },
+  "league": {
+    "tech": "commerce",
+    "foundCost": {
+      "gold": 60
+    },
+    "foundPrestige": 4,
+    "dues": 2,
+    "sellBonus": 0.1,
+    "routeGold": 2,
+    "routePrestige": 1,
+    "minRelation": 15,
+    "excludeBelow": -25
   }
 }

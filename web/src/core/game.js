@@ -4,6 +4,7 @@ import { makeRng } from './rng.js';
 import { generateMap } from './mapgen.js';
 import { placeFeatures, onDiscover, exploreRuin, naturalYields, activeBuffs, activePolicies, eventsTick } from './diversity.js';
 import { contractsTick, influenceTick, crisisTick, crisisActive, crisisDef } from './world.js';
+import * as ECO from './economy.js';
 
 export const RES = ['gold', 'food', 'wood', 'stone'];
 export const GOODS = ['planks', 'tools', 'goods'];
@@ -709,7 +710,7 @@ export function clearForest(s, uid) {
 // Vente contre de l'Or dans une Halle marchande. Le prix baisse quand on vend beaucoup (saturation)
 // et remonte doucement chaque tour.
 export const hallCount = (s, pid) => s.buildings.filter((b) => b.owner === pid && b.type === 'markethall' && !b.turnsLeft).length;
-export function marketFactor(s, pid, res) { return (s.players[pid].market || {})[res] ?? 1; }
+export function marketFactor(s, pid, res) { return ECO.worldFactor(s, res); } // prix mondial, commun à tous
 export function sellRate(s, pid) {
   const M = s.rules.market;
   const halls = Math.min(hallCount(s, pid), M.maxHalls);
@@ -717,17 +718,9 @@ export function sellRate(s, pid) {
   const mq = s.buildings.some((b) => b.owner === pid && b.type === 'merchantquarter' && !b.turnsLeft) ? M.merchantQuarterBonus : 0;
   return M.baseRate + (halls - 1) * M.perHall + mq + playerMods(s, pid).sellBonus;
 }
-export function unitPrice(s, pid, res) {
-  return (s.data.resources[res].tradeValue || 0) * sellRate(s, pid) * marketFactor(s, pid, res);
-}
+export function unitPrice(s, pid, res) { return ECO.sellPrice(s, pid, res); }
 // Recette estimée pour qty unités (le prix baisse à chaque unité vendue).
-export function quoteSale(s, pid, res, qty) {
-  const M = s.rules.market;
-  let f = marketFactor(s, pid, res), total = 0;
-  const base = (s.data.resources[res].tradeValue || 0) * sellRate(s, pid);
-  for (let i = 0; i < qty; i++) { total += base * f; f = Math.max(M.minPrice, f * M.saturation); }
-  return { gold: Math.floor(total), factor: f };
-}
+export function quoteSale(s, pid, res, qty) { return ECO.quoteSale(s, pid, res, qty); }
 export function sell(s, pid, res, qty) {
   const p = s.players[pid];
   if (!s.rules.market.sellable.includes(res)) return { ok: false, reason: 'Ressource non vendable.' };
@@ -737,8 +730,7 @@ export function sell(s, pid, res, qty) {
   const q = quoteSale(s, pid, res, qty);
   p.res[res] -= qty;
   p.res.gold += q.gold;
-  p.market = p.market || {};
-  p.market[res] = q.factor;
+  ECO.ensureWorld(s).price[res] = q.factor; // toute vente fait baisser le cours mondial
   return { ok: true, qty, gold: q.gold };
 }
 function marketTick(s, pid) {
@@ -751,7 +743,6 @@ function marketTick(s, pid) {
       if (r.ok && p.isHuman) log(s, `Vente automatique : ${r.qty} ${s.data.resources[res].name} → ${r.gold} Or.`, [pid], 'info');
     }
   }
-  for (const res of Object.keys(p.market || {})) p.market[res] = Math.min(1, p.market[res] + M.recovery);
 }
 export function setAutoSell(s, pid, res, keep) {
   const p = s.players[pid];
@@ -953,6 +944,8 @@ export function applyDeal(s, from, to, kind, payload) {
     s.promises.push({ from: to, to: from, type: payload.type, turn: s.turn });
     remember(s, to, from, 'Promesse de ne pas s\'installer près de nous', s.rules.promise.keepBonus);
     log(s, `Vous promettez à ${A.name} de ne plus fonder de ville près de ses frontières.`, [from, to], 'good');
+  } else if (kind === 'league') {
+    ECO.joinLeague(s, to);
   } else if (kind === 'project') {
     pay(s, from, s.rules.jointProject.cost); pay(s, to, s.rules.jointProject.cost);
     s.projects.push({ a: from, b: to, turn: s.turn });
@@ -971,7 +964,7 @@ export function respondProposal(s, propId, accept) {
     applyDeal(s, pr.from, pr.to, pr.kind, pr.payload);
   } else {
     const base = pr.kind === 'request' ? (isAllied(s, pr.from, pr.to) ? -12 : -8) : pr.kind === 'promise' ? s.rules.promise.declinePenalty : -3;
-    const label = { request: 'Demande d\'aide refusée', promise: 'Promesse refusée', alliance: 'Alliance refusée', agreement: 'Accord refusé', exchange: 'Échange refusé', project: 'Projet commun refusé' }[pr.kind] || 'Proposition refusée';
+    const label = { league: 'Invitation dans la Ligue refusée', request: 'Demande d\'aide refusée', promise: 'Promesse refusée', alliance: 'Alliance refusée', agreement: 'Accord refusé', exchange: 'Échange refusé', project: 'Projet commun refusé' }[pr.kind] || 'Proposition refusée';
     const v = remember(s, pr.to, pr.from, label, base);
     log(s, `Vous déclinez la proposition de ${s.players[pr.from].name} (${v} relation).`, [pr.to], 'bad');
   }
@@ -1045,7 +1038,7 @@ export function computeYields(s, pid) {
   const routes = myRoutes.length;
   const embargoed = activeResolutions(s).some((r) => r.id === 'embargo' && r.target === pid);
   const freeTrade = activeResolutions(s).some((r) => r.id === 'trade') ? R.congress.resolutions.trade.routeGold : 0;
-  if (!embargoed) gross.gold += myRoutes.reduce((a, r) => a + (r.sea ? R.seaRoute.gold : R.tradeRoute.gold) + freeTrade, 0);
+  if (!embargoed) gross.gold += myRoutes.reduce((a, r) => a + (r.sea ? R.seaRoute.gold : R.tradeRoute.gold) + freeTrade + (R.league && ECO.leagueRoute(s, r.a, r.b) ? R.league.routeGold : 0), 0);
   for (const pj of s.projects || []) if (pj.a === pid || pj.b === pid) add(R.jointProject.yields);
   const agreements = s.agreements.filter((r) => r.a === pid || r.b === pid).length;
   gross.gold += agreements * R.tradeAgreement.gold;
@@ -1101,7 +1094,8 @@ export function computePrestige(s, pid) {
     // Routes ouvertes par le joueur : prestige plein ; routes reçues d'autres joueurs : 1 point chacune.
     commerce: s.tradeRoutes.filter((r) => r.a === pid).length * (s.rules.tradeRoute.prestige + playerMods(s, pid).tradePrestige)
       + s.tradeRoutes.filter((r) => r.b === pid).length
-      + s.agreements.filter((r) => r.a === pid || r.b === pid).length * playerMods(s, pid).tradePrestige,
+      + s.agreements.filter((r) => r.a === pid || r.b === pid).length * playerMods(s, pid).tradePrestige
+      + (s.rules.league ? s.tradeRoutes.filter((r) => r.a === pid && ECO.leagueRoute(s, r.a, r.b)).length * s.rules.league.routePrestige : 0),
   };
   for (const bd of s.buildings) {
     if (bd.owner !== pid || bd.turnsLeft > 0) continue;
@@ -1188,6 +1182,8 @@ export function endRound(s) {
       log(s, `${def.name} terminé.`, [0], 'good');
     }
   }
+  ECO.economyTick(s);
+  ECO.leagueTick(s);
   // Relations
   for (let a = 0; a < s.players.length; a++) for (let b = a + 1; b < s.players.length; b++) {
     let d = 0;

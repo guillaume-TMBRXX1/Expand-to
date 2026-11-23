@@ -173,12 +173,21 @@ Mesuré sur 100 parties simulées par réglage (`tools/sim.mjs` et scripts de me
 - [x] **Génération identique en JavaScript et en Python** (terrain, régions et rivières), testée sur 4 cartes.
 - Équilibrage reporté après les phases 8 à 12, comme convenu. La CI passe toujours (36 tours en moyenne en partie normale).
 
-## Phase 9 — Commerce et économie mondiale · à venir
+## Phase 9 — Commerce et économie mondiale ✅
 
-- [ ] **Prix mondiaux dynamiques.** Un marché commun à tous les joueurs : chaque ressource a un prix qui dépend de ce que tout le monde produit, vend et consomme. Inonder le marché fait chuter le prix pour tous. Un graphique de cours s'affiche dans l'Entrepôt.
-- [ ] **Bulles spéculatives**, inspirées de la tulipomanie : une ressource devient à la mode, son prix s'envole pendant quelques tours, puis s'effondre. Vendre au bon moment rapporte gros.
-- [ ] **Monopoles**, inspirés des guildes : le seul producteur d'une ressource rare en fixe le prix, et les autres paient plus cher pour l'obtenir, jusqu'à ce qu'un rival en exploite à son tour.
-- [ ] **Ligue marchande**, inspirée de la Hanse : une alliance commerciale entre plusieurs joueurs. Les routes entre membres rapportent davantage, en échange d'une cotisation. Un membre qui ne respecte pas les règles peut être exclu.
+- [x] **Marché mondial** (`web/src/core/economy.js`, réglages `economy` dans `rules.json`)
+  - Un cours par ressource, commun à tous les joueurs : chaque vente le fait baisser, chaque achat le fait monter.
+  - Chaque tour, il revient vers une cible qui dépend du nombre de producteurs : rare = cher, très produit = bon marché.
+  - Achat possible avec une marge de 35 %, dès qu'un autre joueur produit la ressource.
+  - L'Entrepôt affiche le cours, la tendance et une mini-courbe des 20 derniers tours.
+- [x] **Bulles spéculatives** : environ tous les 10 tours, une ressource devient à la mode et son cours monte vers ×2,6 pendant 3 à 5 tours. Puis la bulle éclate et le cours chute à ×0,45. C'est annoncé dans le journal et signalé dans l'Entrepôt.
+- [x] **Monopoles** : le seul producteur d'une ressource rare la vend 25 % plus cher, les autres la paient 25 % plus cher, et il touche 20 % de leurs achats. Seuls les joueurs concernés sont prévenus.
+- [x] **Ligue marchande**
+  - Une seule par partie : Commerce et 60 Or, +4 prestige au fondateur.
+  - Cotisation de 2 Or par tour. Routes entre membres : +2 Or et +1 prestige. Ventes : +10 %.
+  - Invitations dans les deux sens (proposition pour le joueur, décision immédiate pour une IA). Exclusion en cas de conflit (relation sous −25), de cotisation impayée ou de contrat non honoré.
+- [x] **IA** : elle vend pendant les bulles, achète la ressource rare qui lui manque quand elle est riche, fonde la ligue (Négociant ou commerçant actif) et invite ses partenaires.
+- Réglage provisoire pour la CI : objectif de prestige porté à 250 (35 à 36 tours en partie normale). À revoir lors de l'équilibrage final, notamment la voie économique : l'IA qui possède la Grande Bourse a déjà des milliers d'Or.
 
 ## Phase 10 — Diplomatie et grands rendez-vous · à venir
 
