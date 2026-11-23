@@ -209,3 +209,9 @@ kbd { font: 12px ui-monospace, monospace; background: var(--surface-2); border: 
 .brand { font-size: 17px; }
 .top-actions .btn { padding: 7px 12px; }
 @media (max-width: 1300px) { .resources { flex-wrap: wrap; } }
+
+.sell-row { display: flex; align-items: center; gap: 6px; margin: 0 0 8px 15px; flex-wrap: wrap; font-size: 12px; }
+.sell-row .btn.small { padding: 3px 8px; font-size: 12px; }
+.check.small { font-size: 12px; gap: 4px; }
+.check.small input { width: 13px; height: 13px; }
+#stock { width: 340px; }

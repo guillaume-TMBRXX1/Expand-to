@@ -7,7 +7,7 @@ import { avatarSVG } from './ui/avatar.js';
 const COLORS = ['#ff6b4a', '#8b5cf6', '#f5b700', '#14b8a6', '#ec4899'];
 const items = [
   ['Capitale', () => cityModel(COLORS[0], 4, true)], ['Ville', () => cityModel(COLORS[1], 2, false)],
-  ...['farm', 'lumber', 'quarry', 'market', 'library', 'theatre', 'lab', 'harbor', 'district', 'monument', 'sawmill', 'manufactory', 'forge'].map((t) => [t, () => buildingModel(t, false)]),
+  ...['farm', 'lumber', 'quarry', 'market', 'library', 'theatre', 'lab', 'harbor', 'district', 'monument', 'sawmill', 'manufactory', 'forge', 'markethall'].map((t) => [t, () => buildingModel(t, false)]),
   ['Comptoir (épices)', () => buildingModel('outpost', false, 'spices')], ['Comptoir (cristal)', () => buildingModel('outpost', false, 'crystal')],
   ['Épices', () => luxuryModel('spices')], ['Marbre', () => luxuryModel('marble')], ['Cristal', () => luxuryModel('crystal')],
   ...['campus', 'artsquarter', 'merchantquarter'].map((t) => [t, () => { const g = buildingModel(t, false); g.scale.setScalar(0.5); const w = new THREE.Group(); w.add(g); return w; }]),
@@ -16,7 +16,7 @@ const items = [
   ['Explorateur', () => unitModel('explorer', COLORS[0], 0)], ['Colon', () => unitModel('settler', COLORS[2], 1)], ['Caravane', () => unitModel('caravan', COLORS[3], 2)],
   ['Ingénieur', () => unitModel('engineer', COLORS[1], 3)], ['Émissaire', () => unitModel('emissary', COLORS[4], 0)], ['Navire', () => unitModel('ship', COLORS[0], 0)], ['Dirigeable', () => unitModel('airship', COLORS[2], 0)],
 ];
-const NAMES = { farm: 'Ferme', lumber: 'Scierie', quarry: 'Carrière', market: 'Marché', library: 'Bibliothèque', theatre: 'Théâtre', lab: 'Laboratoire', harbor: 'Port', district: 'Quartier', monument: 'Monument', sawmill: 'Menuiserie', manufactory: 'Manufacture', forge: 'Forge', campus: 'Campus (2×2)', artsquarter: 'Quartier des arts (2×2)', merchantquarter: 'Quartier marchand (2×2)', lighthouse: 'Grand Phare', grandlibrary: 'Grande Bibliothèque', observatory: 'Observatoire', amphitheatre: 'Amphithéâtre', exchange: 'Grande Bourse', nations: 'Palais des Nations' };
+const NAMES = { farm: 'Ferme', lumber: 'Scierie', quarry: 'Carrière', market: 'Marché', library: 'Bibliothèque', theatre: 'Théâtre', lab: 'Laboratoire', harbor: 'Port', district: 'Quartier', monument: 'Monument', sawmill: 'Menuiserie', manufactory: 'Manufacture', forge: 'Forge', markethall: 'Halle marchande', campus: 'Campus (2×2)', artsquarter: 'Quartier des arts (2×2)', merchantquarter: 'Quartier marchand (2×2)', lighthouse: 'Grand Phare', grandlibrary: 'Grande Bibliothèque', observatory: 'Observatoire', amphitheatre: 'Amphithéâtre', exchange: 'Grande Bourse', nations: 'Palais des Nations' };
 
 const view = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ antialias: true });

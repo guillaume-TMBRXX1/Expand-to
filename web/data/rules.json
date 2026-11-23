@@ -123,5 +123,26 @@
       "wood": 1
     },
     "clearWood": 10
+  },
+  "market": {
+    "sellable": [
+      "wood",
+      "stone",
+      "food",
+      "planks",
+      "tools",
+      "goods",
+      "spices",
+      "marble",
+      "crystal"
+    ],
+    "baseRate": 0.75,
+    "perHall": 0.05,
+    "maxHalls": 3,
+    "merchantQuarterBonus": 0.05,
+    "saturation": 0.985,
+    "recovery": 0.04,
+    "minPrice": 0.5,
+    "autoSellKeep": 30
   }
 }
