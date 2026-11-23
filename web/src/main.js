@@ -89,7 +89,7 @@ function showStart() {
         <label class="field">Type de carte<select id="f-type">${Object.entries(data.rules.mapTypes).map(([k, v]) => `<option value="${k}" title="${esc(v.desc)}">${v.name}</option>`).join('')}</select></label>
         <label class="field">Durée<select id="f-length">${Object.entries(data.rules.gameLengths).map(([k, v]) => `<option value="${k}" ${k === 'normal' ? 'selected' : ''}>${v.name}</option>`).join('')}</select></label>
         <label class="field">Adversaires IA<select id="f-ai"></select></label>
-        <label class="field">Difficulté<select id="f-diff">${Object.entries(data.ai.difficulty).map(([k, d]) => `<option value="${k}" ${k === 'normal' ? 'selected' : ''}>${d.name}</option>`).join('')}</select></label>
+        <label class="field" title="${esc(Object.values(data.ai.difficulty).map((d) => `${d.name} : ${d.desc || ''}`).join('\n'))}">Difficulté<select id="f-diff">${Object.entries(data.ai.difficulty).map(([k, d]) => `<option value="${k}" ${k === 'normal' ? 'selected' : ''} title="${esc(d.desc || '')}">${d.name}</option>`).join('')}</select></label>
         <label class="field">Graine de carte (optionnel)<input id="f-seed" inputmode="numeric" placeholder="ex. 4242"></label>
       </div>
       <div class="start-actions">

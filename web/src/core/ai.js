@@ -10,7 +10,11 @@ function merge(a, b) {
   for (const [k, v] of Object.entries(b)) out[k] = v && typeof v === 'object' && !Array.isArray(v) ? merge(a[k] || {}, v) : v;
   return out;
 }
-export function aiParams(s, pid) { return merge(s.data.ai, s.aiOverrides?.[pid]); }
+export function aiParams(s, pid) {
+  // Niveau Difficile : les IA (jamais le joueur humain, toujours le joueur 0) jouent avec les paramètres entraînés.
+  const base = pid !== 0 && s.data.ai.difficulty?.[s.difficulty]?.useTrained && s.data.ai.trained ? merge(s.data.ai, s.data.ai.trained) : s.data.ai;
+  return merge(base, s.aiOverrides?.[pid]);
+}
 const PATH_WONDER = { science: 'observatory', culture: 'amphitheatre', economy: 'exchange', diplomacy: 'nations' };
 const YIELD_BRANCH = { gold: 'economy', science: 'science', culture: 'culture', food: 'economy', wood: 'economy', stone: 'economy' };
 
