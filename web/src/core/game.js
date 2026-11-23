@@ -2,6 +2,7 @@
 // Aucune dépendance au rendu : le même code tourne dans le navigateur et en simulation Node (tools/sim.mjs).
 import { makeRng } from './rng.js';
 import { generateMap } from './mapgen.js';
+import { placeFeatures, onDiscover, exploreRuin, naturalYields, activeBuffs, activePolicies, eventsTick } from './diversity.js';
 
 export const RES = ['gold', 'food', 'wood', 'stone'];
 export const GOODS = ['planks', 'tools', 'goods'];
@@ -134,6 +135,7 @@ export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profi
   rng.shuffle(starts);
 
   placeLuxuries(s, rng, starts);
+  placeFeatures(s, rng, starts);
   const pool = [];
   while (pool.length < aiCount) pool.push(...rng.shuffle(data.profiles.map((p) => p.id)));
   const aiProfiles = pool.slice(0, aiCount);
@@ -149,7 +151,7 @@ export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profi
       id: i, isHuman: i === 0, name: i === 0 ? name : AI_NAMES[i - 1], color: PLAYER_COLORS[i], profile: prof,
       res, sciencePool: 0, cultureTotal: 0, techs: [...(mods.startTechs || [])], research: null,
       explored: new Array(rules.map.width * rules.map.height).fill(0),
-      cityNameIdx: 0, prestige: 0, prestigeBreakdown: {}, lastYield: null, ai: {},
+      cityNameIdx: 0, prestige: 0, prestigeBreakdown: {}, lastYield: null, ai: {}, policies: [], buffs: [], bonusPrestige: {},
       personality: i === 0 ? null : rng.pick(Object.keys(data.ai?.personalities || { loyal: 1 })), secretaryWins: 0,
     });
     const st = starts[i];
@@ -217,6 +219,8 @@ export function playerMods(s, pid) {
   apply(s.data.profilesById[p.profile].mods);
   for (const t of p.techs) apply(techDef(s, t).effects);
   for (const lux of activeLuxuries(s, pid)) apply(LUXURY_EFFECTS[lux]);
+  for (const pol of activePolicies(s, pid)) apply(pol.effects);
+  for (const b of activeBuffs(s, pid)) apply({ yieldPct: b.yieldPct });
   if (!p.isHuman && s.data.ai) { // niveau de difficulté : bonus / malus des IA
     const d = s.data.ai.difficulty[s.difficulty || 'normal'];
     if (d?.aiYieldPct) apply({ yieldPct: Object.fromEntries(['gold', 'science', 'culture', 'wood', 'stone', 'food'].map((k) => [k, d.aiYieldPct])) });
@@ -253,7 +257,11 @@ export function reveal(s, pid, x, y, r) {
   const p = s.players[pid];
   for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
     if (dx * dx + dy * dy > r * r + r) continue;
-    if (inBounds(s, x + dx, y + dy)) p.explored[idx(s, x + dx, y + dy)] = 1;
+    if (!inBounds(s, x + dx, y + dy)) continue;
+    const i = idx(s, x + dx, y + dy);
+    if (p.explored[i]) continue;
+    p.explored[i] = 1;
+    if (s.map.tiles[i].natural) onDiscover(s, pid, s.map.tiles[i]);
   }
 }
 export const isExplored = (s, pid, x, y) => s.players[pid].explored[idx(s, x, y)] === 1;
@@ -282,6 +290,7 @@ export function canFound(s, u) {
   if (t.owner !== -1 && t.owner !== u.owner) return { ok: false, reason: 'Territoire étranger.' };
   if (s.cities.some((c) => cheb(c.x, c.y, u.x, u.y) < s.rules.minCityDistance)) return { ok: false, reason: `Trop proche d'une ville (min. ${s.rules.minCityDistance} cases).` };
   if (buildingAt(s, u.x, u.y)) return { ok: false, reason: 'Case occupée par un bâtiment.' };
+  if (t.natural) return { ok: false, reason: 'On ne fonde pas de ville sur une merveille naturelle.' };
   return { ok: true };
 }
 
@@ -332,6 +341,7 @@ export function canBuild(s, pid, type, x, y) {
   for (const c of tiles) {
     if (c.owner !== pid) return { ok: false, reason: tiles.length > 1 ? 'Les 4 cases doivent être dans votre territoire.' : 'Hors de votre territoire.' };
     if (cityAt(s, c.x, c.y) || buildingAt(s, c.x, c.y)) return { ok: false, reason: 'Case occupée.' };
+    if (c.natural) return { ok: false, reason: 'Merveille naturelle : construisez à côté pour profiter de son adjacence.' };
     if (!def.terrain.includes(c.type)) return { ok: false, reason: `Terrain requis : ${def.terrain.map((k) => s.data.terrain[k].name).join(', ')}.` };
     if (def.luxuryOnly && !c.luxury) return { ok: false, reason: 'À placer sur une ressource rare.' };
     if (!def.luxuryOnly && c.luxury) return { ok: false, reason: 'Case réservée au Comptoir (ressource rare).' };
@@ -350,7 +360,6 @@ export function canBuild(s, pid, type, x, y) {
 export function adjacencyBonus(s, pid, type, x, y) {
   const def = buildingDef(s, type);
   const out = {};
-  if (!def.adjacency) return out;
   const f = footprintOf(s, type);
   const ring = [];
   for (let dy = -1; dy <= f; dy++) for (let dx = -1; dx <= f; dx++) {
@@ -358,7 +367,9 @@ export function adjacencyBonus(s, pid, type, x, y) {
     const t = tileAt(s, x + dx, y + dy);
     if (t) ring.push(t);
   }
-  for (const r of def.adjacency) {
+  // Merveille naturelle voisine : bonus pour tout bâtiment (une seule fois).
+  if (s.rules.naturalWonders && ring.some((t) => t.natural)) for (const [k, v] of Object.entries(s.rules.naturalWonders.adjacency)) out[k] = (out[k] || 0) + v;
+  for (const r of def.adjacency || []) {
     let count = 0;
     if (r.terrain) {
       const list = [].concat(r.terrain);
@@ -568,6 +579,7 @@ export function advanceUnit(s, u) {
     if (c > u.movesLeft + 1e-6) break;
     u.movesLeft -= c; u.x = t.x; u.y = t.y; steps.push(i);
     reveal(s, u.owner, u.x, u.y, unitVision(s, u));
+    if (t.ruin) exploreRuin(s, u, t);
   }
   if (u.x === u.target.x && u.y === u.target.y) {
     u.target = null;
@@ -1003,6 +1015,8 @@ export function computeYields(s, pid) {
     add(def.yields); add(adj);
     if (b.luxury) extra[b.luxury] = (extra[b.luxury] || 0) + 1;
   }
+  const nat = naturalYields(s, pid);
+  add(nat.yields);
   const connected = connectedToCapital(s, pid).length;
   gross.gold += connected * R.road.connectedCityGold;
   const myRoutes = s.tradeRoutes.filter((r) => r.a === pid || r.b === pid);
@@ -1080,6 +1094,9 @@ export function computePrestige(s, pid) {
   if (lux) b.luxe = lux * s.rules.luxuries.diversityPrestige;
   const disc = playerMods(s, pid).discoveryPrestige;
   if (disc) b.decouvertes = Math.floor((p.explored.reduce((a, v) => a + v, 0) / p.explored.length) * disc);
+  const nat = naturalYields(s, pid).owned;
+  if (nat && s.rules.naturalWonders) b.nature = nat * s.rules.naturalWonders.ownedPrestige;
+  for (const [k, v] of Object.entries(p.bonusPrestige || {})) b[k] = (b[k] || 0) + v;
   const per = playerMods(s, pid).buildingPrestigePer;
   if (per) b.monuments += Math.floor(s.buildings.filter((x) => x.owner === pid && !x.turnsLeft && !buildingDef(s, x.type).wonder).length / per);
   const total = Object.values(b).reduce((a, v) => a + v, 0);
@@ -1173,6 +1190,7 @@ export function endRound(s) {
   for (const c of s.cities) c.trained = false;
   for (const u of s.units) u.movesLeft = unitMaxMoves(s, u);
   for (const u of s.units.filter((v) => v.owner === 0 && v.target)) advanceUnit(s, u);
+  eventsTick(s);
   if (s.congress && s.congress.status === 'open') resolveCongress(s); // vote humain non exprimé : abstention
   for (const p of s.players) {
     const pr = computePrestige(s, p.id);
@@ -1281,7 +1299,7 @@ export function victoryProgress(s, pid) {
     science: { label: 'Science', done: s.wonders.observatory === pid && p.techs.length >= V.scienceTechs, text: `Observatoire Céleste ${s.wonders.observatory === pid ? '✓' : '✗'} · ${p.techs.length}/${V.scienceTechs} technologies`, pct: Math.min(1, (p.techs.length / V.scienceTechs) * 0.6 + (s.wonders.observatory === pid ? 0.4 : 0)) },
     culture: { label: 'Culture', done: s.wonders.amphitheatre === pid && p.cultureTotal >= V.cultureTotal, text: `Amphithéâtre ${s.wonders.amphitheatre === pid ? '✓' : '✗'} · ${Math.floor(p.cultureTotal)}/${V.cultureTotal} culture`, pct: Math.min(1, (p.cultureTotal / V.cultureTotal) * 0.6 + (s.wonders.amphitheatre === pid ? 0.4 : 0)) },
     economy: { label: 'Économie', done: s.wonders.exchange === pid && p.res.gold >= V.economyGold, text: `Grande Bourse ${s.wonders.exchange === pid ? '✓' : '✗'} · ${Math.floor(p.res.gold)}/${V.economyGold} Or en caisse`, pct: Math.min(1, Math.min(1, p.res.gold / V.economyGold) * 0.6 + (s.wonders.exchange === pid ? 0.4 : 0)) },
-    diplomacy: { label: 'Diplomatie', done: ((p.secretaryWins || 0) >= V.secretaryWins && others.filter((q) => isAllied(s, pid, q.id)).length >= Math.max(1, Math.floor(others.length / 2))) || (others.length >= 2 && others.every((q) => isAllied(s, pid, q.id))), text: `Élu Secrétaire ${p.secretaryWins || 0}/${V.secretaryWins} fois (et allié de la moitié des rivaux) · allié de ${others.filter((q) => isAllied(s, pid, q.id)).length}/${others.length}`, pct: Math.min(1, Math.max((p.secretaryWins || 0) / V.secretaryWins, others.filter((q) => isAllied(s, pid, q.id)).length / Math.max(1, others.length))) },
+    diplomacy: { label: 'Diplomatie', done: ((p.secretaryWins || 0) >= V.secretaryWins && others.filter((q) => isAllied(s, pid, q.id)).length >= Math.max(1, Math.floor(others.length / 2))) || (others.length >= 2 && (p.secretaryWins || 0) >= 1 && others.every((q) => isAllied(s, pid, q.id))), text: `Élu Secrétaire ${p.secretaryWins || 0}/${V.secretaryWins} fois (et allié de la moitié des rivaux) · ou allié de tous (${others.filter((q) => isAllied(s, pid, q.id)).length}/${others.length}) après au moins une élection`, pct: Math.min(1, Math.max((p.secretaryWins || 0) / V.secretaryWins, others.filter((q) => isAllied(s, pid, q.id)).length / Math.max(1, others.length))) },
     prestige: { label: 'Prestige', done: p.prestige >= s.rules.prestigeTarget, text: `${p.prestige}/${s.rules.prestigeTarget} prestige`, pct: Math.min(1, p.prestige / s.rules.prestigeTarget) },
   };
 }

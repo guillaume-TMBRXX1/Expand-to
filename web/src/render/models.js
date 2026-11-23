@@ -605,3 +605,102 @@ export function unitModel(type, color, skinIdx = 0) {
   g.add(base);
   return g;
 }
+
+// ------------------------------------------------------ merveilles naturelles
+// Posées directement sur la case (sans socle) ; plus grandes qu'un bâtiment pour se repérer de loin.
+const glowMat = new THREE.MeshStandardMaterial({ color: '#ff7a3d', emissive: '#ff5a1f', emissiveIntensity: 0.9, roughness: 0.5 });
+const waterMat = new THREE.MeshStandardMaterial({ color: '#8fd3f4', roughness: 0.15, transparent: true, opacity: 0.85 });
+function palmTree(x, z, h = 0.34, lean = 0.12) {
+  const p = [];
+  for (let k = 0; k < 4; k++) p.push(cyl(0.018 - k * 0.002, 0.02 - k * 0.002, h / 4, k % 2 ? '#a5794c' : '#b98a58', x + lean * (k / 4) * 0.3, (h / 4) * k, z, 8));
+  const top = [x + lean * 0.3, h, z];
+  for (let k = 0; k < 5; k++) {
+    const leaf = rbox(0.2, 0.012, 0.05, k % 2 ? PAL.leaf : PAL.grassDark, 0, 0, 0, 0.006);
+    const g = group(leaf); leaf.position.x = 0.08; g.position.set(...top); g.rotation.set(0, (k / 5) * Math.PI * 2, -0.35);
+    p.push(g);
+  }
+  p.push(sph(0.028, '#8a5634', top[0], top[1], top[2]));
+  return p;
+}
+const NATURALS = {
+  falls: () => {
+    const p = [rbox(0.86, 0.12, 0.86, '#cfc6b8', 0, 0, 0, 0.05)];
+    p.push(rbox(0.62, 0.38, 0.34, '#bdb3a6', 0, 0.12, -0.2, 0.06), rbox(0.4, 0.22, 0.26, '#d4cbbd', -0.2, 0.5, -0.24, 0.05), rbox(0.3, 0.16, 0.22, '#c4baac', 0.2, 0.5, -0.22, 0.05));
+    p.push(rbox(0.18, 0.45, 0.04, '#bfe8fb', 0, 0.12, -0.02, 0.02)); // chute
+    const pool = new THREE.Mesh(cached('fallspool', () => new THREE.CylinderGeometry(0.28, 0.3, 0.04, 24)), waterMat); pool.position.set(0, 0.14, 0.2); p.push(pool);
+    for (const [x, z] of [[-0.06, 0.05], [0.07, 0.07], [0, 0.12]]) p.push(anim(sph(0.045, PAL.white, x, 0.18, z), { type: 'bob', speed: 3, amp: 0.012 }));
+    p.push(sph(0.07, PAL.leaf, -0.32, 0.18, 0.28), sph(0.06, PAL.leafLight, 0.33, 0.18, 0.25), sph(0.08, PAL.leaf, 0.3, 0.68, -0.22), sph(0.06, PAL.leafLight, -0.33, 0.7, -0.2));
+    return p;
+  },
+  volcano: () => {
+    const p = [cone(0.46, 0.55, '#8d6e5c', 0, 0, 0, 18), cone(0.3, 0.34, '#a3816b', 0.05, 0, 0.1, 14)];
+    const crater = new THREE.Mesh(cached('crater', () => new THREE.CylinderGeometry(0.1, 0.12, 0.05, 16)), glowMat); crater.position.set(0, 0.49, 0); p.push(crater);
+    // Coulées de lave figées sur les pentes et blocs sombres au pied.
+    for (const a of [0.5, 2.3, 4.1]) {
+      const lava = rbox(0.05, 0.012, 0.3, '#ff7a3d', 0, 0, 0, 0.005);
+      lava.position.set(0, 0.29, 0.22); lava.rotation.x = Math.atan2(0.55, 0.46); // couché sur la pente du cône
+      const g = group(lava); g.rotation.y = a;
+      p.push(g);
+    }
+    for (const [x, z, r] of [[-0.36, 0.22, 0.05], [0.34, 0.26, 0.04], [0.3, -0.32, 0.05], [-0.3, -0.3, 0.04]]) p.push(sph(r, '#5e4a40', x, 0.02, z, 0.8));
+    p.push(smoke(0, 0.55, 0, 2.2), smoke(0.04, 0.58, -0.03, 1.6));
+    return p;
+  },
+  reef: () => {
+    const p = [];
+    const corals = [['#ff7f9e', -0.2, -0.1], ['#ffb347', 0.15, -0.18], ['#b48cf2', 0.22, 0.15], ['#ff6f61', -0.12, 0.22], ['#5fd3c4', 0.02, 0.02], ['#ffd166', -0.28, 0.08]];
+    corals.forEach(([c, x, z], k) => {
+      if (k % 2) { // corail cerveau : boules groupées
+        p.push(sph(0.06, c, x, 0.03, z, 0.7), sph(0.04, c, x + 0.05, 0.02, z + 0.03, 0.7), sph(0.035, c, x - 0.04, 0.02, z + 0.04, 0.7));
+      } else { // corail branchu : petites cornes inclinées
+        for (const [dx, dz, a, h] of [[0, 0, 0, 0.14], [0.03, 0.01, 0.5, 0.11], [-0.03, 0.01, -0.5, 0.1], [0.0, -0.03, 0.4, 0.09]]) {
+          const br = cone(0.02, h, c, 0, 0, 0, 7); br.position.set(x + dx, h / 2, z + dz); br.rotation.z = a; br.rotation.x = dz * 8; p.push(br, sph(0.016, c, x + dx - Math.sin(a) * h * 0.9, Math.cos(a) * h * 0.95, z + dz));
+        }
+      }
+    });
+    for (const [x, z, c] of [[0.3, -0.05, '#ffb347'], [-0.05, -0.28, '#ff7f9e']]) {
+      const fish = group(sph(0.025, c, 0, 0, 0, 0.7), cone(0.018, 0.03, c, -0.035, -0.015, 0, 6));
+      fish.position.set(x, 0.12, z);
+      p.push(anim(fish, { type: 'bob', speed: 2, amp: 0.02 }));
+    }
+    return p;
+  },
+  greattree: () => {
+    const p = [rbox(0.82, 0.05, 0.82, PAL.grassDark, 0, 0, 0, 0.03), cyl(0.09, 0.14, 0.42, '#7a4b2c', 0, 0.05, 0, 14)];
+    for (const [x, z, a] of [[0.12, 0.05, 0.6], [-0.1, 0.08, -0.6], [0.02, -0.12, 0.3]]) { const r = cyl(0.03, 0.05, 0.18, '#7a4b2c', x, 0.05, z, 8); r.rotation.z = a; p.push(r); }
+    for (const [x, y, z, r, c] of [[0, 0.62, 0, 0.26, PAL.leaf], [0.2, 0.52, 0.08, 0.17, PAL.leafLight], [-0.2, 0.55, -0.05, 0.18, '#4f9e55'], [0.05, 0.75, -0.12, 0.16, PAL.leafLight], [-0.08, 0.5, 0.2, 0.15, PAL.leaf]]) p.push(sph(r, c, x, y, z, 0.85));
+    for (const [x, z] of [[0.18, 0.18], [-0.2, 0.14], [0.14, -0.2]]) p.push(sph(0.02, PAL.gold, x, 0.42, z));
+    return p;
+  },
+  canyon: () => {
+    const p = [];
+    const layers = ['#d9704f', '#e8956b', '#c95e44', '#eaa77c'];
+    for (const [x, z, w, d] of [[-0.24, -0.05, 0.34, 0.74], [0.25, 0.05, 0.3, 0.7]]) {
+      let y = 0;
+      layers.forEach((c, k) => { const h = 0.1 + (k % 2) * 0.04; p.push(rbox(w - k * 0.03, h, d - k * 0.04, c, x, y, z, 0.03)); y += h; });
+    }
+    p.push(rbox(0.12, 0.02, 0.8, '#7fc4e6', 0.01, 0, 0, 0.01));
+    p.push(sph(0.05, PAL.grassDark, -0.05, 0.03, 0.3), sph(0.04, PAL.leaf, 0.06, 0.03, -0.32));
+    return p;
+  },
+  oasis: () => {
+    const p = [rbox(0.84, 0.04, 0.84, '#f3e0b5', 0, 0, 0, 0.03), cyl(0.3, 0.32, 0.03, PAL.grass, 0.02, 0.04, 0.04, 22)];
+    const pond = new THREE.Mesh(cached('oasispond', () => new THREE.CylinderGeometry(0.21, 0.22, 0.03, 22)), waterMat); pond.position.set(0.02, 0.07, 0.04); p.push(pond);
+    p.push(...palmTree(-0.26, -0.2, 0.42, 0.2), ...palmTree(0.27, -0.12, 0.36, -0.15), ...palmTree(-0.1, 0.3, 0.32, 0.1));
+    p.push(rbox(0.08, 0.05, 0.06, '#e2574c', 0.3, 0.07, 0.28, 0.01), cone(0.07, 0.1, '#f6ead6', 0.2, 0.07, 0.3, 4));
+    return p;
+  },
+};
+export function naturalModel(id) {
+  const g = bake(group((NATURALS[id] || NATURALS.canyon)()));
+  return g;
+}
+
+// Ruines antiques : colonnes brisées sur un dallage envahi de mousse.
+export function ruinModel() {
+  const p = [rbox(0.5, 0.04, 0.42, '#d8d0c3', 0, 0, 0, 0.02)];
+  for (const [x, z, h] of [[-0.17, -0.13, 0.26], [0.0, -0.13, 0.12], [0.17, -0.13, 0.2], [-0.17, 0.12, 0.08]]) p.push(cyl(0.035, 0.04, h, '#ece6dc', x, 0.04, z, 12), rbox(0.1, 0.025, 0.1, '#d4cdc4', x, 0.04 + h, z, 0.008));
+  const fallen = cyl(0.035, 0.035, 0.22, '#e3dccf', 0.1, 0.075, 0.13, 12); fallen.rotation.z = Math.PI / 2; fallen.position.y = 0.075; p.push(fallen);
+  p.push(sph(0.035, PAL.grassDark, -0.05, 0.05, 0.08), sph(0.025, PAL.leaf, 0.2, 0.05, -0.02), sph(0.02, PAL.leafLight, -0.2, 0.06, 0.0));
+  return bake(group(p));
+}

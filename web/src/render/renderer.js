@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { MapControls } from 'three/addons/MapControls.js';
 import { RoundedBoxGeometry } from 'three/addons/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/BufferGeometryUtils.js';
-import { cityModel, buildingModel, unitModel, luxuryModel } from './models.js';
+import { cityModel, buildingModel, unitModel, luxuryModel, naturalModel, ruinModel } from './models.js';
 
 const FOG_COLOR = new THREE.Color('#e4dcd6');
 const BG = '#efe8e4';
@@ -351,6 +351,7 @@ export class Renderer {
     });
     this.tiles.instanceMatrix.needsUpdate = true; this.tiles.instanceColor.needsUpdate = true;
     const occupied = new Set();
+    s.map.tiles.forEach((t, i) => { if (t.natural) occupied.add(i); }); // le décor s'efface sous les merveilles naturelles
     for (const b of s.buildings) {
       const f = s.data.buildingsById[b.type].footprint || 1;
       for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) occupied.add((b.y + dy) * this.W + b.x + dx);
@@ -390,7 +391,8 @@ export class Renderer {
       const i = t.y * this.W + t.x;
       const ex = p.explored[i] === 1;
       const rot = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 4);
-      m.compose(v.set(this.wx(t.x), this.heights[i] - 0.02, this.wz(t.y)), rot, sc.set(ex ? 1.0 : 0.0001, ex ? 1.1 : 0.0001, ex ? 1.0 : 0.0001));
+      const show = ex && !t.natural; // le volcan remplace le pic
+      m.compose(v.set(this.wx(t.x), this.heights[i] - 0.02, this.wz(t.y)), rot, sc.set(show ? 1.0 : 0.0001, show ? 1.1 : 0.0001, show ? 1.0 : 0.0001));
       this.peaks.setMatrixAt(k, m);
       this.peaks.setColorAt(k, c.set(t.type === 'snow' ? '#ffffff' : '#c3bbb2'));
     });
@@ -595,6 +597,8 @@ export class Renderer {
       o.position.set(this.wx(b.x) + (f - 1) / 2, top, this.wz(b.y) + (f - 1) / 2);
     }
     s.map.tiles.forEach((t, i) => {
+      if (t.natural) place(`nat${i}`, () => naturalModel(t.natural), t.x, t.y, s.data.terrain[t.type].water ? 0.02 : 0);
+      if (t.ruin) place(`ruin${i}`, () => ruinModel(), t.x, t.y);
       if (!t.luxury || s.buildings.some((b) => b.x === t.x && b.y === t.y)) return;
       place(`lux${i}`, () => luxuryModel(t.luxury), t.x, t.y);
     });

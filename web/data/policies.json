@@ -1,0 +1,26 @@
+{
+  "slots": [
+    { "techs": 0, "slots": 1 },
+    { "techs": 4, "slots": 2 },
+    { "techs": 9, "slots": 3 }
+  ],
+  "swapCost": { "gold": 30 },
+  "list": [
+    { "id": "guilds", "branch": "economy", "name": "Guildes marchandes", "desc": "+10 % Or.", "effects": { "yieldPct": { "gold": 0.1 } } },
+    { "id": "freetrade", "branch": "economy", "name": "Libre-échange", "tech": "commerce", "desc": "+1 route commerciale, +2 prestige par route ouverte et par accord.", "effects": { "routeCap": 1, "tradePrestige": 2 } },
+    { "id": "mercantilism", "branch": "economy", "name": "Mercantilisme", "tech": "banking", "desc": "Ventes en Halle +20 %, +5 % Or.", "effects": { "sellBonus": 0.2, "yieldPct": { "gold": 0.05 } } },
+    { "id": "collective", "branch": "economy", "name": "Greniers communs", "desc": "+15 % Nourriture.", "effects": { "yieldPct": { "food": 0.15 } } },
+
+    { "id": "academies", "branch": "science", "name": "Académies", "tech": "writing", "desc": "+12 % Science.", "effects": { "yieldPct": { "science": 0.12 } } },
+    { "id": "applied", "branch": "science", "name": "Recherche appliquée", "tech": "chemistry", "desc": "+0,5 prestige par palier de technologie, +5 % Science.", "effects": { "techPrestige": 0.5, "yieldPct": { "science": 0.05 } } },
+    { "id": "expeditions", "branch": "science", "name": "Expéditions", "desc": "+1 mouvement et +1 vision pour toutes les unités.", "effects": { "moveBonus": 1, "visionBonus": 1 } },
+
+    { "id": "patronage", "branch": "culture", "name": "Mécénat", "tech": "arts", "desc": "+15 % Culture.", "effects": { "yieldPct": { "culture": 0.15 } } },
+    { "id": "greatworks", "branch": "culture", "name": "Grands travaux", "tech": "architecture", "desc": "Merveilles −15 %, bâtiments −5 %.", "effects": { "wonderCostPct": -0.15, "costPct": -0.05 } },
+    { "id": "influence", "branch": "culture", "name": "Rayonnement", "tech": "philosophy", "desc": "+1 Culture par ville, +10 % Culture.", "effects": { "cityYield": { "culture": 1 }, "yieldPct": { "culture": 0.1 } } },
+
+    { "id": "neutrality", "branch": "diplomacy", "name": "Neutralité", "tech": "protocol", "desc": "+0,3 relation par tour avec tous les joueurs.", "effects": { "relationPerTurn": 0.3 } },
+    { "id": "urbanization", "branch": "diplomacy", "name": "Urbanisation", "tech": "urbanism", "desc": "+1 population maximale par ville.", "effects": { "popCap": 1 } },
+    { "id": "cultural_diplomacy", "branch": "diplomacy", "name": "Diplomatie culturelle", "tech": "embassies", "desc": "+1 prestige par ambassade ouverte, +5 % Culture.", "effects": { "embassyPrestige": 1, "yieldPct": { "culture": 0.05 } } }
+  ]
+}

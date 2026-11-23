@@ -100,6 +100,33 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 - [x] Correctifs tactiles : sélection d'une autre unité au toucher, boutons « Annuler » / « Terminer » et ✕ à la place de la touche Échap.
 - [x] Entrepôt : seuil de vente automatique réglable par ressource.
 
+## Phase 6 — Diversité (v1.1) · en cours
+
+Objectif : que deux parties ne se ressemblent plus, et que les choix soient plus marqués. Ces systèmes passent avant l'équilibrage, pour ne pas devoir le refaire ensuite.
+
+**Premier lot**
+- [x] **Événements à choix** (`web/data/events.json`, 18 événements) : un tous les 4 à 6 tours environ, avec des conditions (tour, technologie, côte, merveille…). Choix par défaut au bout de 3 tours ; l'IA choisit selon son profil.
+- [x] **Merveilles naturelles** (6, uniques) : prestige à la découverte (3 au premier, 1 aux suivants), rendement et +2 prestige dans votre territoire, +1 Culture aux bâtiments voisins.
+- [x] **Ruines antiques** (environ 7 par carte moyenne) : fouillées par la première unité qui y entre. L'IA y envoie ses explorateurs.
+- [x] **Politiques** (`web/data/policies.json`, 13 cartes en 4 branches) : 1 à 3 emplacements selon le nombre de technologies, 30 Or pour remplacer une politique.
+- Réglages provisoires : objectif de prestige porté à 200 (les nouvelles sources de prestige raccourcissaient les parties) ; la voie « allié de tous » demande aussi d'avoir été élu Secrétaire au moins une fois.
+
+**Deuxième lot (à faire)**
+- [ ] **Profils vraiment asymétriques** : un bâtiment unique et une capacité active par profil.
+- [ ] **Contrats commerciaux** : les IA demandent des livraisons (« 20 planches d'ici 5 tours ») contre de l'Or, de la relation et du prestige.
+- [ ] **Influence culturelle** : une culture forte repousse les frontières et peut faire basculer des cases neutres ou contestées.
+- [ ] **Crise mondiale** en milieu de partie : un Congrès extraordinaire vote une réponse commune, les contributeurs gagnent du prestige.
+
+**Écartés ou à repenser**
+- Cités-États : écartées sous cette forme, une autre façon de faire reste à trouver.
+- Épuisement des ressources rares : écarté. Le nombre de villes est limité (environ 4 en pratique) et on ne peut pas aller chercher de nouveaux gisements. À revoir seulement si le système d'expansion change.
+
+## Phase 7 — Équilibrage (à venir)
+
+- Les victoires Science, Culture et Économie sont trop rares ; en partie longue, la Diplomatie l'emporte presque toujours (voie « allié de tous » trop accessible avec 3 rivaux).
+- L'espace pour fonder des villes (environ 4 par joueur) : distance minimale entre villes, rayon de territoire.
+- L'IA construit peu de quartiers et de laboratoires ; lancer un vrai entraînement de l'IA dans Colab.
+
 ---
 
 ## Méthode de travail proposée

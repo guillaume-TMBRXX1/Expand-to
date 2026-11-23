@@ -1,7 +1,7 @@
 // Galerie de modèles : sert de planche de style pour itérer sur le design.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/OrbitControls.js';
-import { buildingModel, cityModel, unitModel, luxuryModel } from './render/models.js';
+import { buildingModel, cityModel, unitModel, luxuryModel, naturalModel, ruinModel } from './render/models.js';
 import { avatarSVG } from './ui/avatar.js';
 
 const COLORS = ['#ff6b4a', '#8b5cf6', '#f5b700', '#14b8a6', '#ec4899'];
@@ -13,6 +13,8 @@ const items = [
   ...['campus', 'artsquarter', 'merchantquarter'].map((t) => [t, () => { const g = buildingModel(t, false); g.scale.setScalar(0.5); const w = new THREE.Group(); w.add(g); return w; }]),
   ...['lighthouse', 'grandlibrary', 'observatory', 'amphitheatre', 'exchange', 'nations'].map((t) => [t, () => buildingModel(t, false)]),
   ['Chantier', () => buildingModel('market', true)],
+  ...[['falls', 'Grandes Chutes'], ['volcano', 'Mont Braise'], ['reef', 'Récif de corail'], ['greattree', 'Arbre millénaire'], ['canyon', 'Canyon rouge'], ['oasis', 'Oasis']].map(([id, n]) => [n, () => naturalModel(id)]),
+  ['Ruines', () => ruinModel()],
   ['Explorateur', () => unitModel('explorer', COLORS[0], 0)], ['Colon', () => unitModel('settler', COLORS[2], 1)], ['Caravane', () => unitModel('caravan', COLORS[3], 2)],
   ['Ingénieur', () => unitModel('engineer', COLORS[1], 3)], ['Émissaire', () => unitModel('emissary', COLORS[4], 0)], ['Navire', () => unitModel('ship', COLORS[0], 0)], ['Dirigeable', () => unitModel('airship', COLORS[2], 0)],
 ];
