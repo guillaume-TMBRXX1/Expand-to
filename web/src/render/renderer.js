@@ -389,9 +389,28 @@ export class Renderer {
     obj.userData.path = steps.map((i) => new THREE.Vector3(this.wx(i % this.W), this.heights[i], this.wz(Math.floor(i / this.W))));
   }
 
+  // Pastilles posées sur des cases (bonus d'adjacence) : [{ i, html }]
+  setBadges(list) {
+    if (!this.badgeLayer) { this.badgeLayer = document.createElement('div'); this.badgeLayer.className = 'labels'; this.container.appendChild(this.badgeLayer); }
+    this.badgeLayer.innerHTML = '';
+    this.badges = (list || []).map((b) => {
+      const el = document.createElement('div');
+      el.className = 'tile-badge'; el.innerHTML = b.html;
+      this.badgeLayer.appendChild(el);
+      const x = b.i % this.W, y = Math.floor(b.i / this.W);
+      return { el, pos: new THREE.Vector3(this.wx(x + (b.dx || 0)), this.heights[b.i] + (b.lift ?? 0.55), this.wz(y + (b.dy || 0))) };
+    });
+  }
+
   updateLabels() {
     const w = this.container.clientWidth, h = this.container.clientHeight;
     const v = new THREE.Vector3();
+    for (const b of this.badges || []) {
+      v.copy(b.pos).project(this.camera);
+      if (v.z > 1) { b.el.style.display = 'none'; continue; }
+      b.el.style.display = '';
+      b.el.style.transform = `translate(-50%, -50%) translate(${((v.x + 1) / 2) * w}px, ${((1 - v.y) / 2) * h}px)`;
+    }
     for (const el of this.labels.values()) {
       const o = el._obj;
       if (!o || !o.visible) { el.style.display = 'none'; continue; }

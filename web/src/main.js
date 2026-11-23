@@ -21,6 +21,7 @@ let sel = null;          // { kind: 'unit'|'city'|'tile', id|i }
 let mode = null;         // null | { type: 'build', id } | { type: 'road' }
 let buildTab = 'prod';
 let hoverIdx = null;
+let showAdjacency = false; // touche A : bonus d'adjacence actifs sur la carte
 
 // ------------------------------------------------------------------ données
 async function loadData() {
@@ -83,7 +84,7 @@ function showStart() {
       ${renderSaveList()}
       <div class="help">
         <b>Commandes</b> — clic gauche : sélectionner / déplacer · glisser : déplacer la caméra · clic droit glissé : pivoter · molette : zoom ·
-        <kbd>Entrée</kbd> finir le tour · <kbd>Échap</kbd> annuler · <kbd>Espace</kbd> unité suivante · <kbd>F</kbd> fonder · <kbd>R</kbd> route · <kbd>T</kbd> technologies · <kbd>D</kbd> diplomatie
+        <kbd>Entrée</kbd> finir le tour · <kbd>Échap</kbd> annuler · <kbd>Espace</kbd> unité suivante · <kbd>F</kbd> fonder · <kbd>R</kbd> route · <kbd>T</kbd> technologies · <kbd>D</kbd> diplomatie · <kbd>M</kbd> menu · <kbd>A</kbd> bonus d'adjacence
       </div>
     </div>`;
   el.querySelectorAll('.profile').forEach((b) => b.addEventListener('click', () => {
@@ -353,7 +354,8 @@ function renderBuildbar() {
     const def = G.buildingDef(s, id);
     const locked = def.tech && !G.hasTech(s, 0, def.tech);
     const taken = def.wonder && s.wonders[id] !== undefined;
-    const reason = locked ? `Nécessite ${G.techDef(s, def.tech).name}` : taken ? `Construite par ${s.players[s.wonders[id]].name}` : def.desc;
+    const adjTxt = describeAdjacency(def);
+    const reason = (locked ? `Nécessite ${G.techDef(s, def.tech).name}` : taken ? `Construite par ${s.players[s.wonders[id]].name}` : def.desc) + (adjTxt ? `\nAdjacence : ${adjTxt}` : '');
     const pressed = mode?.type === 'build' && mode.id === id;
     return `<button class="build-item" data-action="mode-build" data-id="${id}" aria-pressed="${pressed}" aria-disabled="${locked || taken}" title="${esc(reason)}">
       <b>${def.name}${def.wonder ? '' : ''}</b><div class="chips">${costChips(def)}</div>
@@ -361,14 +363,32 @@ function renderBuildbar() {
       ${locked ? `<div class="chip" style="margin-top:3px">${G.techDef(s, def.tech).name}</div>` : taken ? '<div class="chip" style="margin-top:3px">Indisponible</div>' : ''}
     </button>`;
   }).join('');
-  el.innerHTML = `<div class="tabs" role="tablist">${Object.entries(BUILD_TABS).map(([k, v]) => `<button class="tab" role="tab" aria-selected="${k === buildTab}" data-action="tab" data-tab="${k}">${v.label}</button>`).join('')}</div><div class="build-list">${items}</div>`;
+  el.innerHTML = `<div class="tabs" role="tablist">${Object.entries(BUILD_TABS).map(([k, v]) => `<button class="tab" role="tab" aria-selected="${k === buildTab}" data-action="tab" data-tab="${k}">${v.label}</button>`).join('')}
+    <button class="tab adj-toggle" aria-pressed="${showAdjacency}" data-action="toggle-adj" title="Afficher les bonus d'adjacence de vos bâtiments sur la carte (A)">Bonus d'adjacence${showAdjacency ? ' : affichés' : ''}</button></div><div class="build-list">${items}</div>`;
+}
+
+const bonusHtml = (bundle) => Object.entries(bundle).filter(([, v]) => v).map(([k, v]) => `<span><i style="background:${resColor(k)}"></i>+${v}</span>`).join('');
+const bonusSum = (bundle) => Object.values(bundle).reduce((a, v) => a + v, 0);
+function describeAdjacency(def) {
+  const name = (id) => (id === 'city' ? 'ville' : id === 'wonder' ? 'merveille' : (G.buildingDef(s, id)?.name || id).toLowerCase());
+  return (def.adjacency || []).map((r) => {
+    const what = r.terrain ? [].concat(r.terrain).map((k) => data.terrain[k].name.toLowerCase()).join('/') : [].concat(r.near).map(name).join('/');
+    return Object.entries(r.yields).map(([k, v]) => `+${v} ${data.resources[k].name} par ${what} voisin${r.max ? ` (max ${r.max})` : ''}`).join(', ');
+  }).join(' · ');
 }
 
 function renderHighlights() {
   const list = [];
+  const badges = [];
   const W = s.map.width;
   if (mode?.type === 'build') {
-    s.map.tiles.forEach((t, i) => { if (t.owner === 0 && G.canBuild(s, 0, mode.id, t.x, t.y).ok) list.push({ i, color: '#2bd17e' }); });
+    s.map.tiles.forEach((t, i) => {
+      if (t.owner !== 0 || !G.canBuild(s, 0, mode.id, t.x, t.y).ok) return;
+      const adj = G.adjacencyBonus(s, 0, mode.id, t.x, t.y);
+      const f = G.footprintOf(s, mode.id);
+      list.push({ i, color: bonusSum(adj) > 0 ? '#16c172' : '#a8e6c4' });
+      if (bonusSum(adj) > 0) badges.push({ i, html: bonusHtml(adj), dx: (f - 1) / 2, dy: (f - 1) / 2, lift: 0.25 });
+    });
   } else if (mode?.type === 'road') {
     s.map.tiles.forEach((t, i) => { if (G.canRoad(s, 0, t.x, t.y).ok) list.push({ i, color: '#f5b700' }); });
   } else if (sel?.kind === 'unit') {
@@ -378,6 +398,16 @@ function renderHighlights() {
       if (u.target) list.push({ i: u.target.y * W + u.target.x, color: '#ff6b4a' });
     }
   }
+  if (showAdjacency && mode?.type !== 'build') {
+    for (const b of s.buildings) {
+      if (b.owner !== 0) continue;
+      const adj = G.adjacencyBonus(s, 0, b.type, b.x, b.y);
+      if (bonusSum(adj) <= 0) continue;
+      const f = G.footprintOf(s, b.type);
+      badges.push({ i: b.y * W + b.x, html: bonusHtml(adj), dx: (f - 1) / 2, dy: (f - 1) / 2, lift: f > 1 ? 0.9 : 0.6 });
+    }
+  }
+  renderer.setBadges(badges);
   renderer.setHighlights(list);
   let selIdx = null;
   if (sel?.kind === 'unit') { const u = s.units.find((x) => x.id === sel.id); if (u) selIdx = u.y * W + u.x; }
@@ -601,6 +631,7 @@ function onAction(e) {
     }
     case 'new-game': closeModal(); save(); for (const x of ['#topbar', '#side', '#buildbar', '#selection', '#hint', '#tutorial', '#summary']) $(x).hidden = true; s = null; showStart(); break;
     case 'menu': showMenu(); break;
+    case 'toggle-adj': showAdjacency = !showAdjacency; renderBuildbar(); renderHighlights(); break;
     case 'sell': {
       const r = G.sell(s, 0, b.dataset.res, Number(b.dataset.qty));
       if (!r.ok) toast(r.reason, 'bad'); else toast(`${r.qty} ${data.resources[b.dataset.res].name} vendus : +${r.gold} Or.`, 'good');
@@ -675,6 +706,7 @@ function bindInput() {
     else if (e.key === 't' || e.key === 'T') showTech();
     else if (e.key === 'd' || e.key === 'D') showDiplo();
     else if (e.key === 'm' || e.key === 'M') showMenu();
+    else if (e.key === 'a' || e.key === 'A') { showAdjacency = !showAdjacency; renderBuildbar(); renderHighlights(); }
   });
 }
 

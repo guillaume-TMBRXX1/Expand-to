@@ -215,3 +215,9 @@ kbd { font: 12px ui-monospace, monospace; background: var(--surface-2); border: 
 .check.small { font-size: 12px; gap: 4px; }
 .check.small input { width: 13px; height: 13px; }
 #stock { width: 340px; }
+
+.tile-badge { position: absolute; left: 0; top: 0; display: flex; gap: 4px; background: rgba(255, 253, 251, .96); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; font-size: 11.5px; font-weight: 800; white-space: nowrap; box-shadow: 0 1px 3px rgba(60,40,30,.15); pointer-events: none; font-variant-numeric: tabular-nums; }
+.tile-badge span { display: inline-flex; align-items: center; gap: 3px; }
+.tile-badge i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.adj-toggle { margin-left: auto; }
+.adj-toggle[aria-pressed="true"] { background: #e3f6ec; color: var(--good); }
