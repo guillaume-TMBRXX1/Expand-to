@@ -169,3 +169,12 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
   - Maison des Guildes : enseigne qui se balance et étal.
   - Relais des cartographes : table des cartes et rose des vents.
 - **Coût** : sur la grande carte avec 8 joueurs (graine 777, tour 40), 1 584 appels de dessin et 3,05 M de triangles, contre 1 560 et 2,9 M après le lot 4b.
+
+### Lot 7 : unités restantes
+- **Explorateur** : bonnet, gros sac à dos avec couverture roulée, bâton de marche, longue-vue dorée et lanterne.
+- **Colon** : chariot bâché (bâche blanche sur arceaux, roues à rayons), tonneau et cage, tiré par un petit âne. Le colon marche à côté.
+- **Caravane** : une roulotte peinte au toit arrondi à la couleur du joueur, roues rouges à moyeux dorés, fenêtres, lanterne et caisses sur le toit, tirée par un cheval de trait. Elle remplace le petit camion, qui détonnait avec l'époque.
+- **Ingénieur** : casque et gilet, brouette de briques et rouleau de plans.
+- **Émissaire** : casquette et nœud papillon, sacoche de cuir, rouleau scellé de cire et fanion à la couleur du joueur, qui flotte.
+- **Dirigeable** : enveloppe blanche cerclée de bandes à la couleur du joueur, empennage, nacelle vitrée et hélice qui tourne.
+- **Coût** : sur la grande carte avec 8 joueurs (graine 777, tour 40), 1 591 appels de dessin et 3,06 M de triangles, quasiment comme avant ce lot.

@@ -1104,35 +1104,76 @@ export function unitModel(type, color, skinIdx = 0) {
   const skin = PAL.skin[skinIdx % PAL.skin.length];
   let parts;
   if (type === 'explorer') {
-    parts = [...character(color, skin, 'beanie', 1.2), rbox(0.09, 0.11, 0.05, PAL.wood, 0, 0.05, -0.07, 0.02)];
+    // Explorateur : bonnet, gros sac à dos avec couverture roulée, bâton de marche, longue-vue et lanterne.
+    parts = [...character(color, skin, 'beanie', 1.15)];
+    parts.push(rbox(0.1, 0.12, 0.06, '#8a5634', 0, 0.04, -0.075, 0.02), rbox(0.08, 0.035, 0.012, '#a8743f', 0, 0.08, -0.108, 0.006));
+    const roll = cyl(0.022, 0.022, 0.12, '#5fae5a', 0, 0, 0, 10); roll.rotation.z = Math.PI / 2; roll.position.set(0, 0.17, -0.075); parts.push(roll, torus(0.023, 0.004, PAL.woodDark, -0.03, 0.17, -0.075));
+    parts[parts.length - 1].rotation.set(0, Math.PI / 2, 0);
+    parts.push(cyl(0.006, 0.006, 0.26, PAL.wood, 0.09, 0, 0.03, 6), sph(0.012, PAL.woodDark, 0.09, 0.26, 0.03));
+    const scope = cyl(0.01, 0.013, 0.07, PAL.gold, 0, 0, 0, 8); scope.rotation.z = Math.PI / 2; scope.position.set(-0.08, 0.1, 0.05); parts.push(scope);
+    parts.push(cyl(0.012, 0.014, 0.025, PAL.ink, -0.06, 0.03, -0.11, 8), sph(0.013, '#ffe7a3', -0.06, 0.06, -0.11));
   } else if (type === 'settler') {
-    // Charrette bâchée tirée par le colon
-    const cart = [rbox(0.24, 0.07, 0.17, PAL.wood, 0.05, 0.05, 0, 0.02), dome(0.09, PAL.white, 0.05, 0.12, 0)];
-    cart[1].scale.set(1.3, 1, 1);
-    for (const [x, z] of [[-0.04, 0.095], [0.14, 0.095], [-0.04, -0.095], [0.14, -0.095]]) { const w = cyl(0.04, 0.04, 0.02, PAL.woodDark, x, 0.0, z, 16); w.rotation.x = Math.PI / 2; w.position.y = 0.045; cart.push(w); }
-    const guy = group(character(color, skin, 'straw', 0.9)); guy.position.set(-0.16, 0, 0.02);
-    parts = [...cart, guy];
+    // Colon : chariot bâché (arceaux, bâche blanche), roues à rayons, tonneau et cage à poules, colon qui guide l'âne.
+    const W = [];
+    W.push(rbox(0.26, 0.05, 0.15, PAL.wood, 0.06, 0.05, 0, 0.012), rbox(0.27, 0.012, 0.16, PAL.woodDark, 0.06, 0.1, 0, 0.004));
+    const canvas = place(cached('wagonCanvas', () => new THREE.CylinderGeometry(0.085, 0.085, 0.24, 14, 1, false, 0, Math.PI)), '#f6efe2', 0.06, 0.105, 0);
+    canvas.rotation.z = Math.PI / 2; W.push(canvas);
+    for (const x of [-0.04, 0.06, 0.16]) { const hoop = torus(0.087, 0.005, PAL.wood, x, 0.105, 0); hoop.rotation.set(0, Math.PI / 2, 0); W.push(hoop); }
+    for (const [x, z] of [[-0.03, 0.085], [0.15, 0.085], [-0.03, -0.085], [0.15, -0.085]]) { const wh = wheelGeo(0.042, 6, '#7a4a2c'); wh.rotation.x = Math.PI / 2; wh.position.set(x, 0.045, z); W.push(wh); }
+    W.push(...barrel(0.17, 0.0, 0.7).map((m) => { m.position.y += 0.04; return m; }), rbox(0.05, 0.04, 0.04, PAL.wood, 0.2, 0.12, 0.05, 0.006), sph(0.012, PAL.white, 0.2, 0.17, 0.05));
+    const shaft = rbox(0.12, 0.01, 0.01, PAL.woodDark, -0.12, 0.06, 0, 0.003); W.push(shaft);
+    // Petit âne
+    W.push(rbox(0.1, 0.05, 0.05, '#9a8f86', -0.21, 0.07, 0, 0.022), sph(0.026, '#9a8f86', -0.27, 0.12, 0), sph(0.014, '#5b5450', -0.29, 0.11, 0), cone(0.008, 0.035, '#9a8f86', -0.265, 0.14, 0.012, 5), cone(0.008, 0.035, '#9a8f86', -0.265, 0.14, -0.012, 5));
+    for (const [x, z] of [[-0.24, 0.015], [-0.18, 0.015], [-0.24, -0.015], [-0.18, -0.015]]) W.push(rbox(0.012, 0.07, 0.012, '#7d746d', x, 0, z, 0.004));
+    const guy = group(character(color, skin, 'straw', 0.75)); guy.position.set(0.06, 0, -0.15);
+    parts = [...W, guy];
   } else if (type === 'engineer') {
-    parts = [...character(color, skin, 'hardhat', 1.15), rbox(0.02, 0.14, 0.02, PAL.steelDark, 0.1, 0.06, 0.04, 0.006), rbox(0.06, 0.03, 0.03, PAL.steelDark, 0.1, 0.19, 0.04, 0.008)];
+    // Ingénieur : casque, gilet, brouette de briques et rouleau de plans.
+    parts = [...character(color, skin, 'hardhat', 1.1), rbox(0.124, 0.03, 0.094, PAL.gold, 0, 0.11, 0, 0.012)];
+    const wb = [rbox(0.12, 0.05, 0.09, '#5b8def', 0, 0.05, 0, 0.012), rbox(0.1, 0.006, 0.07, '#3f6fbf', 0, 0.098, 0, 0.002)];
+    for (let k = 0; k < 3; k++) wb.push(rbox(0.04, 0.02, 0.025, PAL.brick, -0.03 + k * 0.03, 0.1, (k % 2) * 0.02 - 0.01, 0.004));
+    const wwheel = cyl(0.03, 0.03, 0.014, PAL.ink, 0.08, 0.03, 0, 12); wwheel.rotation.x = Math.PI / 2; wwheel.position.y = 0.03; wb.push(wwheel);
+    for (const z of [-0.035, 0.035]) wb.push(rbox(0.14, 0.008, 0.008, PAL.woodDark, -0.08, 0.07, z, 0.002));
+    const barrow = group(wb); barrow.position.set(0.02, 0, 0.12); barrow.rotation.y = -Math.PI / 2;
+    const plans = cyl(0.012, 0.012, 0.09, '#9fd3f0', 0, 0, 0, 8); plans.rotation.z = 0.4; plans.position.set(-0.08, 0.1, -0.02);
+    parts.push(barrow, plans);
   } else if (type === 'emissary') {
-    const scroll = cyl(0.025, 0.025, 0.1, PAL.cream, 0.1, 0.1, 0.05, 10); scroll.rotation.z = Math.PI / 2; scroll.position.y = 0.12;
-    parts = [...character(color, skin, 'cap', 1.15), scroll, rbox(0.012, 0.03, 0.012, PAL.roofRed, 0.1, 0.105, 0.05, 0.004)];
+    // Émissaire : casquette et nœud papillon, sacoche de cuir, rouleau scellé et fanion à la couleur du joueur.
+    const scroll = cyl(0.02, 0.02, 0.09, PAL.cream, 0, 0, 0, 10); scroll.rotation.z = Math.PI / 2; scroll.position.set(-0.09, 0.1, 0.05);
+    parts = [...character(color, skin, 'cap', 1.1), scroll, rbox(0.012, 0.025, 0.012, PAL.roofRed, -0.09, 0.09, 0.05, 0.004)];
+    parts.push(rbox(0.04, 0.02, 0.01, PAL.roofRed, 0, 0.145, 0.05, 0.004), sph(0.008, PAL.roofRed, 0, 0.155, 0.055));
+    parts.push(rbox(0.06, 0.05, 0.02, '#6b4226', 0.07, 0.03, 0.02, 0.008), rbox(0.006, 0.12, 0.006, '#6b4226', 0.045, 0.06, 0.0, 0.002));
+    parts.push(cyl(0.005, 0.005, 0.32, PAL.ink, 0.1, 0, -0.04, 6), sph(0.01, PAL.gold, 0.1, 0.32, -0.04));
+    const pennant = group(rbox(0.09, 0.05, 0.006, color, 0.045, -0.025, 0, 0.003)); pennant.position.set(0.1, 0.31, -0.04); parts.push(anim(pennant, { type: 'flag' }));
   } else if (type === 'ship') {
     parts = cargoShip(color, true);
   } else if (type === 'airship') {
-    const balloon = sph(0.16, color, 0, 0.28, 0); balloon.scale.set(1.8, 0.9, 0.9);
-    parts = [balloon, torus(0.15, 0.012, PAL.white, 0, 0.28, 0), rbox(0.16, 0.06, 0.08, PAL.wood, 0, 0.08, 0, 0.02),
-      cyl(0.004, 0.004, 0.12, PAL.ink, -0.05, 0.12, 0, 4), cyl(0.004, 0.004, 0.12, PAL.ink, 0.05, 0.12, 0, 4),
-      rbox(0.05, 0.08, 0.01, PAL.white, -0.3, 0.26, 0, 0.005)];
-    parts[1].rotation.set(0, 0, Math.PI / 2); parts[1].scale.set(1, 1, 1);
+    // Dirigeable : enveloppe arrondie rayée à la couleur du joueur, empennage, nacelle vitrée et hélice qui tourne.
+    const env = sph(0.16, PAL.white, 0, 0.3, 0); env.scale.set(1.7, 0.78, 0.78);
+    parts = [env];
+    for (const x of [-0.16, 0, 0.16]) { const band = torus(0.125 * Math.sqrt(1 - (x / 0.272) ** 2) + 0.004, 0.012, color, x, 0.3, 0); band.rotation.set(0, Math.PI / 2, 0); parts.push(band); }
+    for (const [ry, rz] of [[0, 0], [Math.PI / 2, 0]]) { const fin = rbox(0.09, 0.1, 0.012, color, -0.27, 0.3, 0, 0.01); fin.rotation.set(ry, 0, rz); parts.push(fin); }
+    parts.push(rbox(0.16, 0.055, 0.075, '#f6ead6', 0.0, 0.1, 0, 0.022), rbox(0.17, 0.012, 0.08, color, 0.0, 0.15, 0, 0.004));
+    for (const x of [-0.05, 0, 0.05]) parts.push(rbox(0.03, 0.022, 0.006, PAL.glass, x, 0.12, 0.039, 0.003));
+    for (const x of [-0.05, 0.05]) parts.push(cyl(0.003, 0.003, 0.1, PAL.ink, x, 0.155, 0, 4));
+    parts.push(cyl(0.012, 0.016, 0.04, PAL.steelDark, -0.1, 0.105, 0, 8));
+    parts[parts.length - 1].rotation.z = Math.PI / 2; parts[parts.length - 1].position.set(-0.11, 0.125, 0);
+    const prop = group(rbox(0.006, 0.08, 0.016, PAL.wood, 0, 0, 0, 0.003), rbox(0.006, 0.016, 0.08, PAL.wood, 0, 0, 0, 0.003)); prop.position.set(-0.135, 0.125, 0); parts.push(spin(prop, 'x', 9));
   } else {
-    // Caravane : petit camion arrondi
-    parts = [
-      rbox(0.3, 0.07, 0.16, PAL.ink, 0, 0.03, 0, 0.02),
-      rbox(0.11, 0.12, 0.15, color, -0.1, 0.08, 0, 0.035), rbox(0.04, 0.06, 0.13, PAL.glassLight, -0.155, 0.12, 0, 0.012),
-      rbox(0.17, 0.13, 0.16, PAL.cream, 0.06, 0.08, 0, 0.03), rbox(0.172, 0.03, 0.162, color, 0.06, 0.14, 0, 0.01),
-    ];
-    for (const [x, z] of [[-0.1, 0.08], [0.1, 0.08], [-0.1, -0.08], [0.1, -0.08]]) { const w = cyl(0.035, 0.035, 0.025, PAL.ink, x, 0, z, 16); w.rotation.x = Math.PI / 2; w.position.y = 0.035; parts.push(w, (() => { const h = cyl(0.015, 0.015, 0.027, PAL.steel, x, 0, z, 10); h.rotation.x = Math.PI / 2; h.position.y = 0.035; return h; })()); }
+    // Caravane marchande : roulotte peinte au toit arrondi à la couleur du joueur, caisses sur le toit, cheval de trait.
+    const C = [];
+    C.push(rbox(0.22, 0.12, 0.14, '#f2c27a', 0.05, 0.06, 0, 0.02), rbox(0.23, 0.012, 0.15, PAL.woodDark, 0.05, 0.055, 0, 0.004));
+    const roof = place(cached('vardoRoof', () => new THREE.CylinderGeometry(0.08, 0.08, 0.24, 14, 1, false, 0, Math.PI)), color, 0.05, 0.18, 0);
+    roof.rotation.z = Math.PI / 2; roof.scale.set(0.7, 1, 1); C.push(roof);
+    for (const x of [0.0, 0.1]) C.push(rbox(0.035, 0.035, 0.006, PAL.glass, x, 0.11, 0.072, 0.003), rbox(0.045, 0.006, 0.008, PAL.white, x, 0.1, 0.073, 0.002));
+    C.push(rbox(0.012, 0.11, 0.004, '#c9384d', -0.055, 0.065, 0.072, 0.002), rbox(0.04, 0.03, 0.035, PAL.wood, 0.02, 0.215, 0, 0.006), rbox(0.035, 0.025, 0.03, PAL.gold, 0.07, 0.215, 0.01, 0.006));
+    for (const [x, z] of [[-0.03, 0.08], [0.13, 0.08], [-0.03, -0.08], [0.13, -0.08]]) { const wh = wheelGeo(0.04, 6, '#c9384d', PAL.gold); wh.rotation.x = Math.PI / 2; wh.position.set(x, 0.042, z); C.push(wh); }
+    C.push(cyl(0.006, 0.006, 0.06, PAL.ink, -0.06, 0.16, 0.06, 6), sph(0.012, '#ffe7a3', -0.06, 0.15, 0.06));
+    for (const z of [-0.035, 0.035]) C.push(rbox(0.12, 0.008, 0.008, PAL.woodDark, -0.12, 0.08, z, 0.002));
+    // Cheval de trait
+    C.push(rbox(0.12, 0.06, 0.055, '#8a5634', -0.22, 0.08, 0, 0.025), sph(0.028, '#8a5634', -0.3, 0.15, 0), rbox(0.03, 0.05, 0.03, '#8a5634', -0.28, 0.11, 0, 0.01), rbox(0.03, 0.035, 0.01, '#3b2a20', -0.27, 0.15, 0, 0.004));
+    for (const [x, z] of [[-0.26, 0.016], [-0.18, 0.016], [-0.26, -0.016], [-0.18, -0.016]]) C.push(rbox(0.014, 0.08, 0.014, '#6b4226', x, 0, z, 0.004));
+    parts = C;
   }
   const body = bake(group(parts));
   body.scale.setScalar(UNIT_SCALE);
