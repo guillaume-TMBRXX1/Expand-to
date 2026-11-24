@@ -74,6 +74,7 @@ Sur l'écran d'accueil, vous choisissez :
 | Bonus d'adjacence sur la carte | `A` |
 | Annuler | `Échap` |
 
+- **Fin du tour** : elle attend que chaque unité ait reçu un ordre. Une pastille sur le bouton compte les unités en attente, et le jeu sélectionne la première. Pour une unité qui n'a rien à faire, utilisez **Passer ce tour**, ou **Mettre en veille** : elle ne sera plus signalée jusqu'à ce que vous la réveilliez ou lui donniez un ordre. Ce blocage se désactive dans le menu.
 - **Déplacer** : cliquez une destination pour voir le chemin et le nombre de tours, puis cliquez à nouveau pour confirmer (Échap annule).
 - **Fonder** : une ville doit être à au moins 3 cases de toute autre. On peut combler les trous de son propre territoire.
 - **Construire** : choisissez un bâtiment dans la barre du bas, puis une case verte de votre territoire. Maintenez `Maj` pour en placer plusieurs.

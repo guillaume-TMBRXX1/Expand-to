@@ -450,6 +450,10 @@ html.touch .civ .treaty-row summary { min-height: 44px; }
 .civ .treaty-row summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .15s; margin-right: 4px; }
 .civ .treaty-row[open] summary::before { transform: rotate(45deg); }
 
+/* ------------------------------------------------- unités en attente */
+[data-action="end-turn"] { position: relative; }
+.badge.wait-badge { background: var(--text); }
+
 /* --------------------------------------------------- troisième passage : écran d'accueil */
 #start .start { width: min(1120px, 100%); padding: 0; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); overflow: hidden; }
 .start-left { padding: 28px 28px 24px; background: linear-gradient(180deg, #fff6ef, #fdf1e8); border-right: 1px solid var(--line); }

@@ -262,17 +262,18 @@ Mesuré sur 60 à 100 parties simulées par réglage, toutes les nouveautés des
   | Mesure | Avant | Après |
   |---|---|---|
   | Durée moyenne | 35,6 tours | 38,2 tours |
-  | Profils | 18 à 36 % | 23 à 29 % (25 % = équilibre) |
+  | Profils | 18 à 36 % | 22 à 28 % sur 150 parties de contrôle (25 % = équilibre) |
   | Victoires au prestige | 63 % | 50 % |
   | Autres voies | science 16, économie 10, diplomatie 7, culture 4 | diplomatie 15 %, science 15 %, économie 13 %, culture 7 % |
 
   - Objectif de prestige : 290.
   - Science : 13 technologies et l'Observatoire. Culture : 650 et l'Amphithéâtre.
   - Économie : 3 000 Or de base (3 450 en partie normale) avec la Grande Bourse. Le seuil était trivial pour une IA qui thésaurise.
-  - Érudit : 0,9 prestige par palier de technologie. Diplomate : +8 relation initiale, +0,2 par tour, +1 prestige par ambassade. Explorateur : jusqu'à +22 prestige d'exploration.
+  - Érudit : 0,9 prestige par palier de technologie. Diplomate : +6 relation initiale, +0,2 par tour, +1 prestige par ambassade. Négociant : +7 prestige par route ouverte et par accord. Explorateur : jusqu'à +22 prestige d'exploration.
 - **Partie rapide** : environ 30 tours (contre 28), avec des technologies moins chères (×0,6) et des seuils de voies plus bas. Le prestige reste la voie principale (environ 68 %), mais toutes les voies apparaissent. « Allié de tous » demande 3 élections.
 - **Partie longue** : environ 47 tours (contre 44), avec des technologies plus chères (×2) et des seuils de voies ×4. Victoires variées (prestige, science, diplomatie, culture, économie). L'Érudit reste un peu au-dessus (environ 33 %), mais ce n'est pas le mode principal.
 - **CI** : le plancher de durée remonte à 58 % de la partie (35 tours en partie normale).
+- **Essai d'entraînement « balance »** (6 générations, 4 candidats, 60 parties) : non retenu. Sur 150 parties de contrôle, l'écart entre profils passe de 17 à 23 points et les victoires scientifiques disparaissent. Il faudra au moins 150 parties par candidat pour mesurer l'équilibre de façon fiable, de préférence dans Colab.
 - **Entraînement de l'IA** : nouvel objectif `--objective balance` (`python -m expandto.train`). Les paramètres candidats s'appliquent à tous les joueurs, et le score récompense un petit écart entre profils et une durée de 37 à 41 tours. `tools/sim.mjs --ai-all=fichier` et la sortie `--json` donnent le taux de victoire par profil.
 
 > Ordre proposé : la phase 8 d'abord (cartes, régions, ressources), puis la phase 9, qui en dépend. Les phases 10 à 12 peuvent ensuite se faire dans l'ordre que l'on préfère. Chaque phase se termine par un passage d'équilibrage en simulation.

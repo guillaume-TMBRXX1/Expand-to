@@ -33,6 +33,10 @@ let hoverIdx = null;
 let pendingMove = null; // { uid, x, y, plan } : déplacement en attente de confirmation
 let confirmMoves = true;
 try { confirmMoves = localStorage.getItem('expandto.confirmMoves') !== '0'; } catch { /* ignore */ }
+let blockEnd = true; // la fin du tour attend que chaque unité ait reçu un ordre
+try { blockEnd = localStorage.getItem('expandto.blockEnd') !== '0'; } catch { /* ignore */ }
+// Unité en attente : à vous, pas encore déplacée ce tour, sans ordre en cours, ni en veille, ni « passée » pour ce tour.
+const waitingUnits = () => (s?.units || []).filter((u) => u.owner === 0 && !u.target && !u.sleep && u.skipTurn !== s.turn && u.movesLeft >= G.unitMaxMoves(s, u) - 1e-6);
 let showAdjacency = false; // touche A : bonus d'adjacence actifs sur la carte
 // Barre de construction repliable (touche B) : repliée par défaut sur tablette pour laisser la carte visible.
 let buildPref = null;
@@ -259,7 +263,15 @@ function showSummary(before) {
   showSummary.timer = setTimeout(() => { el.hidden = true; }, 9000);
 }
 
+function renderWaitBadge() {
+  const b = $('#wait-badge');
+  if (!b) return;
+  const n = blockEnd ? waitingUnits().length : 0;
+  b.hidden = n === 0; b.textContent = n;
+  b.closest('button').title = n ? `${n} unité(s) attendent vos ordres avant la fin du tour` : 'Fin du tour (Entrée)';
+}
 function renderTop() {
+  renderWaitBadge();
   const p = me();
   const y = G.computeYields(s, 0);
   const items = ['gold', 'food', 'wood', 'stone'].map((k) => {
@@ -473,13 +485,16 @@ function renderSelection() {
     el.innerHTML = `<button class="btn small ghost close-sel" data-action="deselect" aria-label="Fermer la sélection">✕</button><h3><span class="dot" style="background:${owner.color}"></span>${def.name}${u.owner !== 0 ? ` <span class="muted">· ${esc(owner.name)}</span>` : ''}</h3>
       <p class="muted" style="font-size:13px;margin:6px 0 0">${def.desc}</p>
       <dl class="kv"><dt>Mouvements</dt><dd>${u.movesLeft.toFixed(1).replace('.0', '')} / ${G.unitMaxMoves(s, u)}</dd><dt>Vision</dt><dd>${G.unitVision(s, u)}</dd>
-      ${u.target ? `<dt>Destination</dt><dd>(${u.target.x}, ${u.target.y})</dd>` : ''}</dl>
+      ${u.target ? `<dt>Destination</dt><dd>(${u.target.x}, ${u.target.y})</dd>` : ''}
+      ${u.owner === 0 && (u.sleep || u.skipTurn === s.turn) ? `<dt>État</dt><dd>${u.sleep ? 'En veille' : 'Tour passé'}</dd>` : ''}</dl>
       ${u.owner === 0 ? `<div class="actions">
         ${u.type === 'settler' ? `<button class="btn primary small" data-action="found" ${found.ok ? '' : 'disabled'}>Fonder une ville${tap() === 'cliquez' ? ' (F)' : ''}</button>` : ''}
         ${u.type === 'engineer' ? (() => { const a = G.canEngineerRoad(s, u), b2 = G.canClearForest(s, u);
           return `<button class="btn small" data-action="eng-road" ${a.ok ? '' : 'disabled'} title="${esc(a.reason || '')}">Route ici (1 Bois)</button><button class="btn small" data-action="eng-clear" ${b2.ok ? '' : 'disabled'} title="${esc(b2.reason || '')}">Défricher (+${s.rules.engineer.clearWood} Bois)</button>`; })() : ''}
         ${pendingMove && pendingMove.uid === u.id ? '<button class="btn primary small" data-action="confirm-move">Confirmer le déplacement</button><button class="btn small" data-action="cancel-move">Annuler</button>' : ''}
         ${u.target ? '<button class="btn small" data-action="cancel-order">Annuler l\'ordre</button>' : ''}
+        ${!u.target && !u.sleep && u.skipTurn !== s.turn ? '<button class="btn small" data-action="unit-skip" title="Ne rien faire ce tour-ci">Passer ce tour</button>' : ''}
+        ${u.sleep ? '<button class="btn small" data-action="unit-wake">Réveiller</button>' : !u.target ? '<button class="btn small" data-action="unit-sleep" title="L\'unité ne vous sera plus signalée jusqu\'à ce que vous la réveilliez ou lui donniez un ordre">Mettre en veille</button>' : ''}
         <button class="btn small ghost" data-action="next-unit">Unité suivante${tap() === 'cliquez' ? ' (Espace)' : ''}</button>
       </div>
       ${found && !found.ok ? `<div class="reason">${found.reason}</div>` : ''}
@@ -705,6 +720,7 @@ function handleTileClick(i, shift) {
 
 function executeMove(u, x, y) {
   pendingMove = null;
+  u.sleep = false; // un ordre réveille l'unité
   const r = G.orderMove(s, u.id, x, y);
   if (!r.ok) { toast(r.reason, 'bad'); return; }
   Tuto.flag(s, 'moved');
@@ -748,7 +764,8 @@ function showTileTip(i, x, y) {
 }
 
 function nextUnit() {
-  const mine = s.units.filter((u) => u.owner === 0 && u.movesLeft > 0 && !u.target);
+  const waiting = waitingUnits();
+  const mine = waiting.length ? waiting : s.units.filter((u) => u.owner === 0 && u.movesLeft > 0 && !u.target && !u.sleep);
   if (!mine.length) { toast('Toutes vos unités ont agi.'); return; }
   const cur = sel?.kind === 'unit' ? mine.findIndex((u) => u.id === sel.id) : -1;
   const u = mine[(cur + 1) % mine.length];
@@ -767,6 +784,14 @@ function foundSelected() {
 
 function endTurn() {
   if (s.winner) { showEnd(); return; }
+  const waiting = waitingUnits();
+  if (blockEnd && waiting.length) {
+    const u = sel?.kind === 'unit' && waiting.find((x) => x.id === sel.id) ? waiting.find((x) => x.id === sel.id) : waiting[0];
+    select({ kind: 'unit', id: u.id });
+    renderer.focus(u.x, u.y);
+    toast(`${waiting.length > 1 ? `${waiting.length} unités attendent` : 'Une unité attend'} vos ordres : déplacez-la, passez son tour ou mettez-la en veille.`, 'bad');
+    return;
+  }
   closeModal();
   mode = null;
   const before = snapshot();
@@ -1113,6 +1138,7 @@ function showMenu() {
     <div class="actions"><button class="btn small" data-action="export">Exporter la partie (.json)</button><button class="btn small" data-action="import">Importer une partie</button></div>
     <div class="section-title" style="margin-top:16px"><span>Options</span></div>
     <div class="actions"><button class="btn small" data-action="toggle-confirm" aria-pressed="${confirmMoves}">Confirmation des déplacements : ${confirmMoves ? 'activée' : 'désactivée'}</button>
+      <button class="btn small" data-action="toggle-blockend" aria-pressed="${blockEnd}" title="Empêche de finir le tour tant qu'une unité n'a pas reçu d'ordre">Attendre les unités avant la fin du tour : ${blockEnd ? 'activé' : 'désactivé'}</button>
       <button class="btn small" data-action="toggle-sound" aria-pressed="${Sound.soundEnabled()}">Sons : ${Sound.soundEnabled() ? 'activés' : 'coupés'}</button>
       <button class="btn small" data-action="toggle-daynight" aria-pressed="${renderer.dayNight}">Cycle jour / nuit : ${renderer.dayNight ? 'activé' : 'désactivé'}</button></div>
     <label class="field" style="margin-top:10px;max-width:260px">Volume<input type="range" min="0" max="1" step="0.05" value="${Sound.soundVolume()}" id="f-volume"></label>
@@ -1192,6 +1218,17 @@ function onAction(e) {
     case 'toggle-confirm': confirmMoves = !confirmMoves; try { localStorage.setItem('expandto.confirmMoves', confirmMoves ? '1' : '0'); } catch { /* ignore */ } showMenu(); break;
     case 'cancel-order': { const u = s.units.find((x) => x.id === sel.id); if (u) u.target = null; renderAll(); break; }
     case 'next-unit': nextUnit(); break;
+    case 'unit-skip': case 'unit-sleep': case 'unit-wake': {
+      const u = s.units.find((x) => x.id === sel?.id);
+      if (!u) break;
+      if (a === 'unit-skip') u.skipTurn = s.turn;
+      if (a === 'unit-sleep') u.sleep = true;
+      if (a === 'unit-wake') u.sleep = false;
+      save();
+      if (a !== 'unit-wake' && waitingUnits().length) nextUnit(); else renderAll();
+      break;
+    }
+    case 'toggle-blockend': blockEnd = !blockEnd; try { localStorage.setItem('expandto.blockEnd', blockEnd ? '1' : '0'); } catch { /* ignore */ } showMenu(); renderTop(); break;
     case 'train': {
       const r = G.train(s, 0, sel.id, b.dataset.unit);
       if (!r.ok) toast(r.reason, 'bad'); else { toast(`${G.unitDef(s, r.unit.type).name} formé.`, 'good'); Sound.sfx.train(); sel = { kind: 'unit', id: r.unit.id }; }
