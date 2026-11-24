@@ -79,8 +79,10 @@ export class Renderer {
   wz(y) { return y - this.H / 2 + 0.5; }
   tileHeight(t, explored = true) {
     const ter = this.state.data.terrain[t.type];
-    if (!explored) return 0.1;
-    return ter.water ? ter.height : ter.height + (t.e - 0.4) * 0.35;
+    if (!explored) return 0.01; // nettement sous la surface du plateau (y = 0,05) : l'inconnu est une étendue lisse, sans grille
+    if (ter.water) return ter.height;
+    // Relief quantifié par paliers de 0,06 : les cases voisines de même altitude forment de vrais plateaux.
+    return ter.height + Math.round(((t.e - 0.4) * 0.35) / 0.06) * 0.06;
   }
   top(i) { return this.heights[i]; }
 
@@ -93,7 +95,7 @@ export class Renderer {
     sc0.updateProjectionMatrix();
     this.controls.maxDistance = Math.max(45, this.W * 1.25);
     this.scene.fog.far = Math.max(90, this.W * 2.2);
-    if (this.tiles) { this.scene.remove(this.tiles, this.trees, this.trunks, this.peaks, this.base, this.water, ...(this.decor || [])); }
+    if (this.tiles) { this.scene.remove(this.tiles, this.trees, this.trunks, ...this.peaks, this.base, this.board, this.water, ...(this.decor || [])); }
     if (this.rivers) this.scene.remove(this.rivers);
     for (const o of this.entityObjs.values()) this.entities.remove(o);
     this.entityObjs.clear();
@@ -113,7 +115,7 @@ export class Renderer {
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vLocalY;')
         .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= mix(0.62, 1.0, smoothstep(-0.5, 0.48, vLocalY));');
     };
-    this.tiles = new THREE.InstancedMesh(new RoundedBoxGeometry(0.97, 1, 0.97, 2, 0.07), tileMat, n);
+    this.tiles = new THREE.InstancedMesh(new RoundedBoxGeometry(0.985, 1, 0.985, 2, 0.06), tileMat, n);
     this.tiles.receiveShadow = true; this.tiles.castShadow = true;
 
     const forests = state.map.tiles.filter((t) => t.type === 'forest');
@@ -125,14 +127,24 @@ export class Renderer {
     this.trees = new THREE.InstancedMesh(new THREE.SphereGeometry(0.15, 14, 10), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.7 }), this.treeSlots.length);
     this.trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.025, 0.035, 0.22, 8), new THREE.MeshStandardMaterial({ color: '#8a5634', roughness: 0.8 }), this.treeSlots.length);
     this.trees.castShadow = true; this.trunks.castShadow = true;
+    // Montagnes : pics arrondis à couleurs de sommets, 2 silhouettes × (rocheuse | enneigée), rotation et taille variées.
+    this.climate = this.computeClimate(state);
     const highs = state.map.tiles.filter((t) => t.type === 'mountain' || t.type === 'snow');
-    this.peaks = new THREE.InstancedMesh(new THREE.SphereGeometry(0.42, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ roughness: 0.8 }), highs.length);
+    const peakMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.78 });
     this.peakTiles = highs;
-    this.peaks.castShadow = true;
-    this.base = new THREE.Mesh(new THREE.PlaneGeometry(this.W + 60, this.H + 60), new THREE.MeshStandardMaterial({ color: '#e4dcd6', roughness: 1 }));
-    this.base.rotation.x = -Math.PI / 2; this.base.position.y = 0.02;
+    this.peaks = [0, 1, 2, 3].map((k) => {
+      const list = highs.filter((t) => this.peakKind(t) === k);
+      const im = new THREE.InstancedMesh(this.mountainGeo(k >> 1, k & 1), peakMat, Math.max(1, list.length));
+      im.userData.list = list; im.castShadow = true; im.receiveShadow = true;
+      return im;
+    });
+    // Plateau de jeu : la carte repose sur un socle d'argile posé sur la table, au lieu d'une grille infinie.
+    this.board = new THREE.Mesh(new RoundedBoxGeometry(this.W + 1.4, 0.7, this.H + 1.4, 3, 0.32), new THREE.MeshStandardMaterial({ color: '#e8ddd2', roughness: 0.9 }));
+    this.board.position.y = -0.3; this.board.receiveShadow = true; this.board.castShadow = true;
+    this.base = new THREE.Mesh(new THREE.PlaneGeometry(this.W + 80, this.H + 80), new THREE.MeshStandardMaterial({ color: BG, roughness: 1 }));
+    this.base.rotation.x = -Math.PI / 2; this.base.position.y = -0.65;
     this.base.receiveShadow = true;
-    this.scene.add(this.base, this.tiles, this.trunks, this.trees, this.peaks);
+    this.scene.add(this.base, this.board, this.tiles, this.trunks, this.trees, ...this.peaks);
     this.buildWater(state);
     this.buildDecor(state);
     this.refresh();
@@ -230,6 +242,52 @@ export class Renderer {
     this.buildRivers(state);
   }
 
+  // 0-1 : silhouette (pic et contreforts | deux sommets) ; +2 : enneigée (neige éternelle, nord).
+  peakKind(t) {
+    const h = (((t.x * 73856093) ^ (t.y * 19349663)) >>> 0) % 2;
+    const snowy = t.type === 'snow' || this.climate?.[t.y * this.W + t.x] === 'north';
+    return h * 2 + (snowy ? 1 : 0);
+  }
+  mountainGeo(shape, snowy) {
+    const M = (x, z, s, sy = s) => new THREE.Matrix4().compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion(), new THREE.Vector3(s, sy, s));
+    // Profil arrondi (tour) : base large, flancs bombés, sommet émoussé.
+    const prof = [[0.4, 0], [0.37, 0.1], [0.3, 0.24], [0.21, 0.38], [0.12, 0.5], [0.05, 0.57], [0, 0.59]].map(([r, y]) => new THREE.Vector2(r, y));
+    const body = new THREE.LatheGeometry(prof, 16);
+    const capFrom = snowy ? 2 : 4;
+    const capProf = prof.slice(capFrom).map((v, k) => new THREE.Vector2(v.x * 1.08 + (k === 0 ? 0.02 : 0.006), v.y + 0.006));
+    const cap = new THREE.LatheGeometry(capProf, 16);
+    const rock = ['#d2c8bd', '#c6bbaf', '#dbd2c8'], snow = '#ffffff';
+    const peaks = shape === 0
+      ? [[0, 0, 1, 1, 0], [0.22, 0.16, 0.55, 0.62, 1], [-0.2, 0.2, 0.42, 0.5, 2]]
+      : [[-0.11, -0.05, 0.85, 0.95, 0], [0.15, 0.08, 0.7, 0.8, 1], [0.02, 0.26, 0.38, 0.42, 2]];
+    const parts = [];
+    for (const [x, z, s, sy, c] of peaks) {
+      parts.push([body, rock[c], M(x, z, s, sy)]);
+      if (s > 0.5 || snowy) parts.push([cap, snow, M(x, z, s, sy)]);
+    }
+    parts.push([new THREE.DodecahedronGeometry(0.06, 1), '#a39a90', M(0.3, -0.22, 1, 0.7)], [new THREE.DodecahedronGeometry(0.045, 1), '#b3aaa0', M(-0.3, -0.18, 1, 0.7)]);
+    return this.mergedGeo(parts);
+  }
+  // Source d'une rivière : petit bassin cerclé de galets, adossé à des rochers moussus (orienté vers l'aval).
+  springGeo() {
+    const M = (x, y, z, s, sy = s, ry = 0) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), new THREE.Vector3(s, sy, s));
+    const parts = [
+      [new THREE.CylinderGeometry(0.17, 0.18, 0.02, 20), '#7cc36b', M(0, 0.008, 0, 1)],           // tapis d'herbe
+      [new THREE.CylinderGeometry(0.13, 0.13, 0.012, 20), '#8ed3f2', M(0, 0.02, 0, 1)],          // bord clair
+      [new THREE.CylinderGeometry(0.105, 0.105, 0.012, 20), '#4fa9df', M(0, 0.024, 0, 1)],       // eau profonde
+      [new THREE.DodecahedronGeometry(0.075, 1), '#a59c92', M(-0.13, 0.04, 0, 1, 0.85)],          // rochers en amont
+      [new THREE.DodecahedronGeometry(0.055, 1), '#b5aca2', M(-0.1, 0.035, -0.1, 1, 0.8)],
+      [new THREE.DodecahedronGeometry(0.05, 1), '#9d948a', M(-0.09, 0.03, 0.11, 1, 0.8)],
+      [new THREE.SphereGeometry(0.04, 8, 6), '#6fb85a', M(-0.15, 0.1, 0.01, 1, 0.6)],            // mousse
+      [new THREE.SphereGeometry(0.025, 8, 6), '#86c96a', M(-0.08, 0.075, -0.12, 1, 0.6)],
+    ];
+    for (let k = 0; k < 7; k++) { // galets autour du bassin, côté aval ouvert
+      const a = Math.PI * 0.62 + (k / 6) * Math.PI * 0.76;
+      parts.push([new THREE.SphereGeometry(0.022, 7, 5), k % 2 ? '#d8d0c6' : '#c4bbb1', M(Math.cos(a) * 0.125, 0.026, Math.sin(a) * 0.125, 1, 0.6)]);
+    }
+    return this.mergedGeo(parts);
+  }
+
   // Petites géométries fusionnées à couleurs de sommets (un seul appel de dessin par type).
   mergedGeo(parts) {
     const geos = parts.map(([g, color, m]) => {
@@ -317,6 +375,13 @@ export class Renderer {
       return out;
     }).filter((c) => c.length >= 2);
     this.riverFlow = flow; tiles.forEach((t, i) => { if (t.river) flowOf(i); });
+    // Sources : cases de rivière sans amont.
+    this.springs = this.riverChains.filter((c) => !(up.get(c[0]) || []).length).map((c) => ({ i: c[0], to: c[1] }));
+    this.springSet = new Set(this.springs.map((sp) => sp.i));
+    if (this.springMesh) this.scene.remove(this.springMesh);
+    this.springMesh = new THREE.InstancedMesh(this.springGeo(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45 }), Math.max(1, this.springs.length));
+    this.springMesh.receiveShadow = true; this.springMesh.castShadow = true;
+    this.scene.add(this.springMesh);
     const u = this.waterUniform;
     const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true, roughness: 0.2, metalness: 0.05, transparent: true, opacity: 0.95, depthWrite: false });
     const speed = { value: this.reducedMotion ? 0 : 0.5 };
@@ -351,7 +416,8 @@ export class Renderer {
         const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
         const wob = k === 0 || k === chain.length - 1 ? 0 : (hash(t.x, t.y, 7) - 0.5) * 0.36;
         const water = s.data.terrain[t.type].water;
-        return { x: this.wx(t.x) - dz * wob, z: this.wz(t.y) + dx * wob, h: this.heights[i] + (water ? 0.01 : 0.014), ex: p.explored[i] === 1, water, i };
+        const off = k === 0 && t.luxury && this.springSet.has(i) ? 0.27 : 0;
+        return { x: this.wx(t.x) - dz * wob + (next.x - t.x) * off, z: this.wz(t.y) + dx * wob + (next.y - t.y) * off, h: this.heights[i] + (water ? 0.01 : 0.014), ex: p.explored[i] === 1, water, i };
       });
       // L'embouchure s'arrête au bord de l'eau, pas au centre de la case de mer.
       const last = pts[pts.length - 1], before = pts[pts.length - 2];
@@ -361,7 +427,7 @@ export class Renderer {
       let arc = 0, prevPt = null, base = -1;
       for (let k = 0; k < pts.length - 1; k++) {
         const a = pts[Math.max(0, k - 1)], b = pts[k], c = pts[k + 1], d = pts[Math.min(pts.length - 1, k + 2)];
-        const fw = (j) => { const f = this.riverFlow.get(pts[j].i) || 1; return Math.min(0.15, 0.045 + 0.022 * Math.sqrt(f)); };
+        const fw = (j) => { const f = this.riverFlow.get(pts[j].i) || 1; return Math.min(0.15, (j === 0 && this.springSet.has(pts[j].i) ? 0.03 : 0.045) + 0.022 * Math.sqrt(f)); };
         for (let st = (k === 0 ? 0 : 1); st <= steps; st++) {
           const t = st / steps;
           const x = cr(a.x, b.x, c.x, d.x, t), z = cr(a.z, b.z, c.z, d.z, t);
@@ -395,6 +461,16 @@ export class Renderer {
     g.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(pos.length).map((_, k) => (k % 3 === 1 ? 1 : 0)), 3));
     this.rivers.geometry.dispose();
     this.rivers.geometry = g;
+    // Bassins des sources, tournés vers la case aval.
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
+    this.springs.forEach((sp, k) => {
+      const t = tiles[sp.i], n = tiles[sp.to];
+      q.setFromAxisAngle(Y, Math.atan2(-(n.y - t.y), n.x - t.x));
+      const off = t.luxury ? 0.27 : 0; // une ressource rare occupe le centre : le bassin glisse vers l'aval
+      m.compose(v.set(this.wx(t.x) + (n.x - t.x) * off, this.heights[sp.i] + 0.004, this.wz(t.y) + (n.y - t.y) * off), q, sc.setScalar(p.explored[sp.i] === 1 ? (off ? 0.8 : 1) : 0.0001));
+      this.springMesh.setMatrixAt(k, m);
+    });
+    this.springMesh.instanceMatrix.needsUpdate = true;
   }
 
   // Écume blanche le long des rivages (côté eau).
@@ -468,7 +544,7 @@ export class Renderer {
       const ex = p.explored[i] === 1;
       const h = this.tileHeight(t, ex);
       this.heights[i] = h;
-      m.compose(v.set(this.wx(t.x), h / 2, this.wz(t.y)), q, sc.set(ex ? 1 : 1.021, h, ex ? 1 : 1.021));
+      m.compose(v.set(this.wx(t.x), h / 2, this.wz(t.y)), q, sc.set(1, h, 1));
       this.tiles.setMatrixAt(i, m);
       c.set(ex ? s.data.terrain[t.type].color : FOG_COLOR);
       const reg = s.rules.regions?.[this.climate?.[i]];
@@ -487,6 +563,7 @@ export class Renderer {
     this.tiles.instanceMatrix.needsUpdate = true; this.tiles.instanceColor.needsUpdate = true;
     const occupied = new Set();
     s.map.tiles.forEach((t, i) => { if (t.natural) occupied.add(i); }); // le décor s'efface sous les merveilles naturelles
+    for (const i of this.springSet || []) occupied.add(i); // et autour des sources
     for (const b of s.buildings) {
       const f = s.data.buildingsById[b.type].footprint || 1;
       for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) occupied.add((b.y + dy) * this.W + b.x + dx);
@@ -524,17 +601,21 @@ export class Renderer {
     });
     this.trees.instanceMatrix.needsUpdate = true; this.trunks.instanceMatrix.needsUpdate = true;
     if (this.trees.instanceColor) this.trees.instanceColor.needsUpdate = true;
-    this.peakTiles.forEach((t, k) => {
-      const i = t.y * this.W + t.x;
-      const ex = p.explored[i] === 1;
-      const rot = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 4);
-      const show = ex && !t.natural; // le volcan remplace le pic
-      m.compose(v.set(this.wx(t.x), this.heights[i] - 0.02, this.wz(t.y)), rot, sc.set(show ? 1.0 : 0.0001, show ? 1.1 : 0.0001, show ? 1.0 : 0.0001));
-      this.peaks.setMatrixAt(k, m);
-      this.peaks.setColorAt(k, c.set(t.type === 'snow' ? '#ffffff' : '#c3bbb2'));
-    });
-    this.peaks.instanceMatrix.needsUpdate = true;
-    if (this.peaks.instanceColor) this.peaks.instanceColor.needsUpdate = true;
+    const Yax = new THREE.Vector3(0, 1, 0), rot = new THREE.Quaternion();
+    for (const im of this.peaks) {
+      im.userData.list.forEach((t, k) => {
+        const i = t.y * this.W + t.x;
+        const show = p.explored[i] === 1 && !t.natural; // le volcan remplace le pic
+        const r = (((t.x * 2654435761) ^ (t.y * 40503)) >>> 0) / 4294967296;
+        rot.setFromAxisAngle(Yax, Math.floor(r * 4) * (Math.PI / 2) + (r - 0.5) * 0.5);
+        const s0 = (t.type === 'snow' ? 1.1 : 0.92) + r * 0.16;
+        m.compose(v.set(this.wx(t.x), this.heights[i] - 0.01, this.wz(t.y)), rot, show ? sc.set(s0, s0 * (0.9 + r * 0.25), s0) : sc.setScalar(0.0001));
+        im.setMatrixAt(k, m);
+        im.setColorAt(k, c.set(vis[i] ? '#ffffff' : '#c9c3be'));
+      });
+      im.instanceMatrix.needsUpdate = true;
+      if (im.instanceColor) im.instanceColor.needsUpdate = true;
+    }
   }
 
   // ----------------------------------------------------- couches dynamiques
@@ -547,7 +628,7 @@ export class Renderer {
     const s = this.state, p = s.players[this.viewer];
     const owned = s.map.tiles.filter((t, i) => t.owner !== -1 && p.explored[i]);
     // Territoire : voile coloré + liseré sur les frontières
-    const veil = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.14, depthWrite: false }), Math.max(1, owned.length));
+    const veil = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.17, depthWrite: false }), Math.max(1, owned.length));
     const m = new THREE.Matrix4(), q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2), v = new THREE.Vector3(), sc = new THREE.Vector3(1, 1, 1), c = new THREE.Color();
     const edges = [];
     owned.forEach((t, k) => {
@@ -562,11 +643,11 @@ export class Renderer {
     veil.count = owned.length;
     this.dynamic.add(veil);
     if (edges.length) {
-      const border = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.03, 0.06), new THREE.MeshBasicMaterial(), edges.length);
+      const border = new THREE.InstancedMesh(new RoundedBoxGeometry(1.0, 0.04, 0.1, 1, 0.02), new THREE.MeshBasicMaterial(), edges.length);
       edges.forEach((e, k) => {
         const horiz = e.dy !== 0;
         const rot = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), horiz ? 0 : Math.PI / 2);
-        m.compose(v.set(this.wx(e.t.x) + e.dx * 0.47, e.h + 0.02, this.wz(e.t.y) + e.dy * 0.47), rot, sc.set(1, 1, 1));
+        m.compose(v.set(this.wx(e.t.x) + e.dx * 0.45, e.h + 0.022, this.wz(e.t.y) + e.dy * 0.45), rot, sc.set(1, 1, 1));
         border.setMatrixAt(k, m); border.setColorAt(k, c.set(s.players[e.t.owner].color));
       });
       this.dynamic.add(border);
