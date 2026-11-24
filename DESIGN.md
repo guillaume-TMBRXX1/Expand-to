@@ -129,3 +129,20 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
   - Les arbres sont plus légers et l'écume est faite de simples boîtes.
   - La fumée est masquée en vue d'ensemble, là où elle ne s'anime plus.
   - Mesure stable sur la grande carte avec 8 joueurs (graine 777, tour 40, vue de loin, après la fin des effets) : `main` en est à 2 248 appels de dessin et 4,5 M de triangles, cette version à 1 560 appels (−31 %) et 2,9 M de triangles (−36 %).
+
+## Quatrième passage
+
+### Lot 5 : villageois
+- **Des mini-figurines « toy »** (`web/src/render/villagers.js`) : grosse tête, chapeau, bras qui balancent et petite ombre au sol. La tenue dépend du métier :
+  - bûcheron : chemise rouge, hache ;
+  - fermier : salopette bleue, chapeau de paille ;
+  - ouvrier : gilet orange, casque jaune ;
+  - docker : chapeau à la couleur du joueur et caisse sur l'épaule ;
+  - touriste : chemise pastel, chapeau blanc, sac à dos ;
+  - banquier : costume sombre, chapeau melon, mallette ;
+  - habitant : chapeau à la couleur du joueur.
+- **Qui va où** : les travailleurs font la navette dans la cour de leur bâtiment (scierie, ferme, moulin, carrière, forge, menuiserie, manufacture, atelier, port, phare, marché, halle, bourse, guildes). Les touristes partent de la ville la plus proche pour visiter bibliothèques, théâtres, parcs, merveilles et quartiers. Les habitants se promènent dans la ville ou vont vers un bâtiment voisin. Les banquiers font l'aller-retour entre la bourse et la ville.
+- **Lisibles et sans collision** : les trajets longent l'avant du socle, côté caméra, si bien que les figurines ne traversent pas les bâtiments. Elles montent sur les socles et ne marchent jamais sur l'eau.
+- **Densité « vivante »** : une à deux figurines par bâtiment et deux à cinq par ville, selon la population et le palier. Les figurines des autres joueurs n'apparaissent que sur les cases vues.
+- **Krach boursier** : pendant la phase `crash` du marché mondial, trois traders par bourse, halle, quartier marchand et maison des guildes courent en tous sens, trois fois plus vite, bras levés. Hors krach, un seul discute devant.
+- **Coût** : toute la population tient en 6 maillages instanciés, soit 6 appels de dessin. Seules les figurines proches du point visé sont calculées (0,2 ms par image pour 143 figurines dans le navigateur de test). Tout disparaît en vue d'ensemble, comme les animations. Avec « Réduire les animations », les figurines restent immobiles à leur poste.
