@@ -253,14 +253,27 @@ Mesuré : l'IA fonde environ 4 villes par partie quelle que soit la taille. C'es
 - Calcul d'un tour d'IA : 45 à 115 ms en simulation.
 - Rendu : la taille Immense est environ 1,3 à 1,5 fois plus lourde que l'ancienne grande carte (de 1 100 à 1 200 objets dessinés et environ 2,3 millions de triangles). D'où la mention « expérimentale ».
 
-## Prochaine étape : équilibrage complet
+## Équilibrage complet ✅
 
-Toutes les phases de contenu (8 à 12) sont terminées. L'équilibrage doit notamment :
-- ramener la durée des parties normales vers 38 à 40 tours, et remonter le plancher de la CI à 58 % ;
-- revoir la voie économique : l'IA qui possède la Grande Bourse a déjà des milliers d'Or ;
-- vérifier les profils (21 à 29 % chacun) et la répartition des victoires avec tous les nouveaux systèmes ;
-- doser les nouvelles sources de prestige et de Science (événements, ligue, défis, tourisme, œuvres) ;
-- relancer un entraînement de l'IA, avec un objectif qui récompense aussi l'équilibre entre profils.
+Mesuré sur 60 à 100 parties simulées par réglage, toutes les nouveautés des phases 8 à 12 comprises, sur les nouvelles tailles de carte.
+
+- **Partie normale** (carte moyenne, 4 joueurs)
+
+  | Mesure | Avant | Après |
+  |---|---|---|
+  | Durée moyenne | 35,6 tours | 38,2 tours |
+  | Profils | 18 à 36 % | 23 à 29 % (25 % = équilibre) |
+  | Victoires au prestige | 63 % | 50 % |
+  | Autres voies | science 16, économie 10, diplomatie 7, culture 4 | diplomatie 15 %, science 15 %, économie 13 %, culture 7 % |
+
+  - Objectif de prestige : 290.
+  - Science : 13 technologies et l'Observatoire. Culture : 650 et l'Amphithéâtre.
+  - Économie : 3 000 Or de base (3 450 en partie normale) avec la Grande Bourse. Le seuil était trivial pour une IA qui thésaurise.
+  - Érudit : 0,9 prestige par palier de technologie. Diplomate : +8 relation initiale, +0,2 par tour, +1 prestige par ambassade. Explorateur : jusqu'à +22 prestige d'exploration.
+- **Partie rapide** : environ 30 tours (contre 28), avec des technologies moins chères (×0,6) et des seuils de voies plus bas. Le prestige reste la voie principale (environ 68 %), mais toutes les voies apparaissent. « Allié de tous » demande 3 élections.
+- **Partie longue** : environ 47 tours (contre 44), avec des technologies plus chères (×2) et des seuils de voies ×4. Victoires variées (prestige, science, diplomatie, culture, économie). L'Érudit reste un peu au-dessus (environ 33 %), mais ce n'est pas le mode principal.
+- **CI** : le plancher de durée remonte à 58 % de la partie (35 tours en partie normale).
+- **Entraînement de l'IA** : nouvel objectif `--objective balance` (`python -m expandto.train`). Les paramètres candidats s'appliquent à tous les joueurs, et le score récompense un petit écart entre profils et une durée de 37 à 41 tours. `tools/sim.mjs --ai-all=fichier` et la sortie `--json` donnent le taux de victoire par profil.
 
 > Ordre proposé : la phase 8 d'abord (cartes, régions, ressources), puis la phase 9, qui en dépend. Les phases 10 à 12 peuvent ensuite se faire dans l'ordre que l'on préfère. Chaque phase se termine par un passage d'équilibrage en simulation.
 

@@ -106,13 +106,13 @@ Sur l'écran d'accueil, vous choisissez :
   - On s'y déplace plus vite.
   - Le Moulin à eau et le port fluvial s'y construisent.
 - **Diplomatie** : les voisins méfiants ou hostiles réduisent votre productivité. Accords et alliances la renforcent.
-- **Victoire** : la première voie complétée l'emporte. Sinon, la victoire va au premier à 250 points de prestige, ou au meilleur score après 60 tours. Les voies (valeurs en partie normale) :
-  - Science : Observatoire Céleste et 12 technologies ;
-  - Culture : Amphithéâtre et 750 de culture ;
-  - Économie : Grande Bourse et 1 150 Or en caisse ;
+- **Victoire** : la première voie complétée l'emporte. Sinon, la victoire va au premier à 290 points de prestige (en partie normale sur carte moyenne), ou au meilleur score après 60 tours. Les voies (valeurs en partie normale) :
+  - Science : Observatoire Céleste et 13 technologies ;
+  - Culture : Amphithéâtre et 650 de culture ;
+  - Économie : Grande Bourse et 3 450 Or en caisse ;
   - Diplomatie : élu 4 fois Secrétaire et allié de la moitié des rivaux, ou allié de tous et élu 3 fois.
 
-  En partie longue, les seuils sont plus élevés et les technologies coûtent plus cher. Le bouton « Voies de victoire » (panneau Prestige) suit votre progression.
+  En partie rapide, les seuils sont plus bas et les technologies moins chères ; en partie longue, c'est l'inverse. Le bouton « Voies de victoire » (panneau Prestige) suit votre progression.
 - **Politiques** (touche `P`) : vous adoptez jusqu'à 3 politiques (1 au départ, 2 à 4 technologies, 3 à 9). Remplir un emplacement libre est gratuit ; remplacer une politique coûte 30 Or. Chaque branche de l'arbre technologique en débloque de nouvelles.
 - **Événements** : tous les 4 à 6 tours environ, un événement vous propose un choix (sécheresse, comète, savant exilé…). La carte s'affiche dans le panneau de droite. Sans réponse au bout de 3 tours, le choix le plus raisonnable est fait pour vous.
 - **Merveilles naturelles** : six sites uniques (Grandes Chutes, Mont Braise, Récif de corail, Arbre millénaire, Canyon rouge, Oasis). Les découvrir rapporte du prestige (davantage au premier). Dans votre territoire, elles produisent et rapportent du prestige, et les bâtiments voisins gagnent +1 Culture.

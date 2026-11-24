@@ -4,7 +4,7 @@
     "height": 36
   },
   "turnLimit": 60,
-  "prestigeTarget": 250,
+  "prestigeTarget": 290,
   "cityBaseYield": {
     "food": 3,
     "gold": 2,
@@ -353,9 +353,9 @@
     }
   },
   "victory": {
-    "scienceTechs": 12,
-    "cultureTotal": 750,
-    "economyGold": 1000,
+    "scienceTechs": 13,
+    "cultureTotal": 650,
+    "economyGold": 3000,
     "secretaryWins": 4,
     "allyAllElections": 3
   },
@@ -414,9 +414,11 @@
       "turnLimit": 40,
       "scale": 0.7,
       "secretaryWins": 3,
-      "prestigeScale": 0.6,
-      "allyAllElections": 2,
-      "techCostScale": 0.8
+      "prestigeScale": 0.74,
+      "allyAllElections": 3,
+      "techCostScale": 0.6,
+      "pathScale": 0.45,
+      "techScale": 0.7
     },
     "normal": {
       "name": "Normale (60 tours)",
@@ -430,11 +432,11 @@
       "turnLimit": 80,
       "scale": 1.3,
       "secretaryWins": 5,
-      "prestigeScale": 1.75,
+      "prestigeScale": 1.5,
       "allyAllElections": 4,
-      "pathScale": 3,
+      "pathScale": 4,
       "techScale": 1.34,
-      "techCostScale": 1.6
+      "techCostScale": 2.0
     }
   },
   "embark": {
