@@ -5,6 +5,7 @@ import { aiAbility } from './world.js';
 import { aiMarket, aiLeague } from './economy.js';
 import { aiTreaties } from './summits.js';
 import { aiArt, aiHeritage } from './culture.js';
+import { cityPollution, healthCap } from './society.js';
 
 // Paramètres de l'IA : web/data/ai.json, éventuellement surchargés par joueur (s.aiOverrides[pid]) pour l'entraînement.
 function merge(a, b) {
@@ -199,6 +200,9 @@ function buildSomething(s, pid, w, B) {
     if (def.id === 'markethall' && count === 0) score += B.markethall;
     if (def.id === 'lab') score += B.lab;
     if (def.footprint) score += B.quarter;
+    // Cadre de vie : un parc là où ça pollue, l'eau courante et les soins avant que les villes ne plafonnent.
+    if (def.id === 'park') score += G.citiesOf(s, pid).filter((c) => cityPollution(s, c).net > 0).length > count ? 10 : -20;
+    if ((def.id === 'aqueduct' || def.id === 'hospital') && G.citiesOf(s, pid).some((c) => healthCap(s, c).needs === def.id && c.pop >= healthCap(s, c).cap - 1)) score += 16;
     if (missingFor.has(def.id) && count < 2) score += B.pathMaterials ?? 15;
     if (!def.wonder) score -= count * B.diversity; // diversité : on évite d'empiler toujours le même bâtiment
     return { def, score: score + s.rng.next() * 2 };

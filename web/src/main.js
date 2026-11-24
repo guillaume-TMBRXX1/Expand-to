@@ -5,6 +5,7 @@ import * as W from './core/world.js';
 import * as ECO from './core/economy.js';
 import * as SUM from './core/summits.js';
 import * as CUL from './core/culture.js';
+import * as SOC from './core/society.js';
 import { playAITurns } from './core/ai.js';
 import { Renderer } from './render/renderer.js';
 import { avatarSVG } from './ui/avatar.js';
@@ -20,6 +21,7 @@ const BUILD_TABS = {
   industry: { label: 'Industrie', ids: ['sawmill', 'manufactory', 'forge', 'outpost', 'markethall'] },
   know: { label: 'Savoir & culture', ids: ['library', 'lab', 'theatre', 'monument'] },
   quarter: { label: 'Quartiers 2×2', ids: ['campus', 'artsquarter', 'merchantquarter'] },
+  life: { label: 'Cadre de vie', ids: ['park', 'aqueduct', 'hospital'] },
   wonder: { label: 'Merveilles', ids: ['lighthouse', 'grandlibrary', 'observatory', 'amphitheatre', 'exchange', 'nations'] },
 };
 
@@ -247,7 +249,9 @@ function renderTop() {
   items.push(`<button class="res res-btn" data-action="stock" title="Entrepôt : biens transformés et ressources rares" aria-expanded="${!$('#stock').hidden}"><i style="background:${resColor('goods')}"></i><b><span class="lbl-long">Entrepôt</span><span class="lbl-short">Stock</span></b><small>${stockTotal}</small></button>`);
   items.push(`<span class="res" title="Prestige — objectif de victoire"><i style="background:var(--accent)"></i><b>${p.prestige}<span class="pt-target"> / ${s.rules.prestigeTarget}</span></b><small class="lbl-long">prestige</small><small class="lbl-short">★</small></span>`);
   $('#resources').innerHTML = items.join('');
-  $('#turn').textContent = `Tour ${s.turn} / ${s.rules.turnLimit}`;
+  const season = SOC.seasonOf(s);
+  $('#turn').textContent = `Tour ${s.turn} / ${s.rules.turnLimit}${season ? ` · ${season.icon} ${season.name}` : ''}`;
+  $('#turn').title = season ? `${season.name} : ${Object.entries(season.yieldPct).map(([k, v]) => `${v > 0 ? '+' : ''}${Math.round(v * 100)} % ${data.resources[k].name}`).join(', ')}${season.northMove ? ', déplacements plus lents au nord' : ''}. Encore ${SOC.seasonTurnsLeft(s)} tour(s).` : '';
   const short = document.querySelector('[data-action="end-turn"] .lbl-short');
   if (short) short.textContent = `Fin du tour ${s.turn}/${s.rules.turnLimit}`;
 }
@@ -469,7 +473,11 @@ function renderSelection() {
       <dl class="kv"><dt>Population</dt><dd>${c.pop} / ${cap}</dd>
       ${mine ? `<dt>Croissance</dt><dd>${fmt(me().res.food)} / ${need} Nourriture</dd>` : `<dt>Relation</dt><dd>${Math.round(G.getRel(s, 0, c.owner))} · ${G.relStatus(G.getRel(s, 0, c.owner)).label}</dd>`}
       <dt>Palier</dt><dd>${s.rules.tiers[c.tier || 0].name}</dd>
-      <dt>Rayon du territoire</dt><dd>${c.radius}</dd><dt>Bâtiments</dt><dd>${blds.length}</dd></dl>
+      <dt>Rayon du territoire</dt><dd>${c.radius}</dd><dt>Bâtiments</dt><dd>${blds.length}</dd>
+      ${(() => { const pol = SOC.cityPollution(s, c), hc = SOC.healthCap(s, c);
+        return `<dt>Pollution</dt><dd class="${pol.net > 0 ? 'bad' : ''}" title="Émise ${pol.emitted} par les ateliers, absorbée ${pol.absorbed} par les parcs et les forêts. Chaque point coûte ${s.rules.pollution.food} Nourriture et ${s.rules.pollution.culture} Culture.">${pol.net > 0 ? `${String(pol.net).replace('.', ',')} (−${String(pol.net * s.rules.pollution.food).replace('.', ',')} Nourriture)` : 'aucune'}</dd>
+        <dt>Santé</dt><dd class="${c.pop >= hc.cap ? 'bad' : ''}">${hc.needs ? `${G.buildingDef(s, hc.needs).name} requis au-delà de ${hc.cap} hab.` : 'Eau courante et soins'}</dd>
+        <dt>Attractivité</dt><dd title="Palier, culture, tourisme, rivière, pollution et santé. Les habitants migrent vers les villes les plus attrayantes.">${String(SOC.attractiveness(s, c)).replace('.', ',')}</dd>`; })()}</dl>
       ${mine ? tierHint(c) : ''}
       ${mine ? `<div class="section-title" style="margin-top:12px"><span>Former une unité</span><span>${c.trained ? '1 / tour — fait' : '1 / tour'}</span></div>
       <div class="actions">${data.units.map((d) => {
@@ -685,7 +693,7 @@ function showTileTip(i, x, y) {
   const c = G.cityAt(s, t.x, t.y);
   const units = s.units.filter((u) => u.x === t.x && u.y === t.y && (u.owner === 0 || renderer.visible?.[i]));
   const lines = [`<b>${c ? esc(c.name) : ter.name}</b>${t.owner !== -1 ? ` <span class="muted">· ${esc(s.players[t.owner].name)}</span>` : ''}`];
-  if (c) lines.push(`<span class="muted">Ville · ${c.pop} hab. · ${s.rules.tiers[c.tier || 0].name}</span>`);
+  if (c) lines.push(`<span class="muted">Ville · ${c.pop} hab. · ${s.rules.tiers[c.tier || 0].name}${SOC.cityPollution(s, c).net > 0 ? ' · polluée' : ''}</span>`);
   if (!c) lines.push(`<span class="muted">${ter.passable ? `Déplacement ${G.enterCost(s, { owner: 0, type: 'explorer' }, t)}` : 'Impraticable'}${t.road !== -1 ? ' · route' : ''}</span>`);
   const reg = s.rules.regions?.[t.region];
   if (reg) lines.push(`<span class="muted">${reg.name}${t.river ? ' · rivière' : ''}</span>`);
@@ -817,6 +825,9 @@ function showEncyclopedia(tab = 'buildings') {
       <div class="enc-item"><b>Contrats commerciaux</b><div class="muted">Une IA demande une livraison (${s.rules.contracts.duration} tours pour livrer) contre de l'Or, +${s.rules.contracts.relation} relation et +${s.rules.contracts.prestige} prestige. Un contrat accepté puis non honoré coûte ${s.rules.contracts.failRelation} relation.</div></div>
       <div class="enc-item"><b>Influence culturelle</b><div class="muted">Votre culture s'accumule en influence. À ${s.rules.influence.baseCost} points (+${s.rules.influence.costPerClaim} par case déjà annexée), votre territoire s'étend d'une case neutre voisine. Si votre culture dépasse ${s.rules.influence.flipFactor} fois celle d'un voisin, vous pouvez attirer une case de sa frontière (sans bâtiment, coût doublé, ${s.rules.influence.flipRelation} relation).</div></div>
       <div class="enc-item"><b>Crise mondiale</b><div class="muted">Vers le milieu de la partie, une crise frappe tous les pays. Un Congrès extraordinaire réunit les contributions (objectif ${s.rules.crisis.goalPerPlayer} Or par pays). Atteint : la crise s'arrête et les contributeurs gagnent du prestige. Manqué : elle dure ${s.rules.crisis.failTurns} tours, et personne ne paie.</div></div>
+      <div class="enc-item"><b>Saisons</b><div class="muted">Chaque saison dure ${R.seasons.turns} tours : ${R.seasons.list.map((x) => `${x.name} (${Object.entries(x.yieldPct).map(([k, v]) => `${v > 0 ? '+' : ''}${Math.round(v * 100)} % ${data.resources[k].name}`).join(', ')}${x.northMove ? ', chemins enneigés au nord' : ''})`).join(', ')}.</div></div>
+      <div class="enc-item"><b>Pollution</b><div class="muted">Les ateliers polluent leur ville (${Object.entries(R.pollution.emitters).map(([k, v]) => `${G.buildingDef(s, k).name} ${v}`).join(', ')}). Un Parc absorbe ${R.pollution.park} points, chaque forêt du territoire ${R.pollution.forestAbsorb} (au plus ${R.pollution.forestMax}). Chaque point restant coûte ${R.pollution.food} Nourriture et ${R.pollution.culture} Culture.</div></div>
+      <div class="enc-item"><b>Santé et migrations</b><div class="muted">${R.health.map((h) => `Au-delà de ${h.pop} habitants, une ville a besoin d'un ${G.buildingDef(s, h.building).name}`).join(' ; ')}. Tous les ${R.migration.every} tours, des habitants quittent la ville la moins attrayante pour la plus attrayante, y compris chez un voisin. L'attractivité dépend du palier, de la culture, du tourisme, d'une rivière, de la pollution et de la santé.</div></div>
       <div class="enc-item"><b>Défis scientifiques</b><div class="muted">Objectifs ouverts à tous : le premier qui en remplit un gagne du prestige et de la Science. ${R.challenges.map((c) => `${c.name} (${c.desc.toLowerCase().replace(/\.$/, '')})`).join(' ; ')}.</div></div>
       <div class="enc-item"><b>Œuvres d'art</b><div class="muted">Elles se commandent dans la fenêtre Culture (touche C) et s'exposent dans un Théâtre, un Monument, un Quartier des arts ou l'Amphithéâtre. Chacune rapporte de la Culture et du tourisme, et peut être prêtée à un voisin (${R.artworks.loanTurns} tours, +${R.artworks.loanRelation} relation, loyer de ${R.artworks.loanRent} Or par tour).</div></div>
       <div class="enc-item"><b>Patrimoine mondial et tourisme</b><div class="muted">Un site classé est protégé contre l'influence des voisins et attire des visiteurs. Le tourisme vient des merveilles naturelles, des merveilles, des théâtres, des œuvres, du patrimoine et du rayonnement culturel. Il rapporte ${R.tourism.goldPerPoint} Or par point et par tour, et 1 prestige tous les ${R.tourism.prestigePer} points cumulés.</div></div>
