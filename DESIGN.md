@@ -178,3 +178,14 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
 - **Émissaire** : casquette et nœud papillon, sacoche de cuir, rouleau scellé de cire et fanion à la couleur du joueur, qui flotte.
 - **Dirigeable** : enveloppe blanche cerclée de bandes à la couleur du joueur, empennage, nacelle vitrée et hélice qui tourne.
 - **Coût** : sur la grande carte avec 8 joueurs (graine 777, tour 40), 1 591 appels de dessin et 3,06 M de triangles, quasiment comme avant ce lot.
+
+### Lot 8 : ambiance et panneau Infos
+- **Particules de saison** (`web/src/render/ambience.js`) : des pétales roses au printemps, des aigrettes de pissenlit qui flottent en été, des feuilles mortes qui tourbillonnent en automne, des flocons en hiver. Elles tombent en boucle dans une zone qui suit la caméra. Un seul maillage instancié (140 particules) suffit : elles ne s'affichent que de près et sont coupées si « Réduire les animations » est activé.
+- **Saisons plus marquées sur le terrain** :
+  - hiver : neige plus présente, plus encore sur les collines, les montagnes et au nord ;
+  - automne : roux plus franc, forêts cuivrées ;
+  - printemps : vert tendre plus vif ;
+  - été : herbes blondes.
+- **Ciel de saison** : la table de fond se teinte légèrement, plus froide en hiver et plus chaude en automne.
+- **Lumière du soir plus chaude** : avec le cycle jour/nuit, le soleil devient orangé, et le ciel comme la brume prennent une teinte pêche dorée au crépuscule. L'eau reste bleue.
+- **Panneau Infos qui défile** : le panneau entier défile maintenant, si bien que les offres, demandes et événements des autres joueurs restent accessibles sur iPad en paysage. Sur tablette, ce qui attend une réponse passe en tête du panneau. Le journal est limité à 42 % de la hauteur de l'écran.

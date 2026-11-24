@@ -6,9 +6,11 @@ import { mergeGeometries } from 'three/addons/BufferGeometryUtils.js';
 import { cityModel, buildingModel, unitModel, luxuryModel, naturalModel, ruinModel, prepareAnims, animateParts } from './models.js';
 import { seasonOf } from '../core/society.js';
 import { Villagers } from './villagers.js';
+import { Ambience } from './ambience.js';
 
 const FOG_COLOR = new THREE.Color('#e4dcd6');
 const BG = '#efe8e4';
+const EVENING_SKY = new THREE.Color('#ffc9a0'), EVENING_BG = new THREE.Color('#f6d3bb');
 const ANIM_MAX_DIST = 26; // distance caméra–cible au-delà de laquelle les bâtiments ne s'animent plus
 
 export class Renderer {
@@ -66,6 +68,8 @@ export class Renderer {
 
     this.animMaxDist = ANIM_MAX_DIST;
     this.villagers = new Villagers(this);
+    this.ambience = new Ambience(this);
+    this.bgColor = new THREE.Color(BG); this.seasonSky = new THREE.Color(BG);
     window.addEventListener('resize', () => this.resize());
     this.resize();
     this.renderer.setAnimationLoop(() => this.tick());
@@ -544,6 +548,9 @@ export class Renderer {
     const vis = this.computeVisible();
     const memo = new THREE.Color('#a59e98'), tint = new THREE.Color();
     const season = seasonOf(s);
+    this.seasonId = season?.id;
+    this.seasonSky.set({ spring: '#f2ebe6', summer: '#f3eadf', autumn: '#f1e3d6', winter: '#e9ecef' }[season?.id] || BG);
+    if (!this.dayNight || this.reducedMotion) { this.scene.background.copy(this.seasonSky); this.scene.fog.color.copy(this.seasonSky); }
     s.map.tiles.forEach((t, i) => {
       const ex = p.explored[i] === 1;
       const h = this.tileHeight(t, ex);
@@ -556,9 +563,10 @@ export class Renderer {
       // Saisons : neige en hiver (plus marquée au nord), herbes dorées en automne, vert tendre au printemps.
       if (ex && season && !s.data.terrain[t.type].water && t.type !== 'snow' && t.type !== 'sand') {
         const north = this.climate?.[i] === 'north';
-        if (season.id === 'winter' && this.climate?.[i] !== 'arid') c.lerp(tint.set('#f3f6f9'), north ? 0.5 : 0.24);
-        else if (season.id === 'autumn' && ['grass', 'plains', 'forest'].includes(t.type)) c.lerp(tint.set('#d9a050'), 0.16);
-        else if (season.id === 'spring' && ['grass', 'plains'].includes(t.type)) c.lerp(tint.set('#a8e07a'), 0.1);
+        if (season.id === 'winter' && this.climate?.[i] !== 'arid') c.lerp(tint.set('#f3f6f9'), north ? 0.62 : t.type === 'hills' || t.type === 'mountain' ? 0.5 : 0.34);
+        else if (season.id === 'autumn' && ['grass', 'plains', 'forest', 'hills'].includes(t.type)) c.lerp(tint.set(t.type === 'forest' ? '#c9782f' : '#d9a050'), t.type === 'hills' ? 0.12 : 0.24);
+        else if (season.id === 'spring' && ['grass', 'plains', 'forest'].includes(t.type)) c.lerp(tint.set('#a8e07a'), 0.16);
+        else if (season.id === 'summer' && ['grass', 'plains'].includes(t.type)) c.lerp(tint.set('#e3d27a'), 0.08); // herbes blondes
       }
       if (ex && !s.data.terrain[t.type].water) c.offsetHSL(0, 0, ((t.x * 7 + t.y * 13) % 5) * 0.006 - 0.012);
       if (ex && !vis[i]) c.lerp(memo, 0.38);
@@ -985,7 +993,8 @@ export class Renderer {
   }
 
   resetLight() {
-    this.sun.position.set(-14, 26, 12); this.sun.intensity = 2.0; this.sun.color.set('#fff1dc'); this.hemi.intensity = 1.9;
+    this.sun.position.set(-14, 26, 12); this.sun.intensity = 2.0; this.sun.color.set('#fff1dc'); this.hemi.intensity = 1.9; this.hemi.color.set('#fff8f0');
+    this.scene.background.copy(this.seasonSky); this.scene.fog.color.copy(this.seasonSky);
   }
 
   // Cycle jour / nuit très doux : le soleil tourne lentement, la lumière se réchauffe puis se refroidit.
@@ -994,8 +1003,13 @@ export class Renderer {
     const ang = -0.9 + k * 0.6;
     this.sun.position.set(Math.cos(ang) * 18, 20 + k * 8, Math.sin(ang) * 18 + 6);
     this.sun.intensity = 1.7 + k * 0.5;
-    this.sun.color.setRGB(1, 0.86 + k * 0.1, 0.72 + k * 0.18);
-    this.hemi.intensity = 1.75 + k * 0.25;
+    this.sun.color.setRGB(1, 0.74 + k * 0.22, 0.52 + k * 0.38);
+    this.hemi.intensity = 1.65 + k * 0.35;
+    // Le soir, le ciel et la brume prennent une teinte pêche dorée ; en plein jour, la couleur de la saison.
+    const dusk = THREE.MathUtils.smoothstep(1 - k, 0.55, 1);
+    this.hemi.color.set('#fff8f0').lerp(EVENING_SKY, dusk * 0.3);
+    this.scene.background.copy(this.seasonSky).lerp(EVENING_BG, dusk * 0.55);
+    this.scene.fog.color.copy(this.scene.background);
   }
 
   tick() {
@@ -1020,6 +1034,7 @@ export class Renderer {
     if (!this.reducedMotion) this.animate(dt);
     this.updateEffects(dt);
     this.villagers.update(this.time);
+    this.ambience.update(this.time, this.seasonId);
     if (this.dayNight && !this.reducedMotion) this.updateLight();
     for (const obj of this.entityObjs.values()) {
       if (!obj.userData.isUnit) continue;
