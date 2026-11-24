@@ -34,6 +34,19 @@ let pendingMove = null; // { uid, x, y, plan } : déplacement en attente de conf
 let confirmMoves = true;
 try { confirmMoves = localStorage.getItem('expandto.confirmMoves') !== '0'; } catch { /* ignore */ }
 let showAdjacency = false; // touche A : bonus d'adjacence actifs sur la carte
+// Barre de construction repliable (touche B) : repliée par défaut sur tablette pour laisser la carte visible.
+let buildPref = null;
+try { const v = localStorage.getItem('expandto.buildbar'); buildPref = v === null ? null : v === '1'; } catch { /* ignore */ }
+const buildOpen = () => !!mode || (buildPref ?? !document.documentElement.classList.contains('compact'));
+function toggleBuild(open = !buildOpen()) {
+  buildPref = open;
+  try { localStorage.setItem('expandto.buildbar', open ? '1' : '0'); } catch { /* ignore */ }
+  if (!open && mode) setMode(null);
+  renderBuildbar();
+  if (open) $('#buildbar .tab[aria-selected="true"]')?.focus({ preventScroll: true });
+  else $('#buildbar .build-fab')?.focus({ preventScroll: true });
+}
+const HAMMER = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M13.5 3.5l3 3-2 2 1.2 1.2 1.6-1.6 2.7 2.7-3 3-2.7-2.7 1-1-1.2-1.2L6 17.9a1.9 1.9 0 0 1-2.7-2.7l9.2-9.2z" fill="currentColor"/></svg>';
 
 // ------------------------------------------------------------------ données
 async function loadData() {
@@ -243,7 +256,8 @@ function renderTop() {
     return `<span class="res" title="${tip}"><i style="background:${resColor(k)}"></i><b>${fmt(p.res[k])}</b><small class="${y.net[k] < 0 ? 'neg' : ''}">${sign(y.net[k])}</small></span>`;
   });
   const research = p.research ? G.techDef(s, p.research) : null;
-  items.push(`<span class="res" title="Science accumulée / coût de la recherche en cours"><i style="background:${resColor('science')}"></i><b>${research ? `<span class="res-research">${research.name}</span> ${fmt(p.sciencePool)}/${G.techCost(s, 0, research.id)}` : `${fmt(p.sciencePool)} · à choisir`}</b><small>${sign(y.net.science)}</small></span>`);
+  const rCost = research ? G.techCost(s, 0, research.id) : 0;
+  items.push(`<span class="res res-sci" title="${research ? `Recherche : ${esc(research.name)} — ${fmt(p.sciencePool)} / ${rCost} science` : 'Aucune recherche : choisissez-en une (T)'}"><i style="background:${resColor('science')}"></i><b>${research ? `<span class="res-research">${research.name}</span> ${fmt(p.sciencePool)}/${rCost}` : `${fmt(p.sciencePool)} · à choisir`}</b><small>${sign(y.net.science)}</small>${research ? `<span class="res-prog" aria-hidden="true"><span style="width:${Math.min(100, Math.round((p.sciencePool / rCost) * 100))}%"></span></span>` : ''}</span>`);
   items.push(`<span class="res" title="Culture totale (1 prestige / ${s.rules.prestige.culturePerPoint}). Tourisme : ${y.tourism || 0} par tour. Influence culturelle : ${Math.floor(p.influence || 0)} / ${W.influenceCost(s, 0)} pour annexer la prochaine case."><i style="background:${resColor('culture')}"></i><b>${fmt(p.cultureTotal)}</b><small>${sign(y.net.culture)}</small></span>`);
   const stockTotal = [...G.GOODS, ...G.LUXURIES].reduce((a, k) => a + Math.floor(p.res[k] || 0), 0);
   items.push(`<button class="res res-btn" data-action="stock" title="Entrepôt : biens transformés et ressources rares" aria-expanded="${!$('#stock').hidden}"><i style="background:${resColor('goods')}"></i><b><span class="lbl-long">Entrepôt</span><span class="lbl-short">Stock</span></b><small>${stockTotal}</small></button>`);
@@ -518,6 +532,13 @@ const chipsText = (b) => Object.entries(b || {}).map(([k, v]) => `+${v} ${data.r
 
 function renderBuildbar() {
   const el = $('#buildbar');
+  const collapsed = !buildOpen() && G.citiesOf(s, 0).length > 0;
+  el.classList.toggle('collapsed', collapsed);
+  if (collapsed) {
+    const abReady = !!data.profilesById[me().profile].ability && W.canUseAbility(s, 0).ok;
+    el.innerHTML = `<button class="build-fab" data-action="toggle-build" aria-expanded="false" aria-controls="buildbar" title="Ouvrir la barre de construction (B)">${HAMMER}<span>Construire</span>${abReady ? '<span class="badge" title="Capacité prête">★</span>' : ''}</button>`;
+    return;
+  }
   if (!G.citiesOf(s, 0).length) { el.innerHTML = '<div class="muted" style="font-size:13px;padding:4px 2px">Fondez une ville pour débloquer la construction.</div>'; return; }
   const prof = data.profilesById[me().profile];
   const tabs = { ...BUILD_TABS, ...(prof.unique ? { profile: { label: prof.name, ids: [prof.unique] } } : {}) };
@@ -546,7 +567,7 @@ function renderBuildbar() {
   const ab = prof.ability, wait = W.abilityReadyIn(s, 0), abOk = W.canUseAbility(s, 0);
   const abBtn = ab ? `<button class="tab ability ${abOk.ok ? 'ready' : ''}" data-action="ability" ${abOk.ok ? '' : 'aria-disabled="true"'} title="${esc(`${ab.name} : ${ab.desc} Recharge : ${ab.cooldown} tours.${abOk.ok ? '' : ` ${abOk.reason}`}`)}">★ ${esc(ab.name)}${wait > 0 ? ` · ${wait} t.` : ''}</button>` : '';
   el.innerHTML = `<div class="tabs" role="tablist">${Object.entries(tabs).map(([k, v]) => `<button class="tab" role="tab" aria-selected="${k === buildTab}" data-action="tab" data-tab="${k}">${v.label}</button>`).join('')}
-    ${abBtn}<button class="tab adj-toggle" aria-pressed="${showAdjacency}" data-action="toggle-adj" title="Afficher les bonus d'adjacence de vos bâtiments sur la carte (A)">Adjacences${showAdjacency ? ' ✓' : ''}</button></div><div class="build-list">${items}</div>`;
+    ${abBtn}<button class="tab adj-toggle" aria-pressed="${showAdjacency}" data-action="toggle-adj" title="Afficher les bonus d'adjacence de vos bâtiments sur la carte (A)">Adjacences${showAdjacency ? ' ✓' : ''}</button></div><button class="build-close" data-action="toggle-build" aria-expanded="true" aria-controls="buildbar" aria-label="Replier la barre de construction" title="Replier (B)"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="build-list">${items}</div>`;
 }
 
 const bonusHtml = (bundle) => Object.entries(bundle).filter(([, v]) => v).map(([k, v]) => `<span><i style="background:${resColor(k)}"></i>+${v}</span>`).join('');
@@ -951,11 +972,11 @@ function showDiplo() {
           : `<button class="btn small" data-action="alliance" data-id="${q.id}" title="Requiert Ambassades et relation ≥ ${pers?.allianceMin ?? s.rules.alliance.minRelation}">Alliance</button>`}
       </div>
       ${treatyForm(q)}
-      <div class="form-row">
+      <details class="treaty-row"><summary>Proposer un échange</summary><div class="form-row">
         <label class="field">Je donne<span style="display:flex;gap:4px"><input type="number" min="1" value="20" id="give-amt-${q.id}" aria-label="Quantité donnée"><select id="give-res-${q.id}">${resOpts('wood')}</select></span></label>
         <label class="field">Contre<span style="display:flex;gap:4px"><input type="number" min="1" value="20" id="want-amt-${q.id}" aria-label="Quantité demandée"><select id="want-res-${q.id}">${resOpts('gold')}</select></span></label>
         <button class="btn small" data-action="exchange" data-id="${q.id}">Proposer l'échange</button>
-      </div></div>`;
+      </div></details></div>`;
   }).join('');
   openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Diplomatie"><header><div><h2>Diplomatie</h2>
     <div class="muted" style="font-size:13px;margin-top:2px">Les voisins méfiants ou hostiles réduisent votre productivité. Les accords et alliances la renforcent. Vos alliés partagent leurs technologies (−25 % de coût).</div></div>
@@ -1227,6 +1248,7 @@ function onAction(e) {
     }
     case 'new-game': closeModal(); save(); for (const x of ['#topbar', '#side', '#buildbar', '#selection', '#hint', '#tutorial', '#summary']) $(x).hidden = true; s = null; showStart(); break;
     case 'menu': showMenu(); break;
+    case 'toggle-build': toggleBuild(); break;
     case 'toggle-side': setSide(!document.documentElement.classList.contains('side-open')); break;
     case 'dismiss-rotate': rotateDismissed = true; applyLayout(); break;
     case 'toggle-adj': showAdjacency = !showAdjacency; renderBuildbar(); renderHighlights(); break;
@@ -1346,6 +1368,7 @@ function bindInput() {
     else if (e.key === 'd' || e.key === 'D') showDiplo();
     else if (e.key === 'm' || e.key === 'M') showMenu();
     else if (e.key === 'e' || e.key === 'E') showEncyclopedia();
+    else if (e.key === 'b' || e.key === 'B') toggleBuild();
     else if (e.key === 'a' || e.key === 'A') { showAdjacency = !showAdjacency; renderBuildbar(); renderHighlights(); }
   });
 }

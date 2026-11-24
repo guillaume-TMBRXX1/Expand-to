@@ -4,7 +4,7 @@
   --surface-2: #f7f0ea;
   --line: #ece2da;
   --text: #2f2a33;
-  --muted: #7f7378;
+  --muted: #6e6267;
   --accent: #ff6b4a;
   --accent-ink: #ffffff;
   --good: #1f9d63;
@@ -408,3 +408,44 @@ html.touch .stepper .btn.small { width: 38px; min-height: 36px; }
 /* ------------------------------------------------------------ culture */
 .lend { display: inline-flex; gap: 4px; align-items: center; }
 .lend select { padding: 3px 6px; font-size: 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
+
+/* ------------------------------------------------- troisième passage : interface tablette */
+/* Pastilles de ressources : chiffres secondaires plus lisibles, progression de la recherche en barre fine */
+.res small { font-weight: 700; }
+.res-sci { position: relative; padding-bottom: 6px !important; }
+.res-prog { position: absolute; left: 10px; right: 10px; bottom: 2px; height: 3px; border-radius: 2px; background: rgba(58, 159, 240, .18); overflow: hidden; }
+.res-prog > span { display: block; height: 100%; background: var(--science); border-radius: 2px; }
+html.compact .res small { font-size: 12px; }
+@media (max-width: 1240px) { html.compact .res-research { display: none; } html.compact .res small { font-size: 11.5px; } }
+
+/* Barre de construction repliable */
+#buildbar.collapsed { left: auto !important; width: auto; padding: 0; background: transparent; border: 0; box-shadow: none; right: 304px; }
+html.compact #buildbar.collapsed { right: calc(8px + env(safe-area-inset-right)); }
+html.compact.side-open #buildbar.collapsed { right: calc(316px + env(safe-area-inset-right)); }
+.build-fab { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 20px 0 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); box-shadow: var(--shadow), 0 3px 0 #e4d6ca; font-size: 15px; font-weight: 800; cursor: pointer; color: var(--text); }
+.build-fab svg { color: var(--accent); }
+.build-fab:hover { background: var(--surface-2); }
+.build-fab:active { transform: translateY(2px); box-shadow: var(--shadow), 0 1px 0 #e4d6ca; }
+.build-fab:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.build-fab .badge { top: -4px; right: -4px; }
+#buildbar:not(.collapsed) { padding-right: 60px; }
+html.compact #buildbar:not(.collapsed) { padding-right: 58px; }
+.build-close { position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--text); cursor: pointer; }
+.build-close:hover { background: #efe6dd; }
+.build-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tabs .tab:focus-visible { outline-offset: -2px; }
+.tab.ability + .adj-toggle, .adj-toggle { flex: 0 0 auto; }
+html.touch .tab { font-size: 14px; padding: 6px 12px; }
+html.touch .build-item { min-height: 70px; }
+
+/* Fenêtres : en-tête fixe, le bouton Fermer reste visible pendant le défilement */
+.dialog > header { position: sticky; top: -20px; z-index: 2; margin: -20px -22px 14px; padding: 16px 22px 12px; background: var(--surface); border-bottom: 1px solid var(--line); }
+html.compact .dialog > header { top: -16px; margin: -16px -18px 12px; padding: 14px 18px 10px; }
+html.compact .dialog { max-height: calc(100dvh - 24px); }
+.dialog > header .btn { flex: 0 0 auto; }
+.civ .treaty-row summary { min-height: 36px; display: flex; align-items: center; }
+html.touch .civ .treaty-row summary { min-height: 44px; }
+.civ .treaty-row summary { list-style: none; gap: 6px; }
+.civ .treaty-row summary::-webkit-details-marker { display: none; }
+.civ .treaty-row summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .15s; margin-right: 4px; }
+.civ .treaty-row[open] summary::before { transform: rotate(45deg); }
