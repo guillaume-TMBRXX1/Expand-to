@@ -113,3 +113,19 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
 - **Coût** : sur la grande carte avec 8 joueurs (graine 777, tour 40, vue de loin), on passe de 3 957 à 3 795 appels de dessin (−4 %, grâce à la fusion des pièces animées), mais les triangles augmentent de 18 % (5,5 M). Le lot 4b s'attaquera aux triangles.
 - **Retouches après essai** : les toits des maisons sont plus bas et débordent moins (maisons de ville, hôtel de ville, cottage générique). Les fenêtres sont plus petites, avec un cadre plus fin. Le théâtre n'a plus ses deux hublots.
 - **Galerie** : `gallery.html?only=forge,carrière` n'affiche que les modèles demandés, en grand (par clé ou par nom).
+
+### Lot 4b : villes, unités, galerie et performances
+- **Les villes grandissent visiblement** : l'enceinte suit la population.
+  - Population 3 : une palissade de pieux taillés, qui devient un muret de pierre crénelé à partir des Artisans (pierre claire avec les Savants).
+  - Population 5 : quatre tours d'angle coiffées d'un toit à la couleur du joueur.
+  - Population 7 : une porte fortifiée encadrée de deux tours.
+  - L'avant reste ouvert au milieu pour la porte. Le modèle est reconstruit jusqu'à la population 8.
+- **Unités plus visibles** : elles sont 30 % plus grandes et posées sur un socle arrondi à la couleur du joueur, avec un liseré blanc (le navire flotte sans socle). Un anneau blanc les entoure tant qu'une de nos unités peut encore se déplacer ce tour.
+- **Galerie** : le nombre de colonnes s'adapte à l'écran et les rangées sont plus espacées, si bien que les noms ne chevauchent plus les modèles sur iPad. Les animations y tournent aussi, sauf si le système demande moins d'animations. Le code d'animation est partagé entre le jeu et la galerie (`prepareAnims`, `animateParts` dans `models.js`).
+- **Performances** :
+  - Les pièces très fines (vitres, liserés, planches, moins de 0,016) deviennent des boîtes simples de 12 triangles au lieu de 108.
+  - Sphères, cylindres, dômes et anneaux ont moins de facettes selon leur taille.
+  - Les cases n'ont plus qu'un segment d'arrondi.
+  - Les arbres sont plus légers et l'écume est faite de simples boîtes.
+  - La fumée est masquée en vue d'ensemble, là où elle ne s'anime plus.
+  - Mesure stable sur la grande carte avec 8 joueurs (graine 777, tour 40, vue de loin, après la fin des effets) : `main` en est à 2 248 appels de dessin et 4,5 M de triangles, cette version à 1 560 appels (−31 %) et 2,9 M de triangles (−36 %).

@@ -40,12 +40,14 @@ function place(geo, color, x, y, z, opts) {
 }
 // Toutes les primitives sont posées « sur » y (leur base est à y).
 export const rbox = (w, h, d, c, x = 0, y = 0, z = 0, r = 0.025) =>
-  place(cached(`rb${w},${h},${d},${r}`, () => new RoundedBoxGeometry(w, h, d, Math.min(w, h, d) > 0.12 ? 2 : 1, Math.min(r, w / 2.1, h / 2.1, d / 2.1))), c, x, y + h / 2, z);
-const cyl = (rt, rb, h, c, x = 0, y = 0, z = 0, seg = 16) => { const sg = Math.max(rt, rb) < 0.03 ? Math.min(seg, 8) : seg; return place(cached(`cy${rt},${rb},${h},${sg}`, () => new THREE.CylinderGeometry(rt, rb, h, sg)), c, x, y + h / 2, z); };
-const sph = (r, c, x = 0, y = 0, z = 0, sy = 1) => { const m = place(cached(`sp${r}`, () => new THREE.SphereGeometry(r, r > 0.06 ? 14 : 9, r > 0.06 ? 10 : 7)), c, x, y, z); m.scale.y = sy; return m; };
-const dome = (r, c, x = 0, y = 0, z = 0) => place(cached(`do${r}`, () => new THREE.SphereGeometry(r, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2)), c, x, y, z);
+  place(cached(`rb${w},${h},${d},${r}`, () => (Math.min(w, h, d) < 0.016
+    ? new THREE.BoxGeometry(w, h, d) // pièce très fine (vitre, liseré, planche) : l'arrondi ne se verrait pas
+    : new RoundedBoxGeometry(w, h, d, Math.min(w, h, d) > 0.3 ? 2 : 1, Math.min(r, w / 2.1, h / 2.1, d / 2.1)))), c, x, y + h / 2, z);
+const cyl = (rt, rb, h, c, x = 0, y = 0, z = 0, seg = 16) => { const R = Math.max(rt, rb), sg = R < 0.03 ? Math.min(seg, 8) : R < 0.12 ? Math.min(seg, 12) : seg; return place(cached(`cy${rt},${rb},${h},${sg}`, () => new THREE.CylinderGeometry(rt, rb, h, sg)), c, x, y + h / 2, z); };
+const sph = (r, c, x = 0, y = 0, z = 0, sy = 1) => { const m = place(cached(`sp${r}`, () => new THREE.SphereGeometry(r, r > 0.1 ? 14 : r > 0.04 ? 11 : 8, r > 0.1 ? 10 : r > 0.04 ? 8 : 6)), c, x, y, z); m.scale.y = sy; return m; };
+const dome = (r, c, x = 0, y = 0, z = 0) => place(cached(`do${r}`, () => new THREE.SphereGeometry(r, r > 0.12 ? 18 : 12, r > 0.12 ? 9 : 6, 0, Math.PI * 2, 0, Math.PI / 2)), c, x, y, z);
 const cone = (r, h, c, x = 0, y = 0, z = 0, seg = 12) => place(cached(`co${r},${h},${seg}`, () => new THREE.ConeGeometry(r, h, seg)), c, x, y + h / 2, z);
-const torus = (r, t, c, x, y, z) => { const m = place(cached(`to${r},${t}`, () => new THREE.TorusGeometry(r, t, 8, 20)), c, x, y, z); m.rotation.x = Math.PI / 2; return m; };
+const torus = (r, t, c, x, y, z) => { const m = place(cached(`to${r},${t}`, () => new THREE.TorusGeometry(r, t, 5, r > 0.2 ? 32 : 16)), c, x, y, z); m.rotation.x = Math.PI / 2; return m; };
 
 // Toit à deux pans arrondi (prisme extrudé avec biseau).
 function gable(w, h, d, c, x = 0, y = 0, z = 0, rotY = 0) {
@@ -71,7 +73,7 @@ const smokeMat = new THREE.MeshStandardMaterial({ color: '#f4f1ee', roughness: 1
 function smoke(x, y, z, s = 1) {
   const g = new THREE.Group();
   for (let k = 0; k < 3; k++) {
-    const m = new THREE.Mesh(cached('puff', () => new THREE.SphereGeometry(0.03, 10, 8)), smokeMat);
+    const m = new THREE.Mesh(cached('puff', () => new THREE.SphereGeometry(0.03, 7, 5)), smokeMat);
     m.userData.phase = k / 3;
     g.add(m);
   }
@@ -101,6 +103,37 @@ function flag(color, x, y, z, h = 0.3) {
   cloth.add(rbox(0.11, 0.065, 0.008, color, 0.055, -0.0325, 0, 0.004));
   cloth.position.set(x, y + h - 0.01, z);
   return group(cyl(0.006, 0.006, h, PAL.ink, x, y, z, 6), anim(cloth, { type: 'flag' }));
+}
+
+// Repère les pièces animées d'un modèle et fixe leur position de repos et leur déphasage.
+export function prepareAnims(root) {
+  const out = [];
+  root.traverse((o) => { if (o.userData.anim) { o.userData.base = o.position.clone(); o.userData.phase0 = Math.random() * 6.28; out.push(o); } });
+  return out;
+}
+// Fait avancer les pièces animées d'un modèle (t : temps écoulé, dt : durée de l'image), pour le jeu comme pour la galerie.
+export function animateParts(anims, t, dt) {
+  for (const o of anims) {
+    const a = o.userData.anim, ph = o.userData.phase0;
+    switch (a.type) {
+      case 'spin': o[a.axis === 'z' ? 'rotateZ' : a.axis === 'x' ? 'rotateX' : 'rotateY'](a.speed * dt); break;
+      case 'flag': o.rotation.y = Math.sin(t * 3 + ph) * 0.35; break;
+      case 'bob': o.position.y = o.userData.base.y + Math.sin(t * a.speed + ph) * a.amp; break;
+      case 'swing': o.rotation.z = Math.sin(t * a.speed + ph) * a.amp; break;
+      case 'slide': o.position.x = o.userData.base.x + Math.sin(t * a.speed + ph) * a.amp; break;
+      case 'pulse': o.scale.setScalar(1 + Math.sin(t * a.speed + ph) * a.amp * (0.6 + 0.4 * Math.sin(t * 7.3 + ph))); break;
+      case 'blink': { const on = Math.floor(t * a.speed + ph) % 2; o.children.forEach((c, k) => { c.visible = k % 2 === on; }); break; }
+      case 'smoke':
+        o.children.forEach((c) => {
+          const f = (t * 0.35 + c.userData.phase + ph) % 1;
+          c.position.set(Math.sin((f + ph) * 6) * 0.02, f * 0.32, 0);
+          c.scale.setScalar(0.6 + f * 1.4);
+          c.visible = f < 0.92;
+        });
+        break;
+      default:
+    }
+  }
 }
 
 // ---------------------------------------------------------------- accessoires
@@ -285,6 +318,28 @@ function townHouse(i, tier, color, smoky) {
   }
   return p;
 }
+// Enceinte : la ville se protège à mesure qu'elle grandit. Population 3 : palissade de bois (muret de pierre
+// à partir des Artisans) ; population 5 : tours d'angle aux toits à la couleur du joueur ; population 7 : porte fortifiée.
+function cityWalls(color, pop, tier) {
+  if (pop < 3) return [];
+  const p = [], E = 0.425, stone = tier >= 1;
+  const H = stone ? 0.06 : 0.07, T = stone ? 0.035 : 0.022, C = stone ? (tier >= 2 ? '#e8e2d8' : PAL.stoneLight) : PAL.wood;
+  // Trois côtés pleins, le quatrième (devant) ouvert au milieu pour la porte.
+  p.push(rbox(2 * E, H, T, C, 0, Y0, -E, 0.008), rbox(T, H, 2 * E, C, -E, Y0, 0, 0.008), rbox(T, H, 2 * E, C, E, Y0, 0, 0.008));
+  p.push(rbox(E - 0.09, H, T, C, -(E + 0.09) / 2, Y0, E, 0.008), rbox(E - 0.09, H, T, C, (E + 0.09) / 2, Y0, E, 0.008));
+  if (stone) { // créneaux
+    for (let k = -3; k <= 3; k++) p.push(rbox(0.04, 0.025, T, C, k * 0.12, Y0 + H, -E, 0.005), rbox(T, 0.025, 0.04, C, -E, Y0 + H, k * 0.12, 0.005), rbox(T, 0.025, 0.04, C, E, Y0 + H, k * 0.12, 0.005));
+    for (const x of [-0.33, -0.21, 0.21, 0.33]) p.push(rbox(0.04, 0.025, T, C, x, Y0 + H, E, 0.005));
+  } else { // pieux taillés en pointe
+    for (let k = -3; k <= 3; k++) p.push(cone(0.016, 0.035, PAL.woodDark, k * 0.12, Y0 + H, -E, 5), cone(0.016, 0.035, PAL.woodDark, -E, Y0 + H, k * 0.12, 5), cone(0.016, 0.035, PAL.woodDark, E, Y0 + H, k * 0.12, 5));
+    for (const x of [-0.33, -0.21, 0.21, 0.33]) p.push(cone(0.016, 0.035, PAL.woodDark, x, Y0 + H, E, 5));
+  }
+  if (pop >= 5) for (const [x, z] of [[-E, -E], [E, -E], [-E, E], [E, E]]) {
+    p.push(cyl(0.045, 0.05, 0.15, stone ? C : PAL.woodDark, x, Y0, z, 10), cone(0.06, 0.08, color, x, Y0 + 0.15, z, 10));
+  }
+  if (pop >= 7) for (const x of [-0.1, 0.1]) p.push(rbox(0.06, 0.17, 0.06, stone ? C : PAL.stone, x, Y0, E, 0.01), cone(0.05, 0.07, color, x, Y0 + 0.17, E, 4));
+  return p;
+}
 export function cityModel(color, pop, capital, tier = 0) {
   const parts = [plinth(PAL.paving, 0.92, 0.92)];
   // Palier Artisans : place avec fontaine et étal ; palier Savants : maisons à étage et tour à coupole.
@@ -314,6 +369,7 @@ export function cityModel(color, pop, capital, tier = 0) {
     parts.push(flag(color, 0, Y0 + 0.5, -0.02, 0.16));
   }
   parts.push(...lollipopTree(0.33, 0.33, 0.8), ...lollipopTree(-0.34, 0.34, 0.7), ...lamp(0.12, 0.2), ...lamp(-0.12, 0.2));
+  parts.push(...cityWalls(color, pop, tier));
   return bake(group(parts));
 }
 
@@ -930,6 +986,8 @@ function character(color, skin, hat = 'beanie', s = 1) {
   return p;
 }
 
+const UNIT_SCALE = 1.3;
+const readyMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide });
 export function unitModel(type, color, skinIdx = 0) {
   const skin = PAL.skin[skinIdx % PAL.skin.length];
   let parts;
@@ -976,12 +1034,19 @@ export function unitModel(type, color, skinIdx = 0) {
     for (const [x, z] of [[-0.1, 0.08], [0.1, 0.08], [-0.1, -0.08], [0.1, -0.08]]) { const w = cyl(0.035, 0.035, 0.025, PAL.ink, x, 0, z, 16); w.rotation.x = Math.PI / 2; w.position.y = 0.035; parts.push(w, (() => { const h = cyl(0.015, 0.015, 0.027, PAL.steel, x, 0, z, 10); h.rotation.x = Math.PI / 2; h.position.y = 0.035; return h; })()); }
   }
   const body = bake(group(parts));
-  body.userData.anim = { type: 'bob', amp: type === 'airship' ? 0.04 : type === 'ship' ? 0.012 : 0.012, speed: type === 'airship' ? 1.2 : 2.4 };
+  body.scale.setScalar(UNIT_SCALE);
+  body.position.y = type === 'ship' ? 0 : 0.03;
+  body.userData.anim = { type: 'bob', amp: type === 'airship' ? 0.04 : 0.012, speed: type === 'airship' ? 1.2 : 2.4 };
   const g = new THREE.Group();
   g.add(body);
-  const base = new THREE.Mesh(cached('ubase', () => new THREE.CircleGeometry(0.17, 24)), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, depthWrite: false }));
-  base.rotation.x = -Math.PI / 2; base.position.y = 0.012;
-  g.add(base);
+  if (type !== 'ship') { // socle : galet arrondi à la couleur du joueur, liseré blanc
+    const base = bake(group(cyl(0.16, 0.17, 0.03, color, 0, 0, 0, 24), torus(0.165, 0.008, PAL.white, 0, 0.03, 0)));
+    g.add(base);
+  }
+  // Anneau « prête » : visible tant que l'unité du joueur peut encore se déplacer ce tour.
+  const ring = new THREE.Mesh(cached('uring', () => new THREE.RingGeometry(0.19, 0.225, 32)), readyMat);
+  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.014; ring.name = 'ready'; ring.visible = false;
+  g.add(ring);
   return g;
 }
 
