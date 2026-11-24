@@ -65,3 +65,12 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
 - **Rivières** : un ruban d'eau fin et courbe, lissé par une spline, avec un léger méandre. Il s'élargit avec le débit (nombre de cases en amont), ses bords sont plus clairs, et des reflets s'écoulent doucement à sa surface. Une petite chute tombe devant chaque paroi de terrasse. Les reflets restent immobiles si le système demande moins d'animations.
 - **Régions** : teinte propre à chaque région climatique, sapins enneigés au nord, cactus et palmiers au sud.
 - Pistes pour la suite : éventuellement des modèles glTF faits main dans le même style.
+
+## Troisième passage
+
+### Lot 1 : interface tablette
+- **Barre de construction repliable** : sur tablette, elle est repliée par défaut en un bouton « Construire » (icône marteau) en bas à droite, à portée du pouce. La carte reste dégagée. Le bouton porte une étoile quand la capacité du profil est prête. Une fois ouverte, la barre se replie avec la flèche fixée en haut à droite, ou avec la touche **B**. Elle reste ouverte pendant la construction d'un bâtiment ou d'une route. Le choix est mémorisé. Sur ordinateur, elle est ouverte par défaut.
+- **Barre du haut** : la recherche en cours s'affiche avec une fine barre de progression. Son nom passe dans l'infobulle quand la place manque. Les chiffres secondaires (+145, +19) sont plus gras et plus foncés.
+- **Contraste** : le gris des textes secondaires (`--muted`) passe de `#7f7378` à `#6e6267`, pour un contraste d'au moins 4,5:1 sur les cartes et les pastilles.
+- **Fenêtres** : l'en-tête (titre et bouton Fermer) reste fixé en haut pendant le défilement. Sur tablette, les fenêtres utilisent toute la hauteur visible (`100dvh`).
+- **Diplomatie** : le formulaire d'échange de ressources est replié sous « Proposer un échange », comme les traités. Les fiches des rivaux sont nettement plus courtes.
