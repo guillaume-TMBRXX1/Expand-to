@@ -453,3 +453,47 @@ html.touch .civ .treaty-row summary { min-height: 44px; }
 /* ------------------------------------------------- unités en attente */
 [data-action="end-turn"] { position: relative; }
 .badge.wait-badge { background: var(--text); }
+
+/* --------------------------------------------------- troisième passage : écran d'accueil */
+#start .start { width: min(1120px, 100%); padding: 0; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); overflow: hidden; }
+.start-left { padding: 28px 28px 24px; background: linear-gradient(180deg, #fff6ef, #fdf1e8); border-right: 1px solid var(--line); }
+.start-right { padding: 28px 28px 24px; display: flex; flex-direction: column; gap: 12px; }
+.start .lead { margin: 6px 0 18px; font-size: 15px; }
+.start .profiles { grid-template-columns: 1fr; gap: 8px; margin: 0; }
+.start .profile { flex-direction: row; align-items: center; gap: 14px; padding: 10px 14px; min-height: 76px; transition: border-color .12s, background .12s; }
+.start .profile .avatar { flex: 0 0 auto; }
+.start .profile span { display: block; }
+.start .profile[aria-checked="true"] { background: #fff4ef; }
+.start .profile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.start-right .section-title { margin-bottom: 0; }
+.start .start-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.start .start-row .field select, .start .start-row .field input { min-height: 44px; width: 100%; border-radius: 10px; }
+.start .start-actions { display: flex; flex-direction: row-reverse; justify-content: space-between; align-items: center; gap: 12px; margin-top: 4px; }
+.btn.big { min-height: 54px; padding: 0 28px; font-size: 16px; border-radius: 14px; box-shadow: 0 3px 0 #d9502f; }
+.btn.big:active { transform: translateY(2px); box-shadow: 0 1px 0 #d9502f; }
+.resume { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: #eef8f2; border: 1px solid #cdebd9; }
+.resume .muted { font-size: 12.5px; margin-top: 2px; }
+.resume .btn { flex: 0 0 auto; min-height: 44px; border-color: #9fd6b7; }
+.start-more { border-top: 1px solid var(--line); padding-top: 10px; }
+.start-more > summary { cursor: pointer; font-weight: 700; font-size: 14px; min-height: 36px; display: flex; align-items: center; gap: 8px; list-style: none; }
+.start-more > summary::-webkit-details-marker { display: none; }
+.start-more > summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .15s; margin: 0 3px; }
+.start-more[open] > summary::before { transform: rotate(45deg); }
+.start-more > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.start-more .field { margin-top: 6px; }
+.start-more .field input { min-height: 44px; border-radius: 10px; font-size: 14px; padding: 8px 10px; }
+.start-more .saves { margin-top: 4px; }
+.start-more .help { margin-top: 4px; }
+html.touch .start-more > summary { min-height: 44px; }
+@media (max-width: 900px) {
+  #start .start { grid-template-columns: 1fr; }
+  .start-left { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+@media (max-height: 860px) and (min-width: 901px) {
+  #start.overlay { padding: 16px; }
+  .start-left, .start-right { padding: 22px 24px 20px; }
+  .start h1 { font-size: 34px; }
+  .start .lead { margin-bottom: 14px; font-size: 14.5px; }
+  .start .profile { min-height: 70px; padding: 8px 12px; }
+  .start .profile span { font-size: 12px; }
+}
