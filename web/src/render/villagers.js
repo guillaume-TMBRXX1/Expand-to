@@ -49,7 +49,13 @@ const ACC = { // accessoire : taille, décalage local, couleur
   briefcase: { s: [0.024, 0.018, 0.008], o: [0.03, 0.022, 0], c: '#6b4226' },
   axe: { s: [0.006, 0.05, 0.006], o: [0.03, 0.04, 0.006], c: PAL.woodDark },
   crate: { s: [0.03, 0.026, 0.026], o: [0, 0.085, 0.018], c: PAL.wood },
+  mask: { s: [0.036, 0.02, 0.01], o: [0, 0.09, 0.022], c: '#ffffff' },
+  bucket: { s: [0.018, 0.018, 0.018], o: [0.03, 0.02, 0.012], c: '#5b8def' },
 };
+// Événements auxquels les villageois réagissent (durée : le tour de l'événement et les deux suivants).
+const REACT = { storm: 'storm', fire: 'fire', flu: 'flu', harvest: 'fete', festival: 'fete' };
+const REACT_TURNS = 2;
+const MAX_FX = 400;
 
 export class Villagers {
   constructor(renderer) {
@@ -69,6 +75,16 @@ export class Villagers {
     this.group.add(...Object.values(this.parts));
     renderer.scene.add(this.group);
     this.list = [];
+    // Effets des réactions : flammes, fumée, pluie, confettis (4 appels de dessin, seulement de près).
+    const fx = (geo, mat) => { const m = new THREE.InstancedMesh(geo, mat, MAX_FX); m.count = 0; m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.group.add(m); return m; };
+    this.fx = {
+      flame: fx(new THREE.ConeGeometry(0.05, 0.16, 7).translate(0, 0.08, 0), new THREE.MeshStandardMaterial({ color: '#ff8a3d', emissive: '#ff5a1f', emissiveIntensity: 0.9, roughness: 0.5 })),
+      smoke: fx(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshStandardMaterial({ color: '#6f6a66', roughness: 1, transparent: true, opacity: 0.6, depthWrite: false })),
+      rain: fx(new THREE.BoxGeometry(0.004, 0.09, 0.004), new THREE.MeshBasicMaterial({ color: '#9fc3e6', transparent: true, opacity: 0.7, depthWrite: false })),
+      confetti: fx(new THREE.PlaneGeometry(0.018, 0.012), new THREE.MeshBasicMaterial({ color: '#ffffff', side: THREE.DoubleSide })),
+    };
+    this.fx.confetti.setColorAt(0, new THREE.Color('#ffffff')); // couleurs par instance prêtes dès le premier rendu
+    this.spots = { fire: [], storm: [], fete: [] };
     this.tmp = { m: new THREE.Matrix4(), q: new THREE.Quaternion(), p: new THREE.Vector3(), s: new THREE.Vector3(), a: new THREE.Matrix4(), b: new THREE.Matrix4(), w: new THREE.Matrix4(), c: new THREE.Color(), Y: new THREE.Vector3(0, 1, 0) };
   }
 
@@ -95,13 +111,13 @@ export class Villagers {
     for (const b of s.buildings) { const f = s.data.buildingsById[b.type].footprint || 1; for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) this.occupied.add((b.y + dy) * W + b.x + dx); }
     const list = [];
     const color = (job, k, owner) => { const j = JOBS[job]; const b = Array.isArray(j.body) ? j.body[k % j.body.length] : j.body; return { body: b, hat: j.hat === 'player' ? s.players[owner].color : j.hat }; };
-    const add = (job, owner, pts, k, opts = {}) => {
+    const addV = (job, owner, pts, k, opts = {}) => {
       if (pts.length < 2 || list.length >= MAX * 2) return;
       if (pts.some((p) => this.isWater(p.x, p.z))) return; // pas de promenade sur l'eau
       const segs = []; let L = 0;
       for (let n = 0; n < pts.length - 1; n++) { const d = Math.hypot(pts[n + 1].x - pts[n].x, pts[n + 1].z - pts[n].z); segs.push(d); L += d; }
       const j = JOBS[job];
-      list.push({ job, owner, pts, segs, L, loop: !!opts.loop, speed: (opts.speed || j.speed) * (0.85 + hash(k, owner, 3) * 0.3), pause: opts.pause ?? 1.2 + hash(k, owner, 5) * 1.5,
+      list.push({ job, owner, cityId: opts.cityId, pts, segs, L, loop: !!opts.loop, speed: (opts.speed || j.speed) * (0.85 + hash(k, owner, 3) * 0.3), pause: opts.pause ?? 1.2 + hash(k, owner, 5) * 1.5,
         phase: hash(k, owner, 7) * 40, skin: PAL.skin[Math.floor(hash(k, owner, 9) * PAL.skin.length)], ...color(job, k, owner), acc: j.acc, tile: opts.tile, trading: !!opts.trading, center: opts.center });
     };
     const P = (x, z) => ({ x, z });
@@ -112,6 +128,8 @@ export class Villagers {
       const cx = R.wx(b.x) + (f - 1) / 2, cz = R.wz(b.y) + (f - 1) / 2, tile = b.y * W + b.x;
       const job = WORK[b.type];
       const h1 = hash(b.x, b.y, 1), h2 = hash(b.x, b.y, 2);
+      const add0 = addV, cid = b.cityId ?? cityOf(b)?.id;
+      const add = (j, o, pts, kk, opts = {}) => add0(j, o, pts, kk, { cityId: cid, ...opts }); // rattache la figurine à sa ville
       // Les trajets longent l'avant du socle (côté caméra) : les figurines ne traversent pas les bâtiments.
       const E = 0.37 * f + (f - 1) * 0.1, edge = (u) => (h1 < 0.5 ? P(cx - E + u * 2 * E, cz + E) : P(cx + E, cz + E - u * 2 * E));
       if (job) {
@@ -140,14 +158,60 @@ export class Villagers {
       const n = Math.min(5, 2 + (c.tier || 0) + Math.floor(c.pop / 3));
       for (let m = 0; m < n; m++) {
         const a = hash(c.x, c.y, 40 + m) * Math.PI * 2;
-        if (m % 2 === 0) add('townsfolk', c.owner, m % 4 === 0 ? [P(cx - 0.3, cz + 0.36), P(cx + 0.36, cz + 0.36)] : [P(cx + 0.36, cz + 0.3), P(cx + 0.36, cz - 0.32)], k * 11 + m, { tile, pause: 0.8 + a * 0.2 });
+        if (m % 2 === 0) addV('townsfolk', c.owner, m % 4 === 0 ? [P(cx - 0.3, cz + 0.36), P(cx + 0.36, cz + 0.36)] : [P(cx + 0.36, cz + 0.3), P(cx + 0.36, cz - 0.32)], k * 11 + m, { tile, cityId: c.id, pause: 0.8 + a * 0.2 });
         else {
           const nb = s.buildings.find((b) => b.owner === c.owner && Math.abs(b.x - c.x) + Math.abs(b.y - c.y) === m % 3 + 1 && b.turnsLeft <= 0);
-          if (nb) add('townsfolk', c.owner, [P(cx + 0.36, cz + 0.36), P(R.wx(nb.x) + 0.36, R.wz(nb.y) + 0.36)], k * 11 + m, { tile, pause: 1.8 });
+          if (nb) addV('townsfolk', c.owner, [P(cx + 0.36, cz + 0.36), P(R.wx(nb.x) + 0.36, R.wz(nb.y) + 0.36)], k * 11 + m, { tile, cityId: c.id, pause: 1.8 });
         }
       }
     });
+    this.applyReactions(list, addV, P);
     this.list = list;
+  }
+
+  // Événements récents et crises mondiales → réactions : panique sous la tempête, chaîne de seaux contre
+  // l'incendie, rues plus vides et masques pendant une épidémie, ronde et confettis pour une fête.
+  applyReactions(list, add, P) {
+    const R = this.r, s = R.state, W = R.W;
+    const cityKinds = new Map(), sick = new Set();
+    const mark = (cid, kind) => { if (!cityKinds.has(cid)) cityKinds.set(cid, new Set()); cityKinds.get(cid).add(kind); };
+    for (const e of s.eventLog || []) {
+      const kind = REACT[e.ev];
+      if (!kind || s.turn - e.turn > REACT_TURNS) continue;
+      if (kind === 'flu') sick.add(e.pid); else mark(e.cityId, kind);
+    }
+    const cr = s.crisis, crisisOn = cr && (cr.status === 'open' || (cr.status === 'failed' && s.turn <= cr.until));
+    this.crisisCrash = !!(crisisOn && cr.id === 'crash');
+    const coastal = (c) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const n = s.map.tiles[(c.y + dy) * W + c.x + dx]; return n && s.data.terrain[n.type].water; });
+    if (crisisOn && cr.id === 'plague') for (const p of s.players) sick.add(p.id);
+    if (crisisOn && cr.id === 'storms') for (const c of s.cities) if (coastal(c)) mark(c.id, 'storm');
+    // Épidémie : une figurine sur deux reste chez elle (pas les travailleurs), les autres portent un masque.
+    for (let i = list.length - 1; i >= 0; i--) {
+      const v = list[i];
+      if (!sick.has(v.owner)) continue;
+      if ((v.job === 'townsfolk' || v.job === 'tourist') && Math.floor(v.phase) % 2 === 0) { list.splice(i, 1); continue; }
+      if (v.job !== 'lumberjack' && v.job !== 'docker') v.acc = 'mask';
+    }
+    this.spots = { fire: [], storm: [], fete: [] };
+    for (const [cid, kinds] of cityKinds) {
+      const c = s.cities.find((x) => x.id === cid);
+      if (!c) continue;
+      const cx = R.wx(c.x), cz = R.wz(c.y), tile = c.y * W + c.x;
+      if (kinds.has('storm')) { // tout le monde rentre en courant vers la ville, bras levés
+        for (const v of list) if (v.cityId === cid && !v.loop) { v.pts = [v.pts[0], P(cx + 0.3, cz + 0.36)]; const d = Math.hypot(v.pts[1].x - v.pts[0].x, v.pts[1].z - v.pts[0].z); v.segs = [d]; v.L = d; v.panic = true; v.pause = 0.3; }
+        this.spots.storm.push({ x: cx, z: cz, tile });
+      }
+      if (kinds.has('fire')) { // une chaîne de seaux devant la ville, et le feu dans un quartier
+        for (let m = 0; m < 4; m++) { const x = cx - 0.4 + m * 0.12; add('townsfolk', c.owner, [P(x, cz + 0.44), P(x + 0.035, cz + 0.44)], 7000 + cid * 9 + m, { tile, cityId: cid, pause: 0.15, speed: 0.08 }); list[list.length - 1].acc = 'bucket'; list[list.length - 1].brigade = true; }
+        this.spots.fire.push({ x: cx - 0.12, z: cz + 0.05, tile });
+      }
+      if (kinds.has('fete')) { // ronde de six habitants sur le parvis, et confettis
+        const ox = cx - 0.2, oz = cz + 0.3, pts = [];
+        for (let m = 0; m <= 12; m++) { const a = (m / 12) * Math.PI * 2; pts.push(P(ox + Math.cos(a) * 0.11, oz + Math.sin(a) * 0.11)); }
+        for (let m = 0; m < 6; m++) { add('townsfolk', c.owner, pts, 8000 + cid * 7 + m, { tile, cityId: cid, loop: true, speed: 0.12, pause: 0 }); const v = list[list.length - 1]; v.phase = (m / 6) * v.L; v.dance = true; }
+        this.spots.fete.push({ x: ox, z: oz, tile });
+      }
+    }
   }
 
   // Position et cap d'une figurine à l'instant t : aller-retour avec pauses aux deux bouts, ou boucle.
@@ -197,8 +261,9 @@ export class Villagers {
       const c0 = v.pts[0];
       const ddx = c0.x - tg.x, ddz = c0.z - tg.z;
       if (ddx * ddx + ddz * ddz > r2) continue;
-      const panic = v.trading && crash;
-      if (v.trading && !crash && (v.phase % 3) > 1) continue; // hors krach, un seul trader sur trois devant la bourse
+      const marketPanic = crash || this.crisisCrash;
+      const panic = (v.trading && marketPanic) || v.panic;
+      if (v.trading && !marketPanic && (v.phase % 3) > 1) continue; // hors krach, un seul trader sur trois devant la bourse
       const ps = still ? { ...v.pts[0], yaw: 0, walking: false } : this.pose(v, t, panic);
       const hop = ps.walking && !still ? Math.abs(Math.sin(t * (panic ? 22 : 11) + v.phase)) * (panic ? 0.012 : 0.006) : 0;
       const y = this.ground(ps.x, ps.z);
@@ -208,7 +273,8 @@ export class Villagers {
       P.body.setColorAt(n, c.set(v.body)); P.head.setColorAt(n, c.set(v.skin)); P.hat.setColorAt(n, c.set(v.hat));
       // bras : levés en cas de panique, sinon ils balancent un peu en marchant
       a.makeTranslation(0, 0.07, 0);
-      if (panic) a.multiply(b.makeScale(1, -1, 1)).multiply(b.makeRotationX(Math.sin(t * 16 + v.phase) * 0.4));
+      if (panic || v.dance) a.multiply(b.makeScale(1, -1, 1)).multiply(b.makeRotationX(Math.sin(t * (panic ? 16 : 6) + v.phase) * (panic ? 0.4 : 0.6)));
+      else if (v.brigade && !still) a.multiply(b.makeRotationX(-0.6 + Math.sin(t * 5 + v.phase) * 0.5)); // les seaux passent de main en main
       else if (ps.walking && !still) a.multiply(b.makeRotationX(Math.sin(t * 11 + v.phase) * 0.35));
       P.arms.setMatrixAt(n, w.multiplyMatrices(m, a)); P.arms.setColorAt(n, c.set(v.body));
       const acc = ACC[v.acc];
@@ -222,6 +288,34 @@ export class Villagers {
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
+    this.updateFx(t, tg, r2, still, viewer);
+  }
+
+  updateFx(t, tg, r2, still, viewer) {
+    const R = this.r, F = this.fx, { m, q, p, s: sc, c } = this.tmp;
+    const near = (sp) => { const dx = sp.x - tg.x, dz = sp.z - tg.z; return dx * dx + dz * dz <= r2 && viewer.explored[sp.tile] === 1 && (!R.visible || R.visible[sp.tile] === 1 || R.state.cities.find((x) => x.y * R.W + x.x === sp.tile)?.owner === R.viewer); };
+    const counts = { flame: 0, smoke: 0, rain: 0, confetti: 0 };
+    const put = (k, x, y, z, s, rx = 0, ry = 0, col) => { const i = counts[k]; if (i >= MAX_FX) return; q.setFromEuler(new THREE.Euler(rx, ry, 0)); m.compose(p.set(x, y, z), q, sc.setScalar(s)); F[k].setMatrixAt(i, m); if (col) F[k].setColorAt(i, c.set(col)); counts[k]++; };
+    for (const sp of this.spots.fire) {
+      if (!near(sp)) continue;
+      const y0 = this.ground(sp.x, sp.z) + 0.16;
+      for (let k = 0; k < 4; k++) put('flame', sp.x + (k - 1.5) * 0.05, y0, sp.z + (k % 2) * 0.04, 1.1 + (still ? 0 : Math.sin(t * 9 + k * 2) * 0.3), 0, k);
+      for (let k = 0; k < 6; k++) { const f = still ? k / 6 : (t * 0.3 + k / 6) % 1; put('smoke', sp.x + Math.sin(f * 5 + k) * 0.05, y0 + 0.15 + f * 0.6, sp.z, 0.6 + f * 1.6); }
+    }
+    if (!still) {
+      for (const sp of this.spots.storm) {
+        if (!near(sp)) continue;
+        for (let k = 0; k < 70; k++) { const h = hash(k, sp.tile, 3), u = hash(k, sp.tile, 5); const f = (t * 1.8 + h) % 1; put('rain', sp.x + (u - 0.5) * 1.6, 0.25 + (1 - f) * 1.4, sp.z + (h - 0.5) * 1.6, 1, 0, 0, null); p.set(0, 0, 0); }
+        // les rafales couchent la pluie
+        for (let i = counts.rain - 70; i < counts.rain; i++) { F.rain.getMatrixAt(i, m); m.multiply(new THREE.Matrix4().makeRotationZ(0.35)); F.rain.setMatrixAt(i, m); }
+      }
+      const CONF = ['#ff6b4a', '#f5b700', '#14b8a6', '#8b5cf6', '#ec4899', '#5cb56b'];
+      for (const sp of this.spots.fete) {
+        if (!near(sp)) continue;
+        for (let k = 0; k < 40; k++) { const h = hash(k, sp.tile, 7), u = hash(k, sp.tile, 11); const f = (t * 0.35 + h) % 1; put('confetti', sp.x + (u - 0.5) * 0.5 + Math.sin(t * 2 + k) * 0.04, this.ground(sp.x, sp.z) + 0.6 - f * 0.55, sp.z + (h - 0.5) * 0.5, 2.2, t * 3 + k, t * 2 + k, CONF[k % CONF.length]); }
+      }
+    }
+    for (const [k, mesh] of Object.entries(F)) { mesh.count = counts[k]; mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true; }
   }
 
   dispose() { this.r.scene.remove(this.group); }
