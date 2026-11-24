@@ -51,7 +51,7 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
 
 - Un modèle est un assemblage de primitives, ensuite **fusionnées par matériau** (`bake`) : un bâtiment ne coûte que quelques appels de rendu.
 - Les géométries et matériaux sont mis en cache.
-- Animations : les pièces animées sont marquées `anim(...)` dans `models.js` (types `spin`, `flag`, `bob`, `smoke`). Elles ne sont pas fusionnées, et le renderer les anime (coupées si `prefers-reduced-motion`).
+- Animations : les pièces animées sont marquées `anim(...)` dans `models.js` (types `spin`, `flag`, `bob`, `smoke`, `swing`, `slide`, `pulse`, `blink`). Elles restent à part du reste du modèle, mais chaque pièce est fusionnée dans son propre repère (`mergeKept`) : une pièce animée coûte un seul appel de dessin. Le renderer ne les anime que de près (caméra à moins de 26 unités, dans un rayon proportionnel au zoom), et jamais si `prefers-reduced-motion` est actif.
 - Terrain : flancs assombris par un shader, décor instancié (fleurs, touffes, rochers, coquillages), eau animée (vaguelettes et reflets), zones hors de vue grisées.
 
 ## Deuxième passage
@@ -91,3 +91,24 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
 - **Sources de rivière** : chaque rivière naît dans un petit bassin bleu cerclé de galets, adossé à des rochers moussus et orienté vers l'aval. Le ruban d'eau part fin du bassin, puis s'élargit avec le débit. Le décor de la case (rochers, sapins) s'efface autour. Quand une ressource rare occupe le centre de la case, le bassin glisse vers l'aval. Tous les bassins sont dessinés en un seul maillage instancié.
 - **Frontières** : le liseré est plus épais (0,1) et arrondi, et le voile du territoire un peu plus marqué (opacité 0,17).
 - **Coût** : sur la grande carte avec 8 joueurs (graine 777, tour 40, vue de loin), on compte 3 946 appels de dessin contre 3 931 avant, soit +0,4 %, et +3 % de triangles.
+
+### Lot 4a : bâtiments retravaillés et animations
+- **Une époque qui avance** : les premiers bâtiments sont rustiques (bois, pierre, tuiles), les bâtiments avancés plus modernes (hôpital à bandeaux vitrés, port à conteneurs). Les maisons des villes suivent le palier : des chaumières à colombages au départ, des maisons de bourg à étage avec les Artisans, puis de petits immeubles à toit-terrasse avec balcons à la couleur du joueur avec les Savants. Une seule cheminée fume par ville.
+- **Bâtiments refaits** :
+  - Carrière : une colline herbue entaillée en gradins striés, un derrick en bois dont la charge monte et descend, un wagonnet sur rails et des blocs sur palette.
+  - Forge : une bâtisse de pierre au toit d'ardoise et une grande cheminée de briques. Sous un appentis, un foyer garde ses braises rougeoyantes. Autour, une enclume, un marteau, un tonneau, du charbon et des fers à cheval.
+  - Comptoir d'épices : un souk avec une bâtisse en terre crue, un toit crénelé et une coupole turquoise. Devant, trois étals à auvents rayés portent des cônes d'épices, avec un tapis et des sacs ouverts.
+  - Comptoir de cristal : une boutique de diamantaire à la flamande. Maison de brique étroite à pignon à gradins, devanture vert sombre, vitrine de pierres sur velours, enseigne dorée et gros cristal suspendu qui se balance.
+  - Amphithéâtre : une arène ovale (profil tourné) à deux rangs d'arcades, des gradins soulignés de violet, une piste de sable, une porte d'honneur et des oriflammes.
+  - Atelier des maîtres : une halle à colombages et une grue à roue de carrier, dont la roue tourne et la charge se balance. Autour, des blocs taillés, des poutres et une table à dessin avec un plan bleu.
+  - Navire marchand : un cargo arrondi, coque bleue sur carène rouge, caisses en cale, passerelle blanche et cheminée fumante à la couleur du joueur.
+- **D'après les références** :
+  - Hôpital : blocs blancs à bandeaux vitrés, tour avec une grande croix rouge, auvent d'entrée, jardins et ventilateur sur le toit.
+  - Scierie : cabane rouge au toit de planches bleu, poulie au pignon et crochet qui se balance, grumes, charrette, établi et scie circulaire.
+  - Théâtre : façade art déco rose, enseigne verticale et marquise dont les ampoules clignotent.
+  - Port : quai de béton et bassin, conteneurs, cuves, portique dont le chariot va et vient, cargo à quai.
+- **Animations sur tous les modèles** :
+  - Des fanions sur le marché, la bibliothèque, la halle, l'aqueduc, les quartiers et la Grande Bibliothèque.
+  - D'autres mouvements selon le bâtiment : l'orbe du monument flotte, la tourelle de l'observatoire pivote, la pièce de la Grande Bourse tourne, la lunette de l'Académie et le globe du Relais tournent, un canard flotte au parc et l'eau de la fontaine du quartier marchand ondule.
+- **Coût** : sur la grande carte avec 8 joueurs (graine 777, tour 40, vue de loin), on passe de 3 957 à 3 795 appels de dessin (−4 %, grâce à la fusion des pièces animées), mais les triangles augmentent de 18 % (5,5 M). Le lot 4b s'attaquera aux triangles.
+- **Galerie** : `gallery.html?only=forge,carrière` n'affiche que les modèles demandés, en grand (par clé ou par nom).

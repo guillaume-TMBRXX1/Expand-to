@@ -6,7 +6,7 @@ import { avatarSVG } from './ui/avatar.js';
 
 const COLORS = ['#ff6b4a', '#8b5cf6', '#f5b700', '#14b8a6', '#ec4899'];
 const items = [
-  ['Capitale', () => cityModel(COLORS[0], 4, true)], ['Ville', () => cityModel(COLORS[1], 2, false)],
+  ['Capitale', () => cityModel(COLORS[0], 4, true)], ['Ville', () => cityModel(COLORS[1], 2, false)], ['Bourg (Artisans)', () => cityModel(COLORS[2], 4, false, 1)], ['Cité (Savants)', () => cityModel(COLORS[3], 5, true, 2)],
   ...['farm', 'lumber', 'quarry', 'market', 'library', 'theatre', 'lab', 'harbor', 'district', 'monument', 'sawmill', 'manufactory', 'forge', 'markethall'].map((t) => [t, () => buildingModel(t, false)]),
   ['Comptoir (épices)', () => buildingModel('outpost', false, 'spices')], ['Comptoir (cristal)', () => buildingModel('outpost', false, 'crystal')],
   ...[['furs', 'Fourrures'], ['crystal', 'Cristal'], ['marble', 'Marbre'], ['wine', 'Vin'], ['silk', 'Soie'], ['pearls', 'Perles'], ['salt', 'Sel'], ['spices', 'Épices'], ['incense', 'Encens']].map(([id, n]) => [n, () => luxuryModel(id)]),
@@ -22,6 +22,9 @@ const items = [
 ];
 const NAMES = { farm: 'Ferme', lumber: 'Scierie', quarry: 'Carrière', market: 'Marché', library: 'Bibliothèque', theatre: 'Théâtre', lab: 'Laboratoire', harbor: 'Port', district: 'Quartier', monument: 'Monument', sawmill: 'Menuiserie', manufactory: 'Manufacture', forge: 'Forge', markethall: 'Halle marchande', campus: 'Campus (2×2)', artsquarter: 'Quartier des arts (2×2)', merchantquarter: 'Quartier marchand (2×2)', lighthouse: 'Grand Phare', grandlibrary: 'Grande Bibliothèque', observatory: 'Observatoire', amphitheatre: 'Amphithéâtre', exchange: 'Grande Bourse', nations: 'Palais des Nations', guildhall: 'Maison des Guildes', academy: 'Académie royale', workshop: 'Atelier des maîtres', chancery: 'Chancellerie', lodge: 'Relais des cartographes' };
 
+// ?only=forge,quarry : n'affiche que ces modèles (clé ou nom affiché), en grand.
+const only = new URLSearchParams(location.search).get('only')?.split(',').map((x) => x.trim().toLowerCase());
+if (only) for (let i = items.length - 1; i >= 0; i--) if (!only.some((o) => items[i][0].toLowerCase() === o || (NAMES[items[i][0]] || '').toLowerCase() === o)) items.splice(i, 1);
 const view = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -38,7 +41,7 @@ scene.add(sun);
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.ShadowMaterial({ opacity: 0.12 }));
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
-const cols = 9, gap = 1.45;
+const cols = only ? Math.min(3, items.length) : 9, gap = 1.45;
 const R = new THREE.Vector3(1, 0, -1).normalize(), D = new THREE.Vector3(1, 0, 1).normalize();
 const labels = [];
 items.forEach(([name, make], i) => {
@@ -59,7 +62,7 @@ camera.position.set(10, 10, 10); camera.zoom = 1;
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 0, 0); controls.enableDamping = true;
 function resize() {
-  const w = innerWidth, h = innerHeight, s = Math.max(4.4, 7.6 * h / w);
+  const w = innerWidth, h = innerHeight, s = only ? Math.max(0.85, 0.42 * cols, 0.8 * Math.ceil(items.length / cols)) : Math.max(4.4, 7.6 * h / w);
   renderer.setSize(w, h);
   camera.left = -s * w / h; camera.right = s * w / h; camera.top = s; camera.bottom = -s; camera.updateProjectionMatrix();
 }

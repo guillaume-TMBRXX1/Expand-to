@@ -8,6 +8,7 @@ import { seasonOf } from '../core/society.js';
 
 const FOG_COLOR = new THREE.Color('#e4dcd6');
 const BG = '#efe8e4';
+const ANIM_MAX_DIST = 26; // distance caméra–cible au-delà de laquelle les bâtiments ne s'animent plus
 
 export class Renderer {
   constructor(container) {
@@ -957,12 +958,22 @@ export class Renderer {
   }
 
   // Animations légères : fumée, rotations, drapeaux, balancement.
+  // Les animations ne se jouent que de près : au-delà, elles seraient invisibles et coûteraient pour rien.
   animate(dt) {
     const t = this.time;
+    const tg = this.controls.target, dist = this.camera.position.distanceTo(tg);
+    if (dist > ANIM_MAX_DIST) return;
+    const r2 = (dist * 1.1) ** 2; // rayon d'action autour du point visé, proportionnel au zoom
     for (const obj of this.entityObjs.values()) {
       if (!obj.visible || !obj.userData.anims?.length) continue;
+      const dx = obj.position.x - tg.x, dz = obj.position.z - tg.z;
+      if (dx * dx + dz * dz > r2) continue;
       for (const o of obj.userData.anims) {
         const a = o.userData.anim, ph = o.userData.phase0;
+        if (a.type === 'swing') { o.rotation.z = Math.sin(t * a.speed + ph) * a.amp; continue; }
+        if (a.type === 'slide') { o.position.x = o.userData.base.x + Math.sin(t * a.speed + ph) * a.amp; continue; }
+        if (a.type === 'pulse') { o.scale.setScalar(1 + Math.sin(t * a.speed + ph) * a.amp * (0.6 + 0.4 * Math.sin(t * 7.3 + ph))); continue; }
+        if (a.type === 'blink') { const on = Math.floor(t * a.speed + ph) % 2; o.children.forEach((c, k) => { c.visible = k % 2 === on; }); continue; }
         if (a.type === 'spin') o[a.axis === 'z' ? 'rotateZ' : a.axis === 'x' ? 'rotateX' : 'rotateY'](a.speed * dt);
         else if (a.type === 'flag') o.rotation.y = Math.sin(t * 3 + ph) * 0.35;
         else if (a.type === 'bob') o.position.y = o.userData.base.y + Math.sin(t * a.speed + ph) * a.amp;
