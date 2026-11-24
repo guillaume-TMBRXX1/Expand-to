@@ -111,4 +111,5 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
   - Des fanions sur le marché, la bibliothèque, la halle, l'aqueduc, les quartiers et la Grande Bibliothèque.
   - D'autres mouvements selon le bâtiment : l'orbe du monument flotte, la tourelle de l'observatoire pivote, la pièce de la Grande Bourse tourne, la lunette de l'Académie et le globe du Relais tournent, un canard flotte au parc et l'eau de la fontaine du quartier marchand ondule.
 - **Coût** : sur la grande carte avec 8 joueurs (graine 777, tour 40, vue de loin), on passe de 3 957 à 3 795 appels de dessin (−4 %, grâce à la fusion des pièces animées), mais les triangles augmentent de 18 % (5,5 M). Le lot 4b s'attaquera aux triangles.
+- **Retouches après essai** : les toits des maisons sont plus bas et débordent moins (maisons de ville, hôtel de ville, cottage générique). Les fenêtres sont plus petites, avec un cadre plus fin. Le théâtre n'a plus ses deux hublots.
 - **Galerie** : `gallery.html?only=forge,carrière` n'affiche que les modèles demandés, en grand (par clé ou par nom).

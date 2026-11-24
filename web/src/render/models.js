@@ -109,8 +109,8 @@ const Y0 = 0.07; // dessus du socle
 
 function windowAt(x, y, z, face = 'z', w = 0.07, h = 0.08) {
   const depth = 0.012;
-  const frame = face === 'z' ? rbox(w + 0.02, h + 0.02, depth, PAL.white, x, y, z, 0.005) : rbox(depth, h + 0.02, w + 0.02, PAL.white, x, y, z, 0.005);
-  const pane = face === 'z' ? rbox(w, h, depth, PAL.glass, x, y + 0.01, z + 0.004, 0.004) : rbox(depth, h, w, PAL.glass, x + 0.004, y + 0.01, z, 0.004);
+  const frame = face === 'z' ? rbox(w + 0.012, h + 0.012, depth, PAL.white, x, y, z, 0.004) : rbox(depth, h + 0.012, w + 0.012, PAL.white, x, y, z, 0.004);
+  const pane = face === 'z' ? rbox(w, h, depth, PAL.glass, x, y + 0.006, z + 0.004, 0.004) : rbox(depth, h, w, PAL.glass, x + 0.004, y + 0.006, z, 0.004);
   return [frame, pane];
 }
 function door(x, y, z, c = PAL.woodDark, face = 'z') {
@@ -152,11 +152,11 @@ function sign(text = '', x, y, z, c = PAL.white, accent = PAL.terracotta) {
 }
 // Petit bâtiment générique : murs + fenêtres + porte + toit à deux pans.
 function cottage({ w = 0.3, h = 0.2, d = 0.26, wall = PAL.cream, roof = PAL.terracotta, x = 0, z = 0, y = Y0, chimney = true }) {
-  const parts = [rbox(w, h, d, wall, x, y, z, 0.02), gable(w + 0.06, 0.13, d + 0.04, roof, x, y + h, z)];
+  const parts = [rbox(w, h, d, wall, x, y, z, 0.02), gable(w + 0.03, Math.min(0.1, w * 0.4), d + 0.03, roof, x, y + h, z)];
   parts.push(door(x, y, z + d / 2 + 0.002));
-  parts.push(...windowAt(x - w * 0.3, y + h * 0.45, z + d / 2 + 0.002), ...windowAt(x + w * 0.3, y + h * 0.45, z + d / 2 + 0.002));
-  parts.push(...windowAt(x + w / 2 + 0.002, y + h * 0.45, z, 'x'));
-  if (chimney) parts.push(rbox(0.04, 0.09, 0.04, PAL.brick, x + w * 0.25, y + h + 0.05, z - d * 0.15, 0.008), smoke(x + w * 0.25, y + h + 0.16, z - d * 0.15, 0.8));
+  parts.push(...windowAt(x - w * 0.3, y + h * 0.45, z + d / 2 + 0.002, 'z', 0.05, 0.055), ...windowAt(x + w * 0.3, y + h * 0.45, z + d / 2 + 0.002, 'z', 0.05, 0.055));
+  parts.push(...windowAt(x + w / 2 + 0.002, y + h * 0.45, z, 'x', 0.05, 0.055));
+  if (chimney) parts.push(rbox(0.035, 0.08, 0.035, PAL.brick, x + w * 0.25, y + h + 0.03, z - d * 0.15, 0.008), smoke(x + w * 0.25, y + h + 0.13, z - d * 0.15, 0.8));
   return parts;
 }
 // Bâtiment à toit plat avec acrotère (style boutique).
@@ -255,29 +255,29 @@ function townHouse(i, tier, color, smoky) {
   const roof = i % 2 ? color : [PAL.terracotta, '#c9784a', PAL.terracottaDark][i % 3];
   const p = [];
   if (tier <= 0) {
-    const w = 0.16, d = 0.14, h = 0.11 + (i % 2) * 0.025, y = Y0 + 0.022;
+    const w = 0.16, d = 0.14, h = 0.12 + (i % 2) * 0.025, y = Y0 + 0.022;
     p.push(rbox(w + 0.01, 0.022, d + 0.01, PAL.stone, 0, Y0, 0, 0.008), rbox(w, h, d, wall, 0, y, 0, 0.014));
     for (const x of [-w / 2 + 0.012, w / 2 - 0.012]) p.push(rbox(0.012, h, 0.006, PAL.woodDark, x, y, d / 2 + 0.002, 0.003));
     p.push(rbox(w, 0.01, 0.006, PAL.woodDark, 0, y + h * 0.6, d / 2 + 0.002, 0.003));
     const brace = rbox(0.008, h * 0.62, 0.006, PAL.woodDark, -0.035, y, d / 2 + 0.003, 0.002); brace.rotation.z = 0.5; p.push(brace);
-    p.push(gable(w + 0.05, 0.12, d + 0.05, i % 3 === 2 ? PAL.hay : roof, 0, y + h, 0));
-    p.push(door(0.035, y, d / 2 + 0.004), ...windowAt(-0.035, y + h * 0.3, d / 2 + 0.004, 'z', 0.04, 0.04));
+    p.push(gable(w + 0.014, 0.058, d + 0.014, i % 3 === 2 ? PAL.hay : roof, 0, y + h, 0));
+    p.push(door(0.035, y, d / 2 + 0.004), ...windowAt(-0.035, y + h * 0.32, d / 2 + 0.004, 'z', 0.03, 0.03));
     p.push(rbox(0.05, 0.014, 0.02, PAL.terracotta, -0.035, y + h * 0.22, d / 2 + 0.014, 0.004), sph(0.011, '#ff8fab', -0.048, y + h * 0.22 + 0.02, d / 2 + 0.014), sph(0.011, PAL.gold, -0.024, y + h * 0.22 + 0.02, d / 2 + 0.014));
-    if (smoky) p.push(rbox(0.035, 0.08, 0.035, PAL.stone, 0.045, y + h + 0.03, -0.03, 0.008), smoke(0.045, y + h + 0.13, -0.03, 0.7));
+    if (smoky) p.push(rbox(0.03, 0.07, 0.03, PAL.stone, 0.045, y + h + 0.02, -0.03, 0.007), smoke(0.045, y + h + 0.11, -0.03, 0.7));
   } else if (tier === 1) {
     const w = 0.15, d = 0.14, h = 0.22 + (i % 2) * 0.03;
     p.push(rbox(w, h, d, wall, 0, Y0, 0, 0.014), rbox(w + 0.008, 0.012, d + 0.008, PAL.white, 0, Y0 + h * 0.5, 0, 0.004));
-    p.push(gable(w + 0.04, 0.1, d + 0.04, roof, 0, Y0 + h, 0), rbox(0.05, 0.05, 0.05, wall, -0.03, Y0 + h + 0.02, 0.03, 0.01), rbox(0.03, 0.03, 0.006, PAL.glass, -0.03, Y0 + h + 0.03, 0.056, 0.003));
-    for (const x of [-0.04, 0.04]) p.push(...windowAt(x, Y0 + h * 0.62, d / 2 + 0.003, 'z', 0.035, 0.05));
-    p.push(...windowAt(-0.04, Y0 + h * 0.18, d / 2 + 0.003, 'z', 0.035, 0.045), door(0.04, Y0, d / 2 + 0.003, PAL.woodDark));
+    p.push(gable(w + 0.012, 0.055, d + 0.012, roof, 0, Y0 + h, 0));
+    for (const x of [-0.04, 0.04]) p.push(...windowAt(x, Y0 + h * 0.64, d / 2 + 0.003, 'z', 0.028, 0.038));
+    p.push(...windowAt(-0.04, Y0 + h * 0.2, d / 2 + 0.003, 'z', 0.028, 0.036), door(0.04, Y0, d / 2 + 0.003, PAL.woodDark));
     const aw = rbox(0.06, 0.008, 0.035, color, 0.04, Y0 + 0.13, d / 2 + 0.017, 0.003); aw.rotation.x = 0.35; p.push(aw);
-    if (smoky) p.push(rbox(0.03, 0.07, 0.03, PAL.brick, 0.045, Y0 + h + 0.04, -0.03, 0.006), smoke(0.045, Y0 + h + 0.12, -0.03, 0.7));
+    if (smoky) p.push(rbox(0.028, 0.06, 0.028, PAL.brick, 0.045, Y0 + h + 0.02, -0.03, 0.006), smoke(0.045, Y0 + h + 0.1, -0.03, 0.7));
   } else {
     const w = 0.16, d = 0.15, h = 0.3 + (i % 3) * 0.04;
     p.push(rbox(w, h, d, wall, 0, Y0, 0, 0.018), rbox(w + 0.012, 0.018, d + 0.012, PAL.white, 0, Y0 + h, 0, 0.006));
     for (let f = 0; f < 3; f++) {
       const y = Y0 + 0.07 + f * (h - 0.08) / 3;
-      p.push(rbox(w - 0.03, 0.04, 0.006, '#7fa9c9', 0, y, d / 2 + 0.002, 0.003));
+      p.push(rbox(w - 0.04, 0.03, 0.006, '#7fa9c9', 0, y, d / 2 + 0.002, 0.003));
       if (f > 0 && f % 2 === i % 2) p.push(rbox(w * 0.6, 0.008, 0.03, PAL.white, 0, y - 0.006, d / 2 + 0.015, 0.003), rbox(w * 0.6, 0.02, 0.004, color, 0, y, d / 2 + 0.03, 0.002));
     }
     p.push(rbox(0.06, 0.06, 0.008, '#9fd3f0', 0, Y0, d / 2 + 0.003, 0.004), rbox(0.08, 0.008, 0.03, color, 0, Y0 + 0.07, d / 2 + 0.014, 0.003));
@@ -305,7 +305,7 @@ export function cityModel(color, pop, capital, tier = 0) {
   }
   // Hôtel de ville avec tour d'horloge
   const hall = capital ? 0.26 : 0.2;
-  parts.push(rbox(hall, 0.2, hall * 0.8, PAL.white, 0, Y0, 0.02, 0.02), gable(hall + 0.06, 0.1, hall * 0.8 + 0.04, color, 0, Y0 + 0.2, 0.02));
+  parts.push(rbox(hall, 0.2, hall * 0.8, PAL.white, 0, Y0, 0.02, 0.02), gable(hall + 0.024, 0.075, hall * 0.8 + 0.02, color, 0, Y0 + 0.2, 0.02));
   parts.push(door(0, Y0, 0.02 + hall * 0.4 + 0.002, color));
   if (capital) {
     parts.push(rbox(0.09, 0.22, 0.09, PAL.cream, 0, Y0 + 0.2, -0.02, 0.012), cyl(0.03, 0.03, 0.01, PAL.white, 0, Y0 + 0.36, 0.025, 16));
@@ -825,7 +825,6 @@ BUILDERS.theatre = () => { // Théâtre : façade art déco rose, enseigne verti
   const p = [plinth(PAL.paving)];
   p.push(rbox(0.5, 0.28, 0.3, '#f2b8b0', 0, Y0, -0.1, 0.02), rbox(0.52, 0.03, 0.32, '#f6d2c8', 0, Y0 + 0.28, -0.1, 0.01), rbox(0.3, 0.06, 0.24, '#f2b8b0', 0, Y0 + 0.31, -0.12, 0.015));
   for (const x of [-0.24, 0.24]) p.push(rbox(0.04, 0.31, 0.04, '#f8e0d8', x, Y0, 0.05, 0.01));
-  for (const x of [-0.17, 0.17]) { const w = cyl(0.03, 0.03, 0.012, PAL.white, x, Y0 + 0.22, 0.054, 16); w.rotation.x = Math.PI / 2; w.position.y = Y0 + 0.22; const g2 = cyl(0.022, 0.022, 0.014, PAL.glass, x, Y0 + 0.22, 0.058, 16); g2.rotation.x = Math.PI / 2; g2.position.y = Y0 + 0.22; p.push(w, g2); }
   // Enseigne verticale (lame) avec sa colonne de points dorés
   p.push(rbox(0.07, 0.4, 0.04, '#e56b7f', 0, Y0 + 0.16, 0.075, 0.012), rbox(0.052, 0.36, 0.044, PAL.white, 0, Y0 + 0.18, 0.075, 0.01));
   for (let k = 0; k < 6; k++) p.push(sph(0.011, '#e56b7f', 0, Y0 + 0.21 + k * 0.055, 0.1));
