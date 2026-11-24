@@ -5,6 +5,7 @@ import { RoundedBoxGeometry } from 'three/addons/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/BufferGeometryUtils.js';
 import { cityModel, buildingModel, unitModel, luxuryModel, naturalModel, ruinModel, prepareAnims, animateParts } from './models.js';
 import { seasonOf } from '../core/society.js';
+import { Villagers } from './villagers.js';
 
 const FOG_COLOR = new THREE.Color('#e4dcd6');
 const BG = '#efe8e4';
@@ -63,6 +64,8 @@ export class Renderer {
     this.raycaster = new THREE.Raycaster();
     this.clock = new THREE.Clock();
 
+    this.animMaxDist = ANIM_MAX_DIST;
+    this.villagers = new Villagers(this);
     window.addEventListener('resize', () => this.resize());
     this.resize();
     this.renderer.setAnimationLoop(() => this.tick());
@@ -850,6 +853,7 @@ export class Renderer {
     this.refreshTerrain();
     this.refreshOverlays();
     this.syncEntities();
+    this.villagers.rebuild();
   }
 
   // ------------------------------------------------------------------ entrées
@@ -1015,6 +1019,7 @@ export class Renderer {
     this.setSmokeVisible(this.camera.position.distanceTo(this.controls.target) <= ANIM_MAX_DIST);
     if (!this.reducedMotion) this.animate(dt);
     this.updateEffects(dt);
+    this.villagers.update(this.time);
     if (this.dayNight && !this.reducedMotion) this.updateLight();
     for (const obj of this.entityObjs.values()) {
       if (!obj.userData.isUnit) continue;
