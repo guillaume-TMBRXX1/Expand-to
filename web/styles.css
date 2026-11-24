@@ -449,3 +449,7 @@ html.touch .civ .treaty-row summary { min-height: 44px; }
 .civ .treaty-row summary::-webkit-details-marker { display: none; }
 .civ .treaty-row summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .15s; margin-right: 4px; }
 .civ .treaty-row[open] summary::before { transform: rotate(45deg); }
+
+/* ------------------------------------------------- unités en attente */
+[data-action="end-turn"] { position: relative; }
+.badge.wait-badge { background: var(--text); }
