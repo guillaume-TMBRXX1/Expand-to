@@ -237,6 +237,22 @@ Module `web/src/core/society.js`, réglages `seasons`, `pollution`, `migration` 
 - [x] Interface : onglet « Cadre de vie » (Parc, Aqueduc, Hôpital), pollution, santé et attractivité dans le panneau de ville, encyclopédie. Modèles 3D du parc, de l'aqueduc et de l'hôpital.
 - [x] IA : parcs dans les villes polluées, aqueduc et hôpital avant que ses villes ne plafonnent.
 
+## Tailles de carte revues ✅
+
+Mesuré : l'IA fonde environ 4 villes par partie quelle que soit la taille. C'est la place restante en fin de partie qui change, donc la marge du joueur.
+
+| Taille | Dimensions | Joueurs (défaut / max) | Cases praticables par joueur | Terres prises en fin de partie |
+|---|---|---|---|---|
+| Petite | 40 × 30 (contre 32 × 24) | 3 / 4 | ~120 (90 à 4) | ~78 % (91 % à 4) |
+| Moyenne | 50 × 36 (contre 40 × 28) | 4 / 6 | ~158 (105 à 6) | ~68 % (87 % à 6) |
+| Grande | 62 × 42 (contre 50 × 34) | 6 / 8 | ~134 (100 à 8) | ~74 % (88 % à 8) |
+| Immense (expérimentale) | 72 × 48 | 8 / 8 | ~128 | ~71 % |
+
+- Serveur Railway : aucun effet. Il ne sert que des fichiers statiques, et la carte est générée dans le navigateur.
+- Sauvegardes : 200 à 600 Ko chacune, soit au plus 2,4 Mo pour les 4 emplacements (limite du navigateur d'environ 5 Mo).
+- Calcul d'un tour d'IA : 45 à 115 ms en simulation.
+- Rendu : la taille Immense est environ 1,3 à 1,5 fois plus lourde que l'ancienne grande carte (de 1 100 à 1 200 objets dessinés et environ 2,3 millions de triangles). D'où la mention « expérimentale ».
+
 ## Prochaine étape : équilibrage complet
 
 Toutes les phases de contenu (8 à 12) sont terminées. L'équilibrage doit notamment :

@@ -46,7 +46,7 @@ node tools/sim.mjs 10 --size=large --type=archipelago --length=long --ais=7
 ## Paramètres de partie
 
 Sur l'écran d'accueil, vous choisissez :
-- la **taille de carte** : petite (32 × 24), moyenne (40 × 28) ou grande (50 × 34), avec jusqu'à 7 IA sur une grande carte ;
+- la **taille de carte** : petite (40 × 30, jusqu'à 3 IA), moyenne (50 × 36, jusqu'à 5 IA), grande (62 × 42, jusqu'à 7 IA) ou Immense (72 × 48, 7 IA, expérimentale : elle peut être lente sur un iPad ancien) ;
 - le **type de carte** : continent, pangée ou archipel. En archipel, la Navigation permet de traverser les lagunes ;
 - la **durée** : 40, 60 ou 80 tours ;
 - la **difficulté** : en Difficile, les IA jouent avec les paramètres entraînés (meilleurs choix de recherche et de construction), avec de petits bonus ;

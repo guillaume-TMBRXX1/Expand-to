@@ -90,7 +90,7 @@ function showStart() {
       </div>
       <div class="start-row">
         <label class="field">Nom du dirigeant<input id="f-name" value="Vous" maxlength="18"></label>
-        <label class="field">Taille de carte<select id="f-size">${Object.entries(data.rules.mapSizes).map(([k, v]) => `<option value="${k}" ${k === 'medium' ? 'selected' : ''}>${v.name} (${v.width}×${v.height})</option>`).join('')}</select></label>
+        <label class="field">Taille de carte<select id="f-size">${Object.entries(data.rules.mapSizes).map(([k, v]) => `<option value="${k}" ${k === 'medium' ? 'selected' : ''} ${v.experimental ? 'title="Très grande carte : peut être lente sur un iPad ancien."' : ''}>${v.name} (${v.width}×${v.height})</option>`).join('')}</select></label>
         <label class="field">Type de carte<select id="f-type">${Object.entries(data.rules.mapTypes).map(([k, v]) => `<option value="${k}" title="${esc(v.desc)}">${v.name}</option>`).join('')}</select></label>
         <label class="field">Durée<select id="f-length">${Object.entries(data.rules.gameLengths).map(([k, v]) => `<option value="${k}" ${k === 'normal' ? 'selected' : ''}>${v.name}</option>`).join('')}</select></label>
         <label class="field">Adversaires IA<select id="f-ai"></select></label>
