@@ -348,16 +348,17 @@ export function foundCity(s, uid) {
 
 // ----------------------------------------------------------- construction
 
-export function canBuild(s, pid, type, x, y) {
+// `opts.plan` : vérification d'un repère « bâtiment prévu » (technologie, coût et territoire encore libre non exigés).
+export function canBuild(s, pid, type, x, y, opts = {}) {
   const def = buildingDef(s, type);
   const t = tileAt(s, x, y);
   if (!def || !t) return { ok: false, reason: 'Invalide.' };
-  if (def.tech && !hasTech(s, pid, def.tech)) return { ok: false, reason: `Nécessite ${techDef(s, def.tech).name}.` };
+  if (def.tech && !opts.plan && !hasTech(s, pid, def.tech)) return { ok: false, reason: `Nécessite ${techDef(s, def.tech).name}.` };
   if (def.profile && s.players[pid].profile !== def.profile) return { ok: false, reason: `Réservé au profil ${s.data.profilesById[def.profile].name}.` };
   const tiles = footprintTiles(s, type, x, y);
   if (tiles.some((c) => !c)) return { ok: false, reason: 'Pas assez de place (2×2 cases).' };
   for (const c of tiles) {
-    if (c.owner !== pid) return { ok: false, reason: tiles.length > 1 ? 'Les 4 cases doivent être dans votre territoire.' : 'Hors de votre territoire.' };
+    if (c.owner !== pid && !(opts.plan && c.owner === -1)) return { ok: false, reason: tiles.length > 1 ? 'Les 4 cases doivent être dans votre territoire.' : 'Hors de votre territoire.' };
     if (cityAt(s, c.x, c.y) || buildingAt(s, c.x, c.y)) return { ok: false, reason: 'Case occupée.' };
     if (c.natural) return { ok: false, reason: 'Merveille naturelle : construisez à côté pour profiter de son adjacence.' };
     if (!def.terrain.includes(c.type)) return { ok: false, reason: `Terrain requis : ${def.terrain.map((k) => s.data.terrain[k].name).join(', ')}.` };
@@ -371,12 +372,13 @@ export function canBuild(s, pid, type, x, y) {
     if (s.buildings.some((b) => b.type === type && b.owner === pid)) return { ok: false, reason: 'Déjà en construction.' };
   }
   if (def.perCity && s.buildings.filter((b) => b.cityId === t.cityId && b.type === type).length >= def.perCity) return { ok: false, reason: `Limité à ${def.perCity} par ville.` };
-  if (!canAfford(s, pid, costOf(s, pid, def))) return { ok: false, reason: 'Ressources insuffisantes.' };
+  if (!opts.plan && !canAfford(s, pid, costOf(s, pid, def))) return { ok: false, reason: 'Ressources insuffisantes.' };
   return { ok: true };
 }
 
 // Bonus d'adjacence façon Anno : voisins (bâtiments, villes, terrains) autour de l'empreinte.
-export function adjacencyBonus(s, pid, type, x, y) {
+// `planned` (facultatif) : Map index de case → { type, x, y } d'un bâtiment prévu (repères du joueur), compté comme s'il était construit.
+export function adjacencyBonus(s, pid, type, x, y, planned = null) {
   const def = buildingDef(s, type);
   const out = {};
   const f = footprintOf(s, type);
@@ -405,7 +407,9 @@ export function adjacencyBonus(s, pid, type, x, y) {
       for (const t of ring) {
         const c = cityAt(s, t.x, t.y);
         if (c && list.includes('city') && c.owner === pid) { count++; continue; }
-        const b = buildingAt(s, t.x, t.y);
+        let b = buildingAt(s, t.x, t.y);
+        const pl = !b && planned?.get(idx(s, t.x, t.y));
+        if (pl) b = { id: `plan${pl.x},${pl.y}`, owner: pid, type: pl.type, x: pl.x, y: pl.y };
         if (!b || b.owner !== pid || seen.has(b.id) || (b.x === x && b.y === y && b.type === type)) continue;
         const bd = buildingDef(s, b.type);
         if (list.includes(b.type) || (bd.wonder && list.includes('wonder'))) { seen.add(b.id); count++; }

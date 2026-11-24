@@ -529,3 +529,8 @@ html.compact #selection { width: 320px; max-height: min(60vh, calc(100% - 150px)
 html.compact #selection .actions { display: grid; grid-template-columns: 1fr 1fr; }
 html.compact #selection .actions .btn { white-space: normal; text-align: left; }
 html.compact #selection .kv { font-size: 13.5px; }
+
+/* Repères de carte (onglet Repères, touche K) */
+.marker-item b { display: flex; align-items: center; gap: 6px; }
+.marker-item .pin { width: 10px; height: 10px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 0 0 3px rgba(0,0,0,.12); }
+.tile-badge .plan { color: #3e8ed0; font-weight: 700; text-transform: lowercase; }

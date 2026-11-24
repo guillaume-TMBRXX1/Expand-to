@@ -13,6 +13,29 @@ const BG = '#efe8e4';
 const EVENING_SKY = new THREE.Color('#ffc9a0'), EVENING_BG = new THREE.Color('#f6d3bb');
 const ANIM_MAX_DIST = 26; // distance caméra–cible au-delà de laquelle les bâtiments ne s'animent plus
 
+// Fantôme d'un bâtiment prévu : matériaux clonés, translucides et teintés de bleu.
+function ghostModel(g) {
+  g.traverse((o) => {
+    if (!o.isMesh) return;
+    const mats = [].concat(o.material).map((m) => { const c = m.clone(); c.transparent = true; c.opacity = 0.55; c.depthWrite = false; if (c.color) c.color.lerp(new THREE.Color('#8fc3ff'), 0.55); if (c.emissive) c.emissive.set('#1d4f8a'); return c; });
+    o.material = Array.isArray(o.material) ? mats : mats[0];
+    o.castShadow = false;
+  });
+  g.userData.ghost = true;
+  return g;
+}
+// Drapeau de repère : mât fin et fanion coloré.
+function markerPin(color) {
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.62, 6), new THREE.MeshStandardMaterial({ color: '#5b4636', roughness: 0.8 }));
+  pole.position.y = 0.31; g.add(pole);
+  const flag = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.6, 0), new THREE.Vector3(0.3, 0.51, 0), new THREE.Vector3(0, 0.42, 0)]), new THREE.MeshStandardMaterial({ color, roughness: 0.6, side: THREE.DoubleSide }));
+  flag.geometry.computeVertexNormals(); g.add(flag);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.03, 10), new THREE.MeshStandardMaterial({ color, roughness: 0.7 }));
+  base.position.y = 0.015; g.add(base);
+  return g;
+}
+
 export class Renderer {
   constructor(container) {
     this.container = container;
@@ -830,6 +853,20 @@ export class Renderer {
       if (!t.luxury || s.buildings.some((b) => b.x === t.x && b.y === t.y)) return;
       place(`lux${i}`, () => luxuryModel(t.luxury), t.x, t.y);
     });
+    // Repères du joueur : drapeaux de couleur et bâtiments prévus en fantôme translucide.
+    const MK = { red: '#e5484d', blue: '#3e8ed0', yellow: '#f5b700', violet: '#8e4ec6' };
+    for (const k of p.markers || []) {
+      const x = k.i % this.W, y = Math.floor(k.i / this.W);
+      if (s.buildings.some((b) => b.x === x && b.y === y) || s.cities.some((c) => c.x === x && c.y === y)) continue;
+      if (!k.plan) { place(`mk${k.i}:${k.color}`, () => markerPin(MK[k.color] || MK.red), x, y); continue; }
+      const f = s.data.buildingsById[k.plan]?.footprint || 1;
+      const o = place(`mk${k.i}:${k.plan}`, () => ghostModel(buildingModel(k.plan, false, undefined, 0, 1)), x, y);
+      if (f > 1) {
+        let top = 0;
+        for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) top = Math.max(top, this.heights[Math.min(this.H - 1, y + dy) * this.W + Math.min(this.W - 1, x + dx)]);
+        o.position.set(this.wx(x) + (f - 1) / 2, top, this.wz(y) + (f - 1) / 2);
+      }
+    }
     for (const u of s.units) {
       const stack = s.units.filter((o) => o.x === u.x && o.y === u.y);
       const k = stack.indexOf(u);
