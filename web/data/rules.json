@@ -1,7 +1,7 @@
 {
   "map": {
-    "width": 40,
-    "height": 28
+    "width": 50,
+    "height": 36
   },
   "turnLimit": 60,
   "prestigeTarget": 250,
@@ -362,27 +362,36 @@
   "mapSizes": {
     "small": {
       "name": "Petite",
-      "width": 32,
-      "height": 24,
+      "width": 40,
+      "height": 30,
       "maxAI": 3,
       "defaultAI": 2,
       "prestigeScale": 0.92
     },
     "medium": {
       "name": "Moyenne",
-      "width": 40,
-      "height": 28,
+      "width": 50,
+      "height": 36,
       "maxAI": 5,
       "defaultAI": 3,
       "prestigeScale": 1
     },
     "large": {
       "name": "Grande",
-      "width": 50,
-      "height": 34,
+      "width": 62,
+      "height": 42,
       "maxAI": 7,
       "defaultAI": 5,
       "prestigeScale": 1.12
+    },
+    "huge": {
+      "name": "Immense (expérimental)",
+      "width": 72,
+      "height": 48,
+      "maxAI": 7,
+      "defaultAI": 7,
+      "prestigeScale": 1.2,
+      "experimental": true
     }
   },
   "mapTypes": {
