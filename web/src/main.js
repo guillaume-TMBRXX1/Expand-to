@@ -93,32 +93,44 @@ function showStart() {
   let profile = 'merchant';
   const el = $('#start');
   el.hidden = false;
+  const saves = Saves.listSaves().filter((x) => !x.empty);
+  const auto = saves.find((x) => x.key === 'auto' && !x.broken);
+  const others = saves.filter((x) => x !== auto);
+  const finished = renderFinishedGames();
+  const touch = window.matchMedia('(pointer: coarse)').matches;
   el.innerHTML = `
-    <div class="card start">
-      <h1>Expand<span>-to</span></h1>
-      <p class="lead">Explorez, bâtissez, commercez et négociez. Aucune armée : la victoire se gagne par le <b>prestige</b> — culture, science, commerce et alliances. Premier à atteindre l'objectif de prestige ou à compléter une voie de victoire, sinon meilleur score à la fin des tours.</p>
-      <div class="section-title">Profil de départ</div>
-      <div class="profiles" role="radiogroup" aria-label="Profil de départ">
-        ${data.profiles.map((p) => `<button class="profile" role="radio" aria-checked="${p.id === profile}" data-profile="${p.id}">${avatarSVG({ color: G.PLAYER_COLORS[0], profile: p.id, skin: 0, size: 48, title: p.name })}<div><b>${p.name}</b><span>${p.desc}</span><span class="prof-extra">${p.unique ? `Bâtiment : ${data.buildingsById[p.unique].name}` : ''}${p.ability ? ` · Capacité : ${p.ability.name}` : ''}</span></div></button>`).join('')}
+    <div class="card start" role="main">
+      <div class="start-left">
+        <h1>Expand<span>-to</span></h1>
+        <p class="lead">Explorez, bâtissez, commercez et négociez. Aucune armée : on gagne au <b>prestige</b>, ou en complétant une voie de victoire (science, culture, économie, diplomatie).</p>
+        <div class="section-title" id="profiles-title">Profil de départ</div>
+        <div class="profiles" role="radiogroup" aria-labelledby="profiles-title">
+          ${data.profiles.map((p) => `<button class="profile" role="radio" aria-checked="${p.id === profile}" data-profile="${p.id}">${avatarSVG({ color: G.PLAYER_COLORS[0], profile: p.id, skin: 0, size: 48, title: p.name })}<div><b>${p.name}</b><span>${p.desc}</span><span class="prof-extra">${p.unique ? `Bâtiment : ${data.buildingsById[p.unique].name}` : ''}${p.ability ? ` · Capacité : ${p.ability.name}` : ''}</span></div></button>`).join('')}
+        </div>
       </div>
-      <div class="start-row">
-        <label class="field">Nom du dirigeant<input id="f-name" value="Vous" maxlength="18"></label>
-        <label class="field">Taille de carte<select id="f-size">${Object.entries(data.rules.mapSizes).map(([k, v]) => `<option value="${k}" ${k === 'medium' ? 'selected' : ''} ${v.experimental ? 'title="Très grande carte : peut être lente sur un iPad ancien."' : ''}>${v.name} (${v.width}×${v.height})</option>`).join('')}</select></label>
-        <label class="field">Type de carte<select id="f-type">${Object.entries(data.rules.mapTypes).map(([k, v]) => `<option value="${k}" title="${esc(v.desc)}">${v.name}</option>`).join('')}</select></label>
-        <label class="field">Durée<select id="f-length">${Object.entries(data.rules.gameLengths).map(([k, v]) => `<option value="${k}" ${k === 'normal' ? 'selected' : ''}>${v.name}</option>`).join('')}</select></label>
-        <label class="field">Adversaires IA<select id="f-ai"></select></label>
-        <label class="field" title="${esc(Object.values(data.ai.difficulty).map((d) => `${d.name} : ${d.desc || ''}`).join('\n'))}">Difficulté<select id="f-diff">${Object.entries(data.ai.difficulty).map(([k, d]) => `<option value="${k}" ${k === 'normal' ? 'selected' : ''} title="${esc(d.desc || '')}">${d.name}</option>`).join('')}</select></label>
-        <label class="field">Graine de carte (optionnel)<input id="f-seed" inputmode="numeric" placeholder="ex. 4242"></label>
-      </div>
-      <div class="start-actions">
-        <button class="btn primary" id="start-go">Lancer la partie</button>
-        <label class="check"><input type="checkbox" id="f-tuto" checked> Tutoriel guidé</label>
-      </div>
-      ${renderSaveList()}
-      ${renderFinishedGames()}
-      <div class="help">
-        <b>Commandes</b> — clic gauche : sélectionner / déplacer · glisser : déplacer la caméra · clic droit glissé : pivoter · molette : zoom ·
-        <kbd>Entrée</kbd> finir le tour · <kbd>Échap</kbd> annuler · <kbd>Espace</kbd> unité suivante · <kbd>F</kbd> fonder · <kbd>R</kbd> route · <kbd>T</kbd> technologies · <kbd>D</kbd> diplomatie · <kbd>M</kbd> menu · <kbd>E</kbd> encyclopédie · <kbd>A</kbd> bonus d'adjacence
+      <div class="start-right">
+        ${auto ? `<div class="resume"><div><b>Partie en cours</b><div class="muted">${esc(saveMeta(auto.meta))}</div></div><button class="btn" data-action="load-slot" data-slot="auto">Reprendre</button></div>` : ''}
+        <div class="section-title">Nouvelle partie</div>
+        <div class="start-row">
+          <label class="field">Nom du dirigeant<input id="f-name" value="Vous" maxlength="18"></label>
+          <label class="field">Difficulté<select id="f-diff" title="${esc(Object.values(data.ai.difficulty).map((d) => `${d.name} : ${d.desc || ''}`).join('\n'))}">${Object.entries(data.ai.difficulty).map(([k, d]) => `<option value="${k}" ${k === 'normal' ? 'selected' : ''} title="${esc(d.desc || '')}">${d.name}</option>`).join('')}</select></label>
+          <label class="field">Taille de carte<select id="f-size">${Object.entries(data.rules.mapSizes).map(([k, v]) => `<option value="${k}" ${k === 'medium' ? 'selected' : ''}>${v.name} (${v.width}×${v.height})</option>`).join('')}</select></label>
+          <label class="field">Adversaires IA<select id="f-ai"></select></label>
+          <label class="field">Type de carte<select id="f-type">${Object.entries(data.rules.mapTypes).map(([k, v]) => `<option value="${k}" title="${esc(v.desc)}">${v.name}</option>`).join('')}</select></label>
+          <label class="field">Durée<select id="f-length">${Object.entries(data.rules.gameLengths).map(([k, v]) => `<option value="${k}" ${k === 'normal' ? 'selected' : ''}>${v.name}</option>`).join('')}</select></label>
+        </div>
+        <details class="start-more"><summary>Options avancées</summary>
+          <label class="field">Graine de carte (même graine, même carte)<input id="f-seed" inputmode="numeric" placeholder="ex. 4242"></label>
+        </details>
+        <div class="start-actions">
+          <label class="check"><input type="checkbox" id="f-tuto" checked> Tutoriel guidé</label>
+          <button class="btn primary big" id="start-go">Lancer la partie</button>
+        </div>
+        <details class="start-more"><summary>Parties sauvegardées${others.length ? ` (${others.length})` : ''}</summary>${renderSaveList(others)}</details>
+        ${finished ? `<details class="start-more"><summary>Dernières parties</summary>${finished}</details>` : ''}
+        ${touch ? '' : `<details class="start-more"><summary>Commandes</summary><div class="help">
+          Clic gauche : sélectionner / déplacer · glisser : déplacer la caméra · clic droit glissé : pivoter · molette : zoom ·
+          <kbd>Entrée</kbd> finir le tour · <kbd>Échap</kbd> annuler · <kbd>Espace</kbd> unité suivante · <kbd>F</kbd> fonder · <kbd>R</kbd> route · <kbd>B</kbd> construire · <kbd>T</kbd> technologies · <kbd>D</kbd> diplomatie · <kbd>M</kbd> menu · <kbd>E</kbd> encyclopédie · <kbd>A</kbd> bonus d'adjacence</div></details>`}
       </div>
     </div>`;
   const fillAI = () => {
@@ -145,13 +157,12 @@ function showStart() {
 function renderFinishedGames() {
   const list = Saves.finishedGames();
   if (!list.length) return '';
-  return `<div class="saves"><div class="section-title"><span>Dernières parties</span></div>${list.map((g) => `<div class="save-row"><div><b>${g.won ? 'Victoire' : 'Défaite'}</b> <span class="muted">· ${esc(g.reason || '')}</span>
+  return `<div class="saves">${list.map((g) => `<div class="save-row"><div><b>${g.won ? 'Victoire' : 'Défaite'}</b> <span class="muted">· ${esc(g.reason || '')}</span>
     <div class="muted">${esc([data.profilesById[g.profile]?.name, g.size && data.rules.mapSizes[g.size]?.name, g.mapType && data.rules.mapTypes[g.mapType]?.name, `${g.turns} tours`, `${g.prestige} prestige`, `${g.rank}${g.rank === 1 ? 'er' : 'e'} sur ${g.players}`, fmtDate(g.date)].filter(Boolean).join(' · '))}</div></div></div>`).join('')}</div>`;
 }
 
-function renderSaveList() {
-  const saves = Saves.listSaves().filter((x) => !x.empty);
-  return `<div class="saves"><div class="section-title"><span>Parties sauvegardées</span><button class="btn small ghost" data-action="import">Importer un fichier</button></div>
+function renderSaveList(saves = Saves.listSaves().filter((x) => !x.empty)) {
+  return `<div class="saves"><div class="section-title"><span>Emplacements</span><button class="btn small ghost" data-action="import">Importer un fichier</button></div>
     ${saves.length ? saves.map((x) => `<div class="save-row"><div><b>${x.label}</b><div class="muted">${x.broken ? 'Sauvegarde illisible' : esc(saveMeta(x.meta))}</div></div>
       <div class="row"><button class="btn small" data-action="load-slot" data-slot="${x.key}" ${x.broken ? 'disabled' : ''}>Reprendre</button>
       <button class="btn small ghost" data-action="delete-slot" data-slot="${x.key}" aria-label="Supprimer ${x.label}">Supprimer</button></div></div>`).join('')

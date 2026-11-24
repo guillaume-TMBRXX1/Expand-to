@@ -74,3 +74,11 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
 - **Contraste** : le gris des textes secondaires (`--muted`) passe de `#7f7378` à `#6e6267`, pour un contraste d'au moins 4,5:1 sur les cartes et les pastilles.
 - **Fenêtres** : l'en-tête (titre et bouton Fermer) reste fixé en haut pendant le défilement. Sur tablette, les fenêtres utilisent toute la hauteur visible (`100dvh`).
 - **Diplomatie** : le formulaire d'échange de ressources est replié sous « Proposer un échange », comme les traités. Les fiches des rivaux sont nettement plus courtes.
+
+### Lot 2 : écran d'accueil
+- **Deux colonnes, sans défilement** sur iPad en paysage (1180×820 comme 1024×768) et sur ordinateur. À gauche, le titre, une accroche plus courte et les cinq profils en liste verticale (avatar, effets, bâtiment et capacité). À droite, la nouvelle partie.
+- **Partie en cours** : quand une sauvegarde automatique existe, un encadré vert « Reprendre » s'affiche en tête de la colonne de droite.
+- **Réglages** en grille de deux colonnes, avec des champs de 44 px de haut, faciles à toucher. La graine de carte passe dans « Options avancées ».
+- **Bouton « Lancer la partie »** plus grand (54 px), avec la « marche » jouet. Il est toujours visible sans défiler.
+- Les sauvegardes, les dernières parties et l'aide des commandes sont repliées dans des sections. L'aide clavier n'apparaît pas sur écran tactile.
+- Sous 900 px de large, l'écran repasse sur une seule colonne.
