@@ -3,11 +3,12 @@ import * as THREE from 'three';
 import { MapControls } from 'three/addons/MapControls.js';
 import { RoundedBoxGeometry } from 'three/addons/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/BufferGeometryUtils.js';
-import { cityModel, buildingModel, unitModel, luxuryModel, naturalModel, ruinModel } from './models.js';
+import { cityModel, buildingModel, unitModel, luxuryModel, naturalModel, ruinModel, prepareAnims, animateParts } from './models.js';
 import { seasonOf } from '../core/society.js';
 
 const FOG_COLOR = new THREE.Color('#e4dcd6');
 const BG = '#efe8e4';
+const ANIM_MAX_DIST = 26; // distance caméra–cible au-delà de laquelle les bâtiments ne s'animent plus
 
 export class Renderer {
   constructor(container) {
@@ -115,7 +116,7 @@ export class Renderer {
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vLocalY;')
         .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= mix(0.62, 1.0, smoothstep(-0.5, 0.48, vLocalY));');
     };
-    this.tiles = new THREE.InstancedMesh(new RoundedBoxGeometry(0.985, 1, 0.985, 2, 0.06), tileMat, n);
+    this.tiles = new THREE.InstancedMesh(new RoundedBoxGeometry(0.985, 1, 0.985, 1, 0.05), tileMat, n);
     this.tiles.receiveShadow = true; this.tiles.castShadow = true;
 
     const forests = state.map.tiles.filter((t) => t.type === 'forest');
@@ -124,7 +125,7 @@ export class Renderer {
       const r = ((t.x * 73856093) ^ (t.y * 19349663) ^ (k * 83492791)) >>> 0;
       this.treeSlots.push({ t, dx: ((r % 100) / 100 - 0.5) * 0.55, dz: (((r >> 8) % 100) / 100 - 0.5) * 0.55, s: 0.8 + ((r >> 16) % 40) / 100 });
     }
-    this.trees = new THREE.InstancedMesh(new THREE.SphereGeometry(0.15, 14, 10), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.7 }), this.treeSlots.length);
+    this.trees = new THREE.InstancedMesh(new THREE.SphereGeometry(0.15, 11, 8), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.7 }), this.treeSlots.length);
     this.trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.025, 0.035, 0.22, 8), new THREE.MeshStandardMaterial({ color: '#8a5634', roughness: 0.8 }), this.treeSlots.length);
     this.trees.castShadow = true; this.trunks.castShadow = true;
     // Montagnes : pics arrondis à couleurs de sommets, 2 silhouettes × (rocheuse | enneigée), rotation et taille variées.
@@ -487,7 +488,7 @@ export class Renderer {
     });
     this.foamEdges = edges;
     const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.4, transparent: true, opacity: 0.75, depthWrite: false });
-    this.foam = new THREE.InstancedMesh(new RoundedBoxGeometry(0.9, 0.02, 0.08, 1, 0.01), mat, Math.max(1, edges.length));
+    this.foam = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.02, 0.08), mat, Math.max(1, edges.length));
     this.foam.renderOrder = 2;
     this.decor.push(this.foam);
   }
@@ -785,9 +786,7 @@ export class Renderer {
         const prev = [...this.entityObjs.keys()].find((k) => k.startsWith(prefix));
         obj = make(); obj.position.copy(target); obj.userData.path = [];
         if (this.ready && obj.visible !== false && visible(x, y)) this.onAppear(key, prev, obj, target);
-        const anims = [];
-        obj.traverse((o) => { if (o.userData.anim) { o.userData.base = o.position.clone(); o.userData.phase0 = Math.random() * 6.28; anims.push(o); } });
-        obj.userData.anims = anims;
+        obj.userData.anims = prepareAnims(obj); this.smokeDirty = true;
         this.entityObjs.set(key, obj); this.entities.add(obj);
       } else if (obj.userData.isUnit) {
         const path = obj.userData.path;
@@ -798,7 +797,7 @@ export class Renderer {
       return obj;
     };
     for (const c of s.cities) {
-      const o = place(`c${c.id}:${Math.min(c.pop, 5)}:${c.capital}:${c.tier || 0}`, () => cityModel(s.players[c.owner].color, c.pop, c.capital, c.tier || 0), c.x, c.y);
+      const o = place(`c${c.id}:${Math.min(c.pop, 8)}:${c.capital}:${c.tier || 0}`, () => cityModel(s.players[c.owner].color, c.pop, c.capital, c.tier || 0), c.x, c.y);
       this.label(c, o);
     }
     for (const b of s.buildings) {
@@ -826,6 +825,8 @@ export class Renderer {
       const city = s.cities.some((c) => c.x === u.x && c.y === u.y);
       const off = new THREE.Vector3((k - (stack.length - 1) / 2) * 0.28 + (city ? 0.3 : 0), s.data.unitsById[u.type].flying ? 0.7 : 0, city ? 0.3 : 0);
       const uo = place(`u${u.id}`, () => { const g = unitModel(u.type, s.players[u.owner].color, u.owner); g.userData.isUnit = true; return g; }, u.x, u.y, city ? 0.05 : 0, off);
+      const ready = uo.getObjectByName('ready');
+      if (ready) ready.visible = u.owner === this.viewer && u.movesLeft > 0 && !s.winner; // anneau : l'unité peut encore se déplacer ce tour
       if (u.owner !== this.viewer && this.visible) uo.visible = uo.visible && this.visible[u.y * this.W + u.x] === 1; // unités étrangères : seulement si vues
     }
     for (const [key, obj] of this.entityObjs) {
@@ -957,24 +958,25 @@ export class Renderer {
   }
 
   // Animations légères : fumée, rotations, drapeaux, balancement.
+  // La fumée (trois bouffées par cheminée, dessinées une à une) disparaît de loin, où elle serait illisible :
+  // c'est l'essentiel des appels de dessin économisés en vue d'ensemble.
+  setSmokeVisible(on) {
+    if (this.smokeOn === on && !this.smokeDirty) return;
+    this.smokeOn = on; this.smokeDirty = false;
+    for (const obj of this.entityObjs.values()) for (const o of obj.userData.anims || []) if (o.userData.anim.type === 'smoke') o.visible = on;
+  }
+
+  // Les animations ne se jouent que de près : au-delà, elles seraient invisibles et coûteraient pour rien.
   animate(dt) {
     const t = this.time;
+    const tg = this.controls.target, dist = this.camera.position.distanceTo(tg);
+    if (dist > ANIM_MAX_DIST) return;
+    const r2 = (dist * 1.1) ** 2; // rayon d'action autour du point visé, proportionnel au zoom
     for (const obj of this.entityObjs.values()) {
       if (!obj.visible || !obj.userData.anims?.length) continue;
-      for (const o of obj.userData.anims) {
-        const a = o.userData.anim, ph = o.userData.phase0;
-        if (a.type === 'spin') o[a.axis === 'z' ? 'rotateZ' : a.axis === 'x' ? 'rotateX' : 'rotateY'](a.speed * dt);
-        else if (a.type === 'flag') o.rotation.y = Math.sin(t * 3 + ph) * 0.35;
-        else if (a.type === 'bob') o.position.y = o.userData.base.y + Math.sin(t * a.speed + ph) * a.amp;
-        else if (a.type === 'smoke') {
-          o.children.forEach((c) => {
-            const f = (t * 0.35 + c.userData.phase + ph) % 1;
-            c.position.set(Math.sin((f + ph) * 6) * 0.02, f * 0.32, 0);
-            c.scale.setScalar(0.6 + f * 1.4);
-            c.visible = f < 0.92;
-          });
-        }
-      }
+      const dx = obj.position.x - tg.x, dz = obj.position.z - tg.z;
+      if (dx * dx + dz * dz > r2) continue;
+      animateParts(obj.userData.anims, t, dt);
     }
   }
 
@@ -1010,6 +1012,7 @@ export class Renderer {
     this.controls.update();
     this.time += dt;
     this.waterUniform.value = this.time;
+    this.setSmokeVisible(this.camera.position.distanceTo(this.controls.target) <= ANIM_MAX_DIST);
     if (!this.reducedMotion) this.animate(dt);
     this.updateEffects(dt);
     if (this.dayNight && !this.reducedMotion) this.updateLight();
