@@ -339,10 +339,13 @@ function renderStock() {
     const q5 = G.quoteSale(s, 0, k, Math.min(5, stock)).gold, q10 = G.quoteSale(s, 0, k, Math.min(10, stock)).gold;
     const price = G.unitPrice(s, 0, k);
     const cb = ECO.canBuy(s, 0, k), qb = ECO.quoteBuy(s, 0, k, 5).gold;
-    return `<div class="mk-row">${marketTags(k)}<button class="btn small" data-action="buy" data-res="${k}" data-qty="5" ${cb.ok && p.res.gold >= qb ? '' : 'aria-disabled="true"'} title="${cb.ok ? `Acheter 5 au marché mondial : ${qb} Or` : esc(cb.reason)}">Acheter 5 · ${qb} Or</button></div>
-      <div class="sell-row"><span class="muted">${price.toFixed(1).replace('.', ',')} Or/u</span>
-      <button class="btn small" data-action="sell" data-res="${k}" data-qty="5" ${stock >= 1 ? '' : 'disabled'} title="Vendre 5 : +${q5} Or">−5 · +${q5}</button>
-      <button class="btn small" data-action="sell" data-res="${k}" data-qty="10" ${stock >= 1 ? '' : 'disabled'} title="Vendre 10 : +${q10} Or">−10 · +${q10}</button>
+    const buyWhy = !cb.ok ? cb.reason : p.res.gold < qb ? `Il faut ${qb} Or pour acheter 5 ${data.resources[k].name}.` : '';
+    return `<div class="mk-row">${marketTags(k)}<span class="muted">${price.toFixed(1).replace('.', ',')} Or/u</span></div>
+      <div class="trade-row">
+      <button class="btn small buy" data-action="buy" data-res="${k}" data-qty="5" ${buyWhy ? `aria-disabled="true" data-why="${esc(buyWhy)}"` : ''} title="${buyWhy ? esc(buyWhy) : `Acheter 5 au marché mondial : ${qb} Or`}">${cb.ok ? `Acheter 5 · ${qb} Or` : 'Pas en vente'}</button>
+      <button class="btn small" data-action="sell" data-res="${k}" data-qty="5" ${stock >= 1 ? '' : `disabled data-why="Rien à vendre : votre stock est vide."`} title="Vendre 5 : +${q5} Or">Vendre 5 · +${q5}</button>
+      <button class="btn small" data-action="sell" data-res="${k}" data-qty="10" ${stock >= 1 ? '' : `disabled data-why="Rien à vendre : votre stock est vide."`} title="Vendre 10 : +${q10} Or">10 · +${q10}</button></div>
+      <div class="sell-row">
       <span class="auto-sell"><label class="check small" title="Chaque fin de tour, vendre tout ce qui dépasse le seuil"><input type="checkbox" data-action="autosell" data-res="${k}" ${auto[k] !== undefined ? 'checked' : ''}> auto au-delà de</label>
       <span class="stepper" role="group" aria-label="Seuil de vente automatique de ${data.resources[k].name}">
         <button class="btn small" data-action="autosell-step" data-res="${k}" data-step="-5" aria-label="Baisser le seuil">−</button>
@@ -350,12 +353,13 @@ function renderStock() {
         <button class="btn small" data-action="autosell-step" data-res="${k}" data-step="5" aria-label="Monter le seuil">+</button></span></span></div>`;
   };
   const row = (k) => `<div class="stock-row"><span><i style="background:${resColor(k)}"></i>${data.resources[k].name}</span><b>${fmt(p.res[k] || 0)}</b><small class="${(y.net[k] || 0) < 0 ? 'neg' : ''}">${sign(y.net[k] || 0)}</small></div>${sellBar(k)}`;
-  el.innerHTML = `<div class="section-title"><span>Entrepôt</span><button class="btn small ghost" data-action="stock">Fermer</button></div>
+  el.innerHTML = `<div class="section-title stock-head"><span>Entrepôt</span><button class="btn small" data-action="stock">Fermer</button></div>
     ${canSell ? `<p class="muted" style="font-size:12px;margin:0 0 4px">Marché mondial : les cours sont communs à tous les joueurs. Chaque vente fait baisser le cours, chaque achat le fait monter, et il revient peu à peu selon la rareté. Votre Halle vend à ${Math.round(G.sellRate(s, 0) * 100)} % du cours${ECO.inLeague(s, 0) ? ` (+${Math.round(s.rules.league.sellBonus * 100)} % grâce à la Ligue)` : ''}.</p>` : '<p class="muted" style="font-size:12px;margin:0 0 4px">Construisez une <b>Halle marchande</b> (onglet Industrie, technologie Commerce) pour vendre vos surplus contre de l\'Or.</p>'}
     <div class="stock-group">Biens transformés</div>${G.GOODS.map(row).join('')}
     ${canSell ? `<div class="stock-group">Matériaux</div>${['wood', 'stone', 'food'].map(row).join('')}` : ''}
     <div class="stock-group">Ressources rares</div>${G.LUXURIES.map((k) => row(k) + `<div class="stock-desc ${active.has(k) ? 'good' : ''}">${active.has(k) ? 'Actif : ' : ''}${data.resources[k].desc}</div>`).join('')}
     <p class="muted" style="font-size:12px;margin:8px 0 0">Chaque ressource rare active rapporte aussi ${s.rules.luxuries.diversityPrestige} prestige. Échangez-les en Diplomatie.</p>`;
+  softDisable(el);
 }
 
 // ---------------------------------------------------------- mise en page tablette
@@ -473,6 +477,10 @@ function renderSide() {
 function costChips(def, isBuilding = true) { return chips(G.costOf(s, 0, def, isBuilding)); }
 
 function renderSelection() {
+  renderSelectionBody();
+  softDisable($('#selection'));
+}
+function renderSelectionBody() {
   const el = $('#selection');
   if (!sel) { el.hidden = true; return; }
   el.hidden = false;
@@ -817,10 +825,15 @@ function endTurn() {
 
 // ---------------------------------------------------------------- modales
 let lastFocus = null;
+// Les boutons « disabled » n'émettent aucun événement : on les remplace par aria-disabled, qui garde le même
+// aspect grisé mais reste touchable (et focalisable au clavier), pour pouvoir expliquer pourquoi l'action est impossible.
+function softDisable(root) {
+  root.querySelectorAll('button[disabled]').forEach((b) => { b.disabled = false; b.setAttribute('aria-disabled', 'true'); });
+}
 function openModal(html) {
   const m = $('#modal');
   if (m.hidden) lastFocus = document.activeElement;
-  m.innerHTML = html; m.hidden = false; m.querySelector('button, select, input')?.focus();
+  m.innerHTML = html; m.hidden = false; softDisable(m); m.querySelector('button, select, input')?.focus();
 }
 function closeModal() {
   const m = $('#modal'); m.hidden = true; m.innerHTML = '';
@@ -1192,7 +1205,9 @@ function recordResult() {
 function onAction(e) {
   const b = e.target.closest('[data-action]');
   if (!b || b.disabled || b.getAttribute('aria-disabled') === 'true') {
-    if (b?.dataset.action === 'mode-build') toast(b.title, 'bad');
+    // Sur iPad, l'infobulle n'existe pas : un toucher sur un bouton grisé affiche la raison.
+    const why = b?.dataset.why || b?.title;
+    if (why) toast(why.split('\n')[0], 'bad');
     return;
   }
   const id = Number(b.dataset.id);
