@@ -189,3 +189,13 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
 - **Ciel de saison** : la table de fond se teinte légèrement, plus froide en hiver et plus chaude en automne.
 - **Lumière du soir plus chaude** : avec le cycle jour/nuit, le soleil devient orangé, et le ciel comme la brume prennent une teinte pêche dorée au crépuscule. L'eau reste bleue.
 - **Panneau Infos qui défile** : le panneau entier défile maintenant, si bien que les offres, demandes et événements des autres joueurs restent accessibles sur iPad en paysage. Sur tablette, ce qui attend une réponse passe en tête du panneau. Le journal est limité à 42 % de la hauteur de l'écran.
+
+### Lot 9 : entrepôt et fiche de sélection sur iPad
+- **Boutons grisés qui s'expliquent** : sur iPad, l'infobulle n'existe pas. Un bouton désactivé restait donc muet. Les boutons `disabled` de la fiche de sélection, de l'entrepôt et des fenêtres deviennent `aria-disabled` (`softDisable` dans `main.js`). Ils gardent le même aspect grisé mais restent touchables et focalisables, et un toucher affiche la raison (« Personne d'autre ne produit cette ressource », « Nécessite un Port terminé dans cette ville », « Il faut 42 Or »…).
+- **Achat à la halle vérifié** : avec une halle marchande terminée, l'achat contre de l'or fonctionne (5 planches pour 13 Or dans la partie de test). Quand une ressource n'est pas achetable, le bouton indique « Pas en vente », et le toucher en donne la raison.
+- **Entrepôt** :
+  - en-tête « Entrepôt / Fermer » fixe pendant le défilement ;
+  - une seule rangée d'actions par ressource : « Acheter 5 · 42 Or », « Vendre 5 · +27 », « 10 · +53 » (l'achat est surligné en vert quand il est possible) ;
+  - le prix unitaire passe sur la ligne du cours ;
+  - sur tablette, le panneau occupe toute la hauteur et mesure 380 px de large.
+- **Fiche de sélection** : le titre et le bouton Fermer restent visibles quand la fiche défile. Sur tablette, la fiche mesure 320 px de large et jusqu'à 60 % de la hauteur, et les actions (former une unité, ordres) passent en grille de deux colonnes.

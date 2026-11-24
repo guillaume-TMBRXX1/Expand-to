@@ -506,3 +506,26 @@ html.touch .start-more > summary { min-height: 44px; }
 html.compact #side { pointer-events: auto; }
 html.compact #proposals { order: -1; } /* ce qui attend une réponse passe en premier */
 html.compact #minimap { order: 0; }
+
+/* ---------------------------------------------- quatrième passage : entrepôt et sélection sur iPad */
+.btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+.btn.primary[aria-disabled="true"] { box-shadow: none; }
+/* Entrepôt : en-tête fixe, une rangée d'actions par ressource */
+.stock-head { position: sticky; top: -12px; z-index: 2; background: var(--surface); margin: -12px -14px 6px; padding: 12px 14px 8px; border-bottom: 1px solid var(--line); align-items: center; }
+.trade-row { display: grid; grid-template-columns: 1.3fr 1.15fr .75fr; gap: 6px; margin: 4px 0 4px 14px; }
+.trade-row .btn.small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trade-row .btn.small { padding: 5px 6px; font-size: 12px; }
+.trade-row .btn.buy:not([aria-disabled="true"]) { border-color: #9fd6b7; background: #eef8f2; }
+.mk-row .muted { font-size: 11.5px; }
+.sell-row { margin-top: 0; }
+.stock-row { margin-top: 6px; }
+html.compact #stock { width: 380px; bottom: calc(8px + env(safe-area-inset-bottom)); max-height: none; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+html.touch .trade-row .btn.small { min-height: 40px; }
+/* Sélection : titre et bouton Fermer restent visibles quand la fiche défile */
+#selection h3 { position: sticky; top: -14px; z-index: 2; background: var(--surface); margin: -14px -16px 0; padding: 14px 52px 8px 16px; }
+html.compact #selection h3 { top: -12px; margin: -12px -14px 0; padding: 12px 50px 8px 14px; }
+.close-sel { z-index: 3; position: sticky !important; float: right; top: -6px; margin: -8px -10px 0 0; background: var(--surface) !important; box-shadow: 0 0 0 6px var(--surface); }
+html.compact #selection { width: 320px; max-height: min(60vh, calc(100% - 150px)); overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+html.compact #selection .actions { display: grid; grid-template-columns: 1fr 1fr; }
+html.compact #selection .actions .btn { white-space: normal; text-align: left; }
+html.compact #selection .kv { font-size: 13.5px; }
