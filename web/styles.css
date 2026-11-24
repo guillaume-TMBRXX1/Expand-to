@@ -497,3 +497,12 @@ html.touch .start-more > summary { min-height: 44px; }
   .start .profile { min-height: 70px; padding: 8px 12px; }
   .start .profile span { font-size: 12px; }
 }
+
+/* ---------------------------------------------- quatrième passage : panneau Infos qui défile */
+/* Le panneau défile en entier : propositions, demandes et événements restent accessibles sur iPad en paysage. */
+#side { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; padding-bottom: 4px; }
+#side > * { flex: none; }
+#journal { flex: 1 0 auto; max-height: 42vh; }
+html.compact #side { pointer-events: auto; }
+html.compact #proposals { order: -1; } /* ce qui attend une réponse passe en premier */
+html.compact #minimap { order: 0; }
