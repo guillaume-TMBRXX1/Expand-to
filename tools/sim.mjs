@@ -1,6 +1,6 @@
 // Simulation headless : fait jouer l'IA à la place de tous les joueurs pour vérifier les règles et calibrer la durée.
 // Usage : node tools/sim.mjs [nombre_de_parties] [graine] [--check] [--quiet]
-//   --check : code de sortie 1 si la durée moyenne sort de [50 % de la durée, durée] (utilisé par la CI).
+//   --check : code de sortie 1 si la durée moyenne sort de [58 % de la durée, durée] (utilisé par la CI).
 //   --size=small|medium|large --type=continent|pangaea|archipelago --length=quick|normal|long --ais=N --difficulty=easy|normal|hard
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,6 +20,8 @@ const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith('--')));
 const games = Number(args[0] || 5);
 const aiFlag = process.argv.find((a) => a.startsWith('--ai='));
 const override = aiFlag ? JSON.parse(fs.readFileSync(aiFlag.slice(5), 'utf8')) : null; // paramètres d'IA candidats pour le joueur 0
+const allFlag = process.argv.find((a) => a.startsWith('--ai-all='));
+const overrideAll = allFlag ? JSON.parse(fs.readFileSync(allFlag.slice(9), 'utf8')) : null; // paramètres candidats pour tous les joueurs (entraînement d'équilibre)
 const seed0 = Number(args[1] || 1234);
 const opt = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').split('=')[1] || d;
 const size = opt('size', 'medium'), mapType = opt('type', 'continent'), length = opt('length', 'normal');
@@ -32,6 +34,7 @@ for (let g = 0; g < games; g++) {
   const s = G.createGame({ data, seed: seed0 + g * 101, profile: data.profiles[g % data.profiles.length].id, size, mapType, length, aiCount, difficulty });
   s.players[0].isHuman = false; // l'IA joue aussi le joueur 0
   if (override) s.aiOverrides = { 0: override };
+  if (overrideAll) s.aiOverrides = Object.fromEntries(s.players.map((p) => [p.id, overrideAll]));
   const t0 = Date.now();
   while (!s.winner) {
     playAITurns(s);
@@ -50,7 +53,8 @@ for (let g = 0; g < games; g++) {
 }
 if (flags.has('--json')) {
   const p0 = results.map((r, i) => r.winnerPid === 0);
-  console.log(JSON.stringify({ games, winRate0: p0.filter(Boolean).length / games, avgTurns: results.reduce((a, r) => a + r.turns, 0) / games, avgPrestige0: results.reduce((a, r) => a + r.prestige0, 0) / games, victoryTypes }));
+  const profileWin = Object.fromEntries(Object.entries(profileStats).map(([k, v]) => [k, v.victoires / v.parties]));
+  console.log(JSON.stringify({ games, winRate0: p0.filter(Boolean).length / games, avgTurns: results.reduce((a, r) => a + r.turns, 0) / games, avgPrestige0: results.reduce((a, r) => a + r.prestige0, 0) / games, victoryTypes, profileWin }));
   process.exit(0);
 }
 if (!flags.has('--quiet')) console.table(results);
@@ -62,8 +66,7 @@ const avgTurns = avg('turns');
 console.log('Types de victoire :', JSON.stringify(victoryTypes));
 console.log(`Durée moyenne : ${avgTurns.toFixed(1)} tours · merveilles / partie : ${avg('wonders').toFixed(2)} · alliances : ${avg('alliances').toFixed(2)}`);
 const limit = data.rules.gameLengths[length].turnLimit;
-// Plancher provisoire à 50 % de la durée pendant les phases 8 à 12 (équilibrage reporté) ; il remontera à 58 % ensuite.
-const floorPct = 0.5;
+const floorPct = 0.58; // une partie normale (60 tours) doit durer au moins 35 tours en moyenne
 if (flags.has('--check') && (avgTurns < limit * floorPct || avgTurns > limit)) {
   console.error(`ÉCHEC : durée moyenne ${avgTurns.toFixed(1)} hors de [${Math.round(limit * floorPct)}, ${limit}] tours.`);
   process.exit(1);
