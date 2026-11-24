@@ -200,6 +200,9 @@ export function eventsTick(s) {
     const cities = G.citiesOf(s, p.id);
     const city = cities[s.rng.int(cities.length)];
     const pe = { id: s.nextId++, pid: p.id, ev: ev.id, cityId: city.id, city: city.name, turn: s.turn };
+    // Mémoire des derniers événements, pour le décor seulement (villageois qui réagissent) : aucun effet de règle, aucun tirage.
+    (s.eventLog ||= []).push({ ev: ev.id, pid: p.id, cityId: city.id, turn: s.turn });
+    if (s.eventLog.length > 40) s.eventLog.shift();
     if (p.isHuman) { s.pendingEvents.push(pe); G.log(s, `Événement : ${ev.title}.`, [p.id], 'warn'); } else {
       s.pendingEvents.push(pe);
       resolveEvent(s, pe.id, bestChoice(s, p.id, ev), false);

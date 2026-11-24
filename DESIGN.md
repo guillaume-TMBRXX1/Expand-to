@@ -199,3 +199,13 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
   - le prix unitaire passe sur la ligne du cours ;
   - sur tablette, le panneau occupe toute la hauteur et mesure 380 px de large.
 - **Fiche de sélection** : le titre et le bouton Fermer restent visibles quand la fiche défile. Sur tablette, la fiche mesure 320 px de large et jusqu'à 60 % de la hauteur, et les actions (former une unité, ordres) passent en grille de deux colonnes.
+
+### Lot 10 : réactions des villageois
+- **Mémoire des événements** : `s.eventLog` garde les 40 derniers événements (type, joueur, ville, tour). C'est purement du décor : aucun tirage aléatoire, aucun effet de règle, et la simulation donne des résultats identiques.
+- **Réactions** pendant le tour de l'événement et les deux suivants, dans la ville concernée :
+  - **Tempête sur la côte** (et crise mondiale « Tempêtes du siècle », dans toutes les villes côtières) : tous les habitants et travailleurs rattachés à la ville rentrent en courant, bras levés. Une pluie battante, couchée par le vent, tombe sur la ville.
+  - **Incendie** : des flammes qui vacillent et une colonne de fumée s'élèvent d'un quartier. Devant la ville, une chaîne de quatre habitants se passe les seaux de main en main.
+  - **Fête des moissons et Festival des arts** : six habitants dansent une ronde sur le parvis, bras levés, sous une pluie de confettis colorés.
+  - **Épidémie de grippe** (et crise mondiale « Grande épidémie », chez tous les joueurs) : un promeneur ou touriste sur deux reste chez lui, et les autres portent un masque blanc.
+  - **Krach** : la crise mondiale « Krach financier » fait aussi paniquer les traders, comme la phase de krach du marché.
+- **Coût** : les effets (flammes, fumée, pluie, confettis) tiennent en 4 maillages instanciés de plus, et ne s'affichent que de près, sur des cases visibles. Avec « Réduire les animations », il ne reste que les flammes et la fumée, immobiles, et les figurines restent à leur poste.
