@@ -82,3 +82,12 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
 - **Bouton « Lancer la partie »** plus grand (54 px), avec la « marche » jouet. Il est toujours visible sans défiler.
 - Les sauvegardes, les dernières parties et l'aide des commandes sont repliées dans des sections. L'aide clavier n'apparaît pas sur écran tactile.
 - Sous 900 px de large, l'écran repasse sur une seule colonne.
+
+### Lot 3 : terrain et ambiance
+- **Plateau de jeu** : la carte repose sur un socle d'argile crème `#e8ddd2` aux bords très arrondis, posé sur la table (`BG`). Le monde a désormais un vrai bord.
+- **Brume lisse** : les cases inexplorées s'enfoncent juste sous la surface du plateau (hauteur 0,01, sous la surface à 0,05). L'inconnu est une étendue unie, sans quadrillage, et ces cases restent cliquables pour y envoyer une unité.
+- **Plateaux plutôt que marches** : l'altitude des cases de terre est arrondie par paliers de 0,06. Des cases voisines partagent souvent la même hauteur, ce qui forme de vrais plateaux. Les cases sont un peu plus larges (0,985) et leurs joints plus fins.
+- **Montagnes** : des pics arrondis (profil tourné à 16 côtés) remplacent les dômes. Il y a deux silhouettes, un pic avec ses contreforts ou deux sommets jumeaux, chacune avec quelques rochers au pied. Les sommets sont enneigés, et les montagnes du nord et la haute montagne sont presque entièrement blanches. Chaque pic tourne et change légèrement de taille selon sa case. Il y a 4 maillages instanciés en tout.
+- **Sources de rivière** : chaque rivière naît dans un petit bassin bleu cerclé de galets, adossé à des rochers moussus et orienté vers l'aval. Le ruban d'eau part fin du bassin, puis s'élargit avec le débit. Le décor de la case (rochers, sapins) s'efface autour. Quand une ressource rare occupe le centre de la case, le bassin glisse vers l'aval. Tous les bassins sont dessinés en un seul maillage instancié.
+- **Frontières** : le liseré est plus épais (0,1) et arrondi, et le voile du territoire un peu plus marqué (opacité 0,17).
+- **Coût** : sur la grande carte avec 8 joueurs (graine 777, tour 40, vue de loin), on compte 3 946 appels de dessin contre 3 931 avant, soit +0,4 %, et +3 % de triangles.
