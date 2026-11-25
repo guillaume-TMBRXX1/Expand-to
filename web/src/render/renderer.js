@@ -893,7 +893,8 @@ export class Renderer {
     let el = this.labels.get(c.id);
     if (!el) { el = document.createElement('div'); el.className = 'city-label'; this.labelLayer.appendChild(el); this.labels.set(c.id, el); }
     const color = this.state.players[c.owner].color;
-    el.innerHTML = `<span class="pop" style="background:${color}">${c.pop}</span>${c.name}`;
+    const mv = (c.movements || []).map((id) => this.state.rules.movements?.list.find((m) => m.id === id)?.icon || '').join('');
+    el.innerHTML = `<span class="pop" style="background:${color}">${c.pop}</span>${c.name}${mv ? `<span class="mv" title="Mouvements culturels">${mv}</span>` : ''}`;
     el.dataset.obj = obj.uuid;
     el._obj = obj;
   }

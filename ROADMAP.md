@@ -249,7 +249,7 @@ Modules `web/src/core/people.js` (grands personnages, ambitions) et `web/src/cor
 - [x] **Ambitions secrètes** : option de partie, cochée par défaut, et **facultatives**.
   - 16 cartes, 3 en main, 2 jouées au plus ; seule une carte jouée rapporte son prestige (8 à 14).
   - Retrait libre, une défausse tous les 8 tours, une nouvelle carte à chaque réussite.
-  - Avec l'option, l'objectif de prestige passe de 290 à 335.
+  - Avec l'option, l'objectif de prestige passe de 290 à 335 (310 à 355 depuis la phase 15).
 - [x] **Vocations des villes** : à 5 habitants, sept vocations, chacune avec un bonus et une contrepartie (changement : 60 Or, tous les 10 tours au plus).
 - [x] **Catastrophes** : option de partie, à partir du tour 8, une au plus par ville et par tour.
   - Crue (printemps, rivières) : nouvelle Digue.
@@ -274,6 +274,20 @@ Modules `web/src/core/ages.js` (ères, gouvernements, archéologie) et `web/src/
 - [x] **Espionnage industriel** : Agent (ère industrielle), copier une technologie ou retarder un chantier ; 35 % de risque d'être repéré (+15 % avec une Chancellerie), incident de −15 relation, échec une fois sur deux.
 - [x] IA : gouvernement selon sa voie, cadeaux aux comptoirs, caravanes sans débouché vers un comptoir, archéologues et musées, agents (surtout les opportunistes).
 - [x] Interface : ère à côté du tour, gouvernement dans la fenêtre Politiques, fouille et missions dans le panneau d'unité, comptoir dans le panneau de case et dans la Diplomatie, encyclopédie. Modèles 3D : site antique, quatre comptoirs, Musée, trois merveilles d'ère, Archéologue et Agent.
+
+## Phase 15 — Mouvements culturels ✅
+
+Module `web/src/core/movements.js`, réglages `movements` dans `rules.json`.
+
+- [x] Sept mouvements, un par ère au moins : Stoïcisme (Antiquité), Humanisme et Lumières (Renaissance), Esprit d'entreprise, Romantisme et Mouvement hygiéniste (ère industrielle), Modernisme (ère moderne).
+- [x] **Naissance** : à partir du tour 8, au plus un tous les 5 tours, dans la capitale du pays le plus cultivé parmi ceux qui ont atteint l'ère du mouvement. Le fondateur gagne 2 prestige, puis 1 par ville étrangère gagnée (au plus 6).
+- [x] **Propagation** : chaque ville accumule une pression venue des villes touchées à 7 cases ou moins (plus forte si leur pays est cultivé), des routes commerciales et des alliances. Seuil : 16.
+- [x] **Choix de chaque pays** : adhérer (bonus par ville touchée, propagation ×1,5 ; 2 adhésions au plus), neutre, ou interdire (propagation ×0,25).
+  - Bonus : Culture, Science, Or, Nourriture, tourisme ou moins de pollution selon le mouvement.
+  - Les Lumières rapprochent les pays qui y adhèrent tous deux (+0,1 relation par tour).
+- [x] IA : adhère aux mouvements qui servent sa voie ; l'isolationniste interdit parfois ceux des autres.
+- [x] Interface : section dans la fenêtre Culture, icônes à côté du nom des villes, mouvements dans le panneau de ville, encyclopédie.
+- [x] Équilibrage : objectif de prestige porté de 290 à 310 (355 avec les ambitions). Durée moyenne sur 60 parties : 35,8 tours.
 
 ## Tailles de carte revues ✅
 

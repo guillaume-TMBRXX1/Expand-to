@@ -12,6 +12,7 @@ import * as PEO from './people.js';
 import * as LAND from './land.js';
 import * as AGE from './ages.js';
 import * as IND from './independents.js';
+import * as MOV from './movements.js';
 
 export const RES = ['gold', 'food', 'wood', 'stone'];
 export const GOODS = ['planks', 'tools', 'goods'];
@@ -1067,6 +1068,7 @@ export function computeYields(s, pid) {
   add(nat.yields);
   if (R.vocations) add(LAND.vocationYields(s, pid));
   if (s.posts?.length) add(IND.postYields(s, pid));
+  if (R.movements) add(MOV.movementYields(s, pid));
   if (R.treaties) gross.culture += SUM.treatyCulture(s, pid);
   if (R.artworks) gross.culture += CUL.artYields(s, pid).culture;
   if (R.pollution) { const pol = SOC.pollutionYields(s, pid); gross.food -= pol.food; gross.culture -= pol.culture; }
@@ -1252,6 +1254,7 @@ export function endRound(s) {
     if (SUM.treatyBetween(s, a, b)) d += R.treaties.relationPerTurn;
     d += SUM.sharedStandard(s, a, b, 'relationPerTurn');
     d += (LAND.vocationRelation(s, a) + LAND.vocationRelation(s, b)) / 2;
+    d += MOV.movementRelation(s, a, b);
     for (const bd of s.buildings) { // Chancellerie
       if ((bd.owner === a || bd.owner === b) && !bd.turnsLeft && !buildingDef(s, bd.type).wonder) d += buildingDef(s, bd.type).relationPerTurn || 0;
     }
@@ -1276,6 +1279,7 @@ export function endRound(s) {
   LAND.disastersTick(s);
   IND.postsTick(s);
   AGE.erasTick(s);
+  MOV.movementsTick(s);
   PEO.ambitionsTick(s);
   if (s.congress && s.congress.status === 'open') resolveCongress(s); // vote humain non exprimé : abstention
   for (const p of s.players) {
