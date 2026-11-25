@@ -10,7 +10,7 @@ const items = [
   ...['farm', 'lumber', 'quarry', 'market', 'library', 'theatre', 'lab', 'harbor', 'district', 'monument', 'sawmill', 'manufactory', 'forge', 'markethall'].map((t) => [t, () => buildingModel(t, false)]),
   ['Comptoir (épices)', () => buildingModel('outpost', false, 'spices')], ['Comptoir (cristal)', () => buildingModel('outpost', false, 'crystal')],
   ...[['furs', 'Fourrures'], ['crystal', 'Cristal'], ['marble', 'Marbre'], ['wine', 'Vin'], ['silk', 'Soie'], ['pearls', 'Perles'], ['salt', 'Sel'], ['spices', 'Épices'], ['incense', 'Encens']].map(([id, n]) => [n, () => luxuryModel(id)]),
-  ['Moulin à eau', () => buildingModel('watermill', false)], ['Parc', () => buildingModel('park', false)], ['Aqueduc', () => buildingModel('aqueduct', false)], ['Hôpital', () => buildingModel('hospital', false)],
+  ['Moulin à eau', () => buildingModel('watermill', false)], ['Parc', () => buildingModel('park', false)], ['Aqueduc', () => buildingModel('aqueduct', false)], ['Hôpital', () => buildingModel('hospital', false)], ['Grenier', () => buildingModel('granary', false)], ['Digue', () => buildingModel('levee', false)],
   ...['campus', 'artsquarter', 'merchantquarter'].map((t) => [t, () => { const g = buildingModel(t, false); g.scale.setScalar(0.5); const w = new THREE.Group(); w.add(g); return w; }]),
   ...['lighthouse', 'grandlibrary', 'observatory', 'amphitheatre', 'exchange', 'nations'].map((t) => [t, () => buildingModel(t, false)]),
   ['Chantier', () => buildingModel('market', true)],

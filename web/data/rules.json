@@ -354,7 +354,7 @@
   },
   "victory": {
     "scienceTechs": 13,
-    "cultureTotal": 650,
+    "cultureTotal": 720,
     "economyGold": 3000,
     "secretaryWins": 4,
     "allyAllElections": 3
@@ -1059,5 +1059,443 @@
       "pop": 8,
       "building": "hospital"
     }
-  ]
+  ],
+  "greatPeople": {
+    "prestige": 1,
+    "base": 150,
+    "growth": 1.0,
+    "kinds": {
+      "scientist": {
+        "name": "Savant",
+        "icon": "🔭",
+        "source": {
+          "science": 0.5
+        },
+        "science": 25,
+        "desc": "Apporte 25 % du coût de la recherche en cours (au moins 25 Science).",
+        "share": 0.25
+      },
+      "artist": {
+        "name": "Artiste",
+        "icon": "🎨",
+        "source": {
+          "culture": 0.55
+        },
+        "culture": 25,
+        "desc": "Offre une œuvre d'art si une place d'exposition est libre, sinon +25 Culture."
+      },
+      "merchant": {
+        "name": "Marchand",
+        "icon": "⚖️",
+        "source": {
+          "gold": 0.2,
+          "routes": 3
+        },
+        "gold": 110,
+        "relation": 4,
+        "desc": "+110 Or, +4 prestige de commerce et +4 de relation avec chaque voisin.",
+        "prestige": 4
+      },
+      "engineer": {
+        "name": "Ingénieur",
+        "icon": "⚙️",
+        "source": {
+          "wood": 0.3,
+          "stone": 0.3
+        },
+        "turns": 2,
+        "stone": 40,
+        "desc": "Avance un chantier de 2 tours (merveille comprise), sinon +40 Pierre."
+      }
+    },
+    "names": {
+      "scientist": [
+        "Aldric Vennor",
+        "Isaline Morvet",
+        "Tibère Calmand",
+        "Ondine Rascal",
+        "Hector Pélame",
+        "Maëlle Ostrand",
+        "Corentin Lusse",
+        "Sibylle Varenne"
+      ],
+      "artist": [
+        "Lucine Varo",
+        "Ambroise Thalle",
+        "Céleste Dorvin",
+        "Félix Amarante",
+        "Orane Belmas",
+        "Gaspard Lys",
+        "Iris Montclair",
+        "Anselme Rovi"
+      ],
+      "merchant": [
+        "Bertrand Cassel",
+        "Margaux Delune",
+        "Olric Fennel",
+        "Solène Auvray",
+        "Matthias Brac",
+        "Rosalie Ganne",
+        "Evrard Tasso",
+        "Linette Corve"
+      ],
+      "engineer": [
+        "Hugues Ferral",
+        "Agathe Vauclin",
+        "Roland Mésange",
+        "Clémence Ardoise",
+        "Théo Bastide",
+        "Noémie Grav",
+        "Basile Escaut",
+        "Judith Pontreau"
+      ]
+    }
+  },
+  "ambitions": {
+    "hand": 3,
+    "maxActive": 2,
+    "discardCooldown": 8,
+    "cards": [
+      {
+        "id": "rivers",
+        "name": "Cité des fleuves",
+        "desc": "Avoir 3 villes au bord d'une rivière.",
+        "prestige": 12,
+        "cond": {
+          "riverCities": 3
+        }
+      },
+      {
+        "id": "silk",
+        "name": "Route des raretés",
+        "desc": "Disposer de 3 ressources rares différentes en même temps.",
+        "prestige": 10,
+        "cond": {
+          "luxuries": 3
+        }
+      },
+      {
+        "id": "memory",
+        "name": "Mémoire du monde",
+        "desc": "Posséder 3 bibliothèques.",
+        "prestige": 8,
+        "cond": {
+          "buildings": {
+            "library": 3
+          }
+        }
+      },
+      {
+        "id": "genius",
+        "name": "Siècle des génies",
+        "desc": "Recruter 4 grands personnages.",
+        "prestige": 12,
+        "cond": {
+          "greatPeople": 4
+        }
+      },
+      {
+        "id": "wonders",
+        "name": "Bâtisseur de merveilles",
+        "desc": "Achever 2 merveilles.",
+        "prestige": 14,
+        "cond": {
+          "wonders": 2
+        }
+      },
+      {
+        "id": "trade",
+        "name": "Grand négoce",
+        "desc": "Ouvrir 4 routes commerciales.",
+        "prestige": 10,
+        "cond": {
+          "routes": 4
+        }
+      },
+      {
+        "id": "concord",
+        "name": "Concorde",
+        "desc": "Être allié avec 2 voisins en même temps.",
+        "prestige": 10,
+        "cond": {
+          "alliances": 2
+        }
+      },
+      {
+        "id": "maps",
+        "name": "Cartographe",
+        "desc": "Explorer 45 % de la carte.",
+        "prestige": 10,
+        "cond": {
+          "explored": 0.45
+        }
+      },
+      {
+        "id": "patron",
+        "name": "Mécène",
+        "desc": "Posséder 3 œuvres d'art.",
+        "prestige": 10,
+        "cond": {
+          "artworks": 3
+        }
+      },
+      {
+        "id": "metropolis",
+        "name": "Métropole",
+        "desc": "Avoir une ville de 10 habitants.",
+        "prestige": 10,
+        "cond": {
+          "cityPop": 10
+        }
+      },
+      {
+        "id": "vocations",
+        "name": "Réseau de vocations",
+        "desc": "Donner une vocation à 3 villes.",
+        "prestige": 10,
+        "cond": {
+          "vocations": 3
+        }
+      },
+      {
+        "id": "empire",
+        "name": "Empire paisible",
+        "desc": "Fonder 5 villes.",
+        "prestige": 10,
+        "cond": {
+          "cities": 5
+        }
+      },
+      {
+        "id": "summit",
+        "name": "Savoir ultime",
+        "desc": "Découvrir une technologie de palier 4.",
+        "prestige": 12,
+        "cond": {
+          "techTier": 4
+        }
+      },
+      {
+        "id": "clean",
+        "name": "Air pur",
+        "desc": "Avoir 4 villes et aucune pollution.",
+        "prestige": 10,
+        "cond": {
+          "cleanCities": 4
+        }
+      },
+      {
+        "id": "landscape",
+        "name": "Paysagiste",
+        "desc": "Aménager 4 cases (défricher, reboiser, aplanir).",
+        "prestige": 8,
+        "cond": {
+          "terraform": 4
+        }
+      },
+      {
+        "id": "prudent",
+        "name": "Prévoyance",
+        "desc": "Construire une digue et 2 greniers.",
+        "prestige": 8,
+        "cond": {
+          "buildings": {
+            "levee": 1,
+            "granary": 2
+          }
+        }
+      }
+    ],
+    "targetBonus": 45
+  },
+  "vocations": {
+    "minPop": 5,
+    "changeCost": {
+      "gold": 60
+    },
+    "cooldown": 10,
+    "list": {
+      "university": {
+        "name": "Ville universitaire",
+        "icon": "🎓",
+        "yields": {
+          "science": 3
+        },
+        "malus": {
+          "gold": -1
+        },
+        "branch": "science",
+        "desc": "+3 Science, −1 Or."
+      },
+      "arts": {
+        "name": "Ville d'art",
+        "icon": "🎭",
+        "yields": {
+          "culture": 3
+        },
+        "tourism": 1,
+        "malus": {
+          "food": -1
+        },
+        "branch": "culture",
+        "desc": "+3 Culture et +1 tourisme, −1 Nourriture."
+      },
+      "market": {
+        "name": "Place marchande",
+        "icon": "💰",
+        "yields": {
+          "gold": 4
+        },
+        "malus": {
+          "culture": -1
+        },
+        "branch": "economy",
+        "desc": "+4 Or, −1 Culture."
+      },
+      "port": {
+        "name": "Cité portuaire",
+        "icon": "⚓",
+        "yields": {
+          "gold": 2,
+          "food": 2
+        },
+        "malus": {
+          "science": -1
+        },
+        "coastal": true,
+        "branch": "economy",
+        "desc": "+2 Or et +2 Nourriture, −1 Science. Ville côtière ou fluviale."
+      },
+      "industry": {
+        "name": "Centre industriel",
+        "icon": "🏭",
+        "yields": {
+          "wood": 2,
+          "stone": 2
+        },
+        "pollution": 1,
+        "malus": {
+          "culture": -1
+        },
+        "branch": "economy",
+        "desc": "+2 Bois et +2 Pierre, −1 Culture, +1 pollution."
+      },
+      "capital": {
+        "name": "Siège diplomatique",
+        "icon": "🕊️",
+        "yields": {
+          "culture": 1,
+          "gold": 2
+        },
+        "relation": 0.1,
+        "malus": {
+          "food": -1
+        },
+        "branch": "diplomacy",
+        "desc": "+1 Culture, +2 Or et +0,1 relation par tour avec tous, −1 Nourriture."
+      },
+      "breadbasket": {
+        "name": "Grenier régional",
+        "icon": "🌾",
+        "yields": {
+          "food": 3
+        },
+        "popCap": 1,
+        "malus": {
+          "gold": -1
+        },
+        "branch": "economy",
+        "desc": "+3 Nourriture et +1 population max, −1 Or."
+      }
+    }
+  },
+  "disasters": {
+    "grace": 8,
+    "repairCost": {
+      "gold": 15
+    },
+    "maxDamaged": 2,
+    "list": {
+      "flood": {
+        "name": "Crue",
+        "icon": "🌊",
+        "season": "spring",
+        "chance": 0.05,
+        "protect": "levee",
+        "damageTurns": 3,
+        "food": 15,
+        "desc": "Au printemps, une ville au bord d'une rivière peut être inondée : les bâtiments sur la rivière sont endommagés 3 tours, mais le limon apporte +15 Nourriture. Une Digue protège la ville."
+      },
+      "drought": {
+        "name": "Sécheresse",
+        "icon": "☀️",
+        "season": "summer",
+        "chance": 0.05,
+        "regions": [
+          "arid",
+          "fertile"
+        ],
+        "protect": "granary",
+        "foodLoss": 0.3,
+        "damageTurns": 2,
+        "desc": "En été, dans le sud aride et les plaines fertiles : 30 % des réserves de Nourriture perdues et fermes à l'arrêt 2 tours. Un Grenier protège la ville."
+      },
+      "wildfire": {
+        "name": "Incendie de forêt",
+        "icon": "🔥",
+        "season": "summer",
+        "chance": 0.04,
+        "minForests": 3,
+        "burn": 2,
+        "protect": "aqueduct",
+        "damageTurns": 3,
+        "desc": "En été, une ville entourée de forêts peut voir 2 forêts brûler (elles deviennent des plaines). L'Aqueduc (eau courante) protège la ville."
+      }
+    }
+  },
+  "terraform": {
+    "actions": {
+      "clear": {
+        "name": "Défricher",
+        "from": [
+          "forest"
+        ],
+        "to": "plains",
+        "cost": {
+          "gold": 15
+        },
+        "gain": {
+          "wood": 20
+        },
+        "desc": "La forêt devient une plaine : +20 Bois."
+      },
+      "plant": {
+        "name": "Reboiser",
+        "from": [
+          "plains",
+          "grass"
+        ],
+        "to": "forest",
+        "cost": {
+          "gold": 25
+        },
+        "desc": "La plaine devient une forêt : absorbe la pollution, voisine des scieries."
+      },
+      "level": {
+        "name": "Aplanir",
+        "from": [
+          "hills"
+        ],
+        "to": "plains",
+        "cost": {
+          "gold": 40
+        },
+        "gain": {
+          "stone": 20
+        },
+        "tech": "urbanism",
+        "desc": "La colline devient une plaine : +20 Pierre."
+      }
+    }
+  }
 }

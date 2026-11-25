@@ -8,6 +8,8 @@ import * as ECO from './economy.js';
 import * as SUM from './summits.js';
 import * as CUL from './culture.js';
 import * as SOC from './society.js';
+import * as PEO from './people.js';
+import * as LAND from './land.js';
 
 export const RES = ['gold', 'food', 'wood', 'stone'];
 export const GOODS = ['planks', 'tools', 'goods'];
@@ -40,7 +42,7 @@ export function gameRules(data, settings = {}) {
     map: { width: size.width, height: size.height },
     techCostScale: len.techCostScale ?? 1,
     turnLimit: len.turnLimit,
-    prestigeTarget: Math.round((base.prestigeTarget * (len.prestigeScale ?? k) * (size.prestigeScale ?? 1)) / 5) * 5,
+    prestigeTarget: Math.round(((base.prestigeTarget + (settings.ambitions !== false && base.ambitions ? base.ambitions.targetBonus || 0 : 0)) * (len.prestigeScale ?? k) * (size.prestigeScale ?? 1)) / 5) * 5,
     victory: { ...base.victory, cultureTotal: Math.round(base.victory.cultureTotal * (len.pathScale ?? len.prestigeScale ?? k)), economyGold: Math.round(base.victory.economyGold * (len.pathScale ?? len.prestigeScale ?? k) * 1.15), scienceTechs: Math.min(16, Math.round(base.victory.scienceTechs * (len.techScale ?? (k < 1 ? 0.86 : 1)))), secretaryWins: len.secretaryWins ?? base.victory.secretaryWins, allyAllElections: len.allyAllElections ?? base.victory.allyAllElections },
     luxuries: { ...base.luxuries, perType: Math.max(1, Math.round(base.luxuries.perType * (size.width * size.height) / (base.luxuries.refArea || 936))) },
   };
@@ -128,8 +130,8 @@ function findStarts(s, count, rng) {
   return null;
 }
 
-export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profile = 'merchant', name = 'Vous', aiCount = 3, difficulty = 'normal', size = 'medium', mapType = 'continent', length = 'normal' }) {
-  const settings = { size, mapType, length };
+export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profile = 'merchant', name = 'Vous', aiCount = 3, difficulty = 'normal', size = 'medium', mapType = 'continent', length = 'normal', ambitions = true, disasters = true }) {
+  const settings = { size, mapType, length, ambitions, disasters };
   const rules = gameRules(data, settings);
   const rng = makeRng(seed);
   const s = { data, rules, settings, history: [], seed, turn: 1, nextId: 1, log: [], proposals: [], relations: {}, agreements: [], alliances: [], tradeRoutes: [], wonders: {}, winner: null,
@@ -175,6 +177,7 @@ export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profi
   }
   s.rngState = rng.next(); // graine dérivée pour l'IA
   s.rng = makeRng(Math.floor(s.rngState * 1e9));
+  PEO.dealAmbitions(s);
   log(s, `Bienvenue, ${name}. Fondez votre capitale avec votre Colon.`, [0], 'good');
   return s;
 }
@@ -287,7 +290,7 @@ export const isExplored = (s, pid, x, y) => s.players[pid].explored[idx(s, x, y)
 export function cityPopCap(s, city) {
   const extra = s.buildings.filter((b) => b.cityId === city.id && !b.turnsLeft).reduce((a, b) => a + (buildingDef(s, b.type).popCap || 0), 0);
   const tiers = s.rules.tiers.slice(1, (city.tier || 0) + 1).reduce((a, t) => a + (t.popCap || 0), 0);
-  return Math.min(SOC.healthCap(s, city).cap, s.rules.basePopCap + extra + tiers + playerMods(s, city.owner).popCap);
+  return Math.min(SOC.healthCap(s, city).cap, s.rules.basePopCap + extra + tiers + playerMods(s, city.owner).popCap + LAND.vocationPopCap(s, city));
 }
 
 function claimTerritory(s, city) {
@@ -1035,8 +1038,9 @@ export function computeYields(s, pid) {
   for (const b of s.buildings) {
     if (b.owner !== pid || b.turnsLeft > 0) continue;
     const def = buildingDef(s, b.type);
-    const adj = adjacencyBonus(s, pid, b.type, b.x, b.y);
     upkeep += def.upkeep || 0;
+    if (b.damaged > 0) continue; // endommagé par une catastrophe : pas de rendement
+    const adj = adjacencyBonus(s, pid, b.type, b.x, b.y);
     if (def.process) {
       const out = { ...def.process.out };
       for (const [k, v] of Object.entries(adj)) out[k] = (out[k] || 0) + v;
@@ -1048,6 +1052,7 @@ export function computeYields(s, pid) {
   }
   const nat = naturalYields(s, pid);
   add(nat.yields);
+  if (R.vocations) add(LAND.vocationYields(s, pid));
   if (R.treaties) gross.culture += SUM.treatyCulture(s, pid);
   if (R.artworks) gross.culture += CUL.artYields(s, pid).culture;
   if (R.pollution) { const pol = SOC.pollutionYields(s, pid); gross.food -= pol.food; gross.culture -= pol.culture; }
@@ -1189,6 +1194,7 @@ export function endRound(s) {
     p.cultureTotal += y.net.culture;
     influenceTick(s, p.id, y.net.culture);
     checkResearch(s, p.id);
+    if (R.greatPeople) PEO.greatPeopleTick(s, p.id, y);
     grow(s, p.id);
   }
   // Construction : course aux merveilles, le premier à finir l'emporte.
@@ -1229,6 +1235,7 @@ export function endRound(s) {
     }
     if (SUM.treatyBetween(s, a, b)) d += R.treaties.relationPerTurn;
     d += SUM.sharedStandard(s, a, b, 'relationPerTurn');
+    d += (LAND.vocationRelation(s, a) + LAND.vocationRelation(s, b)) / 2;
     for (const bd of s.buildings) { // Chancellerie
       if ((bd.owner === a || bd.owner === b) && !bd.turnsLeft && !buildingDef(s, bd.type).wonder) d += buildingDef(s, bd.type).relationPerTurn || 0;
     }
@@ -1250,6 +1257,8 @@ export function endRound(s) {
   crisisTick(s);
   SUM.treatiesTick(s);
   SUM.exposTick(s);
+  LAND.disastersTick(s);
+  PEO.ambitionsTick(s);
   if (s.congress && s.congress.status === 'open') resolveCongress(s); // vote humain non exprimé : abstention
   for (const p of s.players) {
     const pr = computePrestige(s, p.id);

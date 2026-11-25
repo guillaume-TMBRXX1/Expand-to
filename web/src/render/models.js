@@ -560,6 +560,26 @@ BUILDERS.aqueduct = () => { // Aqueduc : arches de pierre et canal d'eau
   return p;
 };
 
+BUILDERS.levee = () => { // Digue : levée de terre engazonnée, parement de pierre, vanne et rivière canalisée
+  const p = [plinth('#cfe6c0')];
+  p.push(rbox(0.86, 0.025, 0.22, PAL.water, 0, Y0 - 0.012, 0.22, 0.01));
+  p.push(rbox(0.88, 0.12, 0.16, PAL.grassDark, 0, Y0, 0.02, 0.03), rbox(0.88, 0.1, 0.03, PAL.stone, 0, Y0, 0.105, 0.008));
+  for (let k = 0; k < 6; k++) p.push(rbox(0.13, 0.03, 0.012, PAL.stoneLight, -0.36 + k * 0.145, Y0 + 0.045 + (k % 2) * 0.03, 0.122, 0.004));
+  p.push(rbox(0.06, 0.2, 0.06, PAL.stone, -0.12, Y0, 0.12, 0.01), rbox(0.06, 0.2, 0.06, PAL.stone, 0.06, Y0, 0.12, 0.01), rbox(0.24, 0.03, 0.08, PAL.woodDark, -0.03, Y0 + 0.2, 0.12, 0.006));
+  const gate = rbox(0.12, 0.1, 0.02, PAL.wood, -0.03, Y0 + 0.04, 0.13, 0.004); p.push(bob(gate, 0.02, 0.5));
+  p.push(...bush(-0.32, -0.28), ...bush(0.3, -0.3, 0.8), crate(0.3, -0.12, PAL.hay, 0.05), flag(PAL.roofBlue, 0.38, Y0 + 0.12, 0.02, 0.16));
+  return p;
+};
+BUILDERS.granary = () => { // Grenier : silo rond à toit conique, grange en bois et sacs de grain
+  const p = [plinth(PAL.paving)];
+  p.push(cyl(0.13, 0.14, 0.36, PAL.cream, -0.16, Y0, -0.08, 18), cone(0.17, 0.16, PAL.terracotta, -0.16, Y0 + 0.36, -0.08, 18));
+  for (const y of [0.1, 0.2, 0.3]) p.push(torus(0.137, 0.006, PAL.woodDark, -0.16, Y0 + y, -0.08));
+  p.push(rbox(0.3, 0.2, 0.24, PAL.wood, 0.18, Y0, 0.0, 0.02), rotY(gable(0.34, 0.12, 0.28, PAL.roofRed, 0.18, Y0 + 0.2, 0.0), 0), door(0.18, Y0, 0.122, PAL.woodDark));
+  for (const [x, z] of [[-0.05, 0.28], [0.03, 0.3], [-0.01, 0.24]]) p.push(sph(0.04, PAL.hay, x, Y0 + 0.035, z, 0.8));
+  p.push(...bush(0.36, 0.3, 0.8), ...bush(-0.36, 0.3));
+  return p;
+};
+
 // ------------------------------------------------- troisième passage : bâtiments retravaillés
 // Le style suit l'époque : rustique pour les premiers bâtiments (bois, pierre, tuiles), plus moderne
 // pour les bâtiments avancés (hôpital, port). Chaque bâtiment a une petite animation, jouée de près.

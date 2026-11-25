@@ -838,13 +838,14 @@ export class Renderer {
       const f = s.data.buildingsById[b.type].footprint || 1;
       const def = s.data.buildingsById[b.type];
       const variant = (((b.x * 73856093) ^ (b.y * 19349663)) >>> 0) % 12;
-      const bkey = `b${b.id}:${b.turnsLeft > 0 ? `w${b.turnsLeft}` : 'done'}`;
-      const progress = b.turnsLeft > 0 ? 1 - b.turnsLeft / Math.max(1, def.turns) : 1;
-      if (f === 1) { place(bkey, () => buildingModel(b.type, b.turnsLeft > 0, b.luxury, variant, progress), b.x, b.y); continue; }
+      const dmg = !b.turnsLeft && b.damaged > 0; // endommagé par une catastrophe : échafaudages
+      const bkey = `b${b.id}:${b.turnsLeft > 0 ? `w${b.turnsLeft}` : dmg ? 'dmg' : 'done'}`;
+      const progress = b.turnsLeft > 0 ? 1 - b.turnsLeft / Math.max(1, def.turns) : dmg ? 0.6 : 1;
+      if (f === 1) { place(bkey, () => buildingModel(b.type, b.turnsLeft > 0 || dmg, b.luxury, variant, progress), b.x, b.y); continue; }
       // Quartier 2×2 : centré sur son empreinte, posé sur la case la plus haute.
       let top = 0;
       for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) top = Math.max(top, this.heights[(b.y + dy) * this.W + b.x + dx]);
-      const o = place(bkey, () => buildingModel(b.type, b.turnsLeft > 0, undefined, variant, progress), b.x, b.y);
+      const o = place(bkey, () => buildingModel(b.type, b.turnsLeft > 0 || dmg, undefined, variant, progress), b.x, b.y);
       o.position.set(this.wx(b.x) + (f - 1) / 2, top, this.wz(b.y) + (f - 1) / 2);
     }
     s.map.tiles.forEach((t, i) => {
