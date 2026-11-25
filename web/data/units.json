@@ -5,5 +5,7 @@
   {"id": "ship", "name": "Navire marchand", "cost": {"gold": 40, "planks": 15}, "moves": 5, "vision": 3, "naval": true, "tech": "navigation", "requiresBuilding": "harbor", "desc": "Véhicule naval : rejoignez une ville étrangère côtière pour une route maritime (+4 Or)."},
   {"id": "airship", "name": "Dirigeable", "cost": {"gold": 50, "tools": 10}, "moves": 6, "vision": 4, "flying": true, "tech": "chemistry", "desc": "Survole montagnes et océans pour explorer."},
   {"id": "engineer", "name": "Ingénieur", "cost": {"gold": 30, "planks": 5}, "moves": 3, "vision": 2, "desc": "Trace des routes partout (1 Bois) et défriche les forêts (+10 Bois)."},
-  {"id": "emissary", "name": "Émissaire", "cost": {"gold": 40}, "moves": 3, "vision": 2, "tech": "protocol", "desc": "Entrez dans une ville étrangère pour y ouvrir une ambassade (+15 relation, +1/tour)."}
+  {"id": "emissary", "name": "Émissaire", "cost": {"gold": 40}, "moves": 3, "vision": 2, "tech": "protocol", "desc": "Entrez dans une ville étrangère pour y ouvrir une ambassade (+15 relation, +1/tour)."},
+  {"id": "archaeologist", "name": "Archéologue", "cost": {"gold": 45}, "moves": 3, "vision": 2, "era": 1, "desc": "Rejoignez un site antique pour en exhumer un artefact (il faut une place d'exposition libre : musée, théâtre…)."},
+  {"id": "agent", "name": "Agent", "cost": {"gold": 60, "goods": 5}, "moves": 3, "vision": 2, "era": 2, "desc": "Espionnage industriel : entrez dans une ville étrangère pour copier une technologie ou retarder un chantier. Risque d'incident diplomatique."}
 ]

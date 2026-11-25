@@ -3,8 +3,9 @@ import * as THREE from 'three';
 import { MapControls } from 'three/addons/MapControls.js';
 import { RoundedBoxGeometry } from 'three/addons/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/BufferGeometryUtils.js';
-import { cityModel, buildingModel, unitModel, luxuryModel, naturalModel, ruinModel, prepareAnims, animateParts } from './models.js';
+import { cityModel, buildingModel, unitModel, luxuryModel, naturalModel, ruinModel, siteModel, postModel, prepareAnims, animateParts } from './models.js';
 import { seasonOf } from '../core/society.js';
+import { eraOf } from '../core/ages.js';
 import { Villagers } from './villagers.js';
 import { Ambience } from './ambience.js';
 
@@ -839,18 +840,20 @@ export class Renderer {
       const def = s.data.buildingsById[b.type];
       const variant = (((b.x * 73856093) ^ (b.y * 19349663)) >>> 0) % 12;
       const dmg = !b.turnsLeft && b.damaged > 0; // endommagé par une catastrophe : échafaudages
-      const bkey = `b${b.id}:${b.turnsLeft > 0 ? `w${b.turnsLeft}` : dmg ? 'dmg' : 'done'}`;
+      const era = s.rules.eras ? eraOf(s, b.owner) : 0; // l'apparence suit l'ère du propriétaire
+      const bkey = `b${b.id}:${b.turnsLeft > 0 ? `w${b.turnsLeft}` : dmg ? 'dmg' : 'done'}:e${era}`;
       const progress = b.turnsLeft > 0 ? 1 - b.turnsLeft / Math.max(1, def.turns) : dmg ? 0.6 : 1;
-      if (f === 1) { place(bkey, () => buildingModel(b.type, b.turnsLeft > 0 || dmg, b.luxury, variant, progress), b.x, b.y); continue; }
+      if (f === 1) { place(bkey, () => buildingModel(b.type, b.turnsLeft > 0 || dmg, b.luxury, variant, progress, era), b.x, b.y); continue; }
       // Quartier 2×2 : centré sur son empreinte, posé sur la case la plus haute.
       let top = 0;
       for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) top = Math.max(top, this.heights[(b.y + dy) * this.W + b.x + dx]);
-      const o = place(bkey, () => buildingModel(b.type, b.turnsLeft > 0 || dmg, undefined, variant, progress), b.x, b.y);
+      const o = place(bkey, () => buildingModel(b.type, b.turnsLeft > 0 || dmg, undefined, variant, progress, era), b.x, b.y);
       o.position.set(this.wx(b.x) + (f - 1) / 2, top, this.wz(b.y) + (f - 1) / 2);
     }
     s.map.tiles.forEach((t, i) => {
       if (t.natural) place(`nat${i}`, () => naturalModel(t.natural), t.x, t.y, s.data.terrain[t.type].water ? 0.02 : 0);
       if (t.ruin) place(`ruin${i}`, () => ruinModel(), t.x, t.y);
+      if (t.site && !s.buildings.some((b) => b.x === t.x && b.y === t.y)) place(`site${i}`, () => siteModel(), t.x, t.y);
       if (!t.luxury || s.buildings.some((b) => b.x === t.x && b.y === t.y)) return;
       place(`lux${i}`, () => luxuryModel(t.luxury), t.x, t.y);
     });
@@ -868,6 +871,7 @@ export class Renderer {
         o.position.set(this.wx(x) + (f - 1) / 2, top, this.wz(y) + (f - 1) / 2);
       }
     }
+    for (const post of s.posts || []) place(`post${post.id}:${post.kind}`, () => postModel(post.kind), post.x, post.y);
     for (const u of s.units) {
       const stack = s.units.filter((o) => o.x === u.x && o.y === u.y);
       const k = stack.indexOf(u);
@@ -942,7 +946,9 @@ export class Renderer {
   onAppear(key, prevKey, obj, at) {
     if (this.reducedMotion) return;
     const kind = key[0];
-    if (kind === 'b' && key.endsWith(':done') && prevKey && prevKey.includes(':w')) {
+    if (kind === 'b' && key.includes(':done') && prevKey && prevKey.includes(':done')) { // changement d'ère : le bâtiment se transforme
+      this.popIn(obj, 0.85, 0.5); this.sparkles(at);
+    } else if (kind === 'b' && key.includes(':done') && prevKey && prevKey.includes(':w')) {
       this.popIn(obj, 0.65, 0.7); this.dust(at, 10, 0.55); this.sparkles(at);
     } else if (kind === 'b' && !prevKey) {
       this.dust(at, 6, 0.4);

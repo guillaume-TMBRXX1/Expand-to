@@ -910,7 +910,8 @@
       "theatre": 1,
       "monument": 1,
       "artsquarter": 2,
-      "amphitheatre": 2
+      "amphitheatre": 2,
+      "museum": 3
     },
     "kinds": {
       "painting": {
@@ -939,6 +940,13 @@
         "culture": 4,
         "tourism": 3,
         "tech": "philosophy"
+      },
+      "artifact": {
+        "name": "Artefact",
+        "cost": {},
+        "culture": 3,
+        "tourism": 3,
+        "excavated": true
       }
     },
     "prestige": 1,
@@ -970,6 +978,20 @@
         "Le Voyage d'hiver",
         "Les Lanternes",
         "Le Chant du phare"
+      ],
+      "artifact": [
+        "Masque d'or des rois oubliés",
+        "Tablette aux mille signes",
+        "Amphore aux dauphins",
+        "Statuette de la déesse aux épis",
+        "Fresque du banquet",
+        "Casque du héros sans nom",
+        "Sceau du premier marchand",
+        "Calendrier de pierre",
+        "Collier de perles bleues",
+        "Char miniature en bronze",
+        "Carte gravée sur os",
+        "Vase aux cavaliers"
       ]
     }
   },
@@ -1497,5 +1519,212 @@
         "desc": "La colline devient une plaine : +20 Pierre."
       }
     }
+  },
+  "eras": {
+    "prestige": 4,
+    "list": [
+      {
+        "id": "antiquity",
+        "name": "Antiquité",
+        "techs": 0,
+        "desc": "Bois, pierre et tuiles : le style rustique des premiers bâtisseurs."
+      },
+      {
+        "id": "renaissance",
+        "name": "Renaissance",
+        "techs": 3,
+        "desc": "Façades ocre, toits sombres, lanternes et bannières."
+      },
+      {
+        "id": "industrial",
+        "name": "Ère industrielle",
+        "techs": 7,
+        "desc": "Brique rouge, toits d'ardoise, cheminées qui fument."
+      },
+      {
+        "id": "modern",
+        "name": "Ère moderne",
+        "techs": 11,
+        "desc": "Façades blanches, toits de verre, antennes et panneaux solaires."
+      }
+    ]
+  },
+  "governments": {
+    "changeCost": {
+      "gold": 60
+    },
+    "cooldown": 10,
+    "list": [
+      {
+        "id": "council",
+        "name": "Conseil des anciens",
+        "era": 0,
+        "doctrine": "Tradition",
+        "desc": "Le gouvernement des débuts : ni bonus ni contrepartie.",
+        "effects": {}
+      },
+      {
+        "id": "republic",
+        "name": "République marchande",
+        "era": 1,
+        "doctrine": "Libre commerce",
+        "desc": "+10 % Or, +1 route commerciale possible, −5 % Culture.",
+        "effects": {
+          "yieldPct": {
+            "gold": 0.1,
+            "culture": -0.05
+          },
+          "routeCap": 1
+        }
+      },
+      {
+        "id": "monarchy",
+        "name": "Monarchie éclairée",
+        "era": 1,
+        "doctrine": "Mécénat royal",
+        "desc": "+10 % Science, merveilles 10 % moins chères, −5 % Or.",
+        "effects": {
+          "yieldPct": {
+            "science": 0.1,
+            "gold": -0.05
+          },
+          "wonderCostPct": -0.1
+        }
+      },
+      {
+        "id": "democracy",
+        "name": "Démocratie",
+        "era": 2,
+        "doctrine": "Débat public",
+        "desc": "+1 emplacement de politique, +0,2 relation par tour avec tous, −5 % Or.",
+        "effects": {
+          "yieldPct": {
+            "gold": -0.05
+          },
+          "relationPerTurn": 0.2
+        },
+        "slots": 1
+      },
+      {
+        "id": "technocracy",
+        "name": "Technocratie",
+        "era": 2,
+        "doctrine": "Plan industriel",
+        "desc": "+12 % Science, +10 % Bois et Pierre, −10 % Culture.",
+        "effects": {
+          "yieldPct": {
+            "science": 0.12,
+            "wood": 0.1,
+            "stone": 0.1,
+            "culture": -0.1
+          }
+        }
+      },
+      {
+        "id": "federation",
+        "name": "Fédération culturelle",
+        "era": 3,
+        "doctrine": "Rayonnement",
+        "desc": "+15 % Culture, +1 emplacement de politique, −5 % Science.",
+        "effects": {
+          "yieldPct": {
+            "culture": 0.15,
+            "science": -0.05
+          }
+        },
+        "slots": 1
+      }
+    ]
+  },
+  "archaeology": {
+    "per936Tiles": 4,
+    "minSpacing": 4,
+    "startGap": 3,
+    "prestige": 3,
+    "foreignRelation": -6
+  },
+  "independents": {
+    "perPlayer": 1,
+    "startGap": 6,
+    "minSpacing": 7,
+    "decay": 0.5,
+    "patronMin": 20,
+    "gift": {
+      "cost": {
+        "gold": 30
+      },
+      "favor": 8
+    },
+    "caravanFavor": 15,
+    "caravanGold": 15,
+    "emissaryFavor": 10,
+    "cultureShare": 0.03,
+    "cultureRange": 9,
+    "noCityRadius": 2,
+    "prestige": 4,
+    "kinds": {
+      "market": {
+        "name": "Comptoir marchand",
+        "icon": "⚖️",
+        "yields": {
+          "gold": 4
+        },
+        "desc": "Son protecteur reçoit +4 Or par tour."
+      },
+      "nomads": {
+        "name": "Campement nomade",
+        "icon": "🐎",
+        "yields": {
+          "food": 3
+        },
+        "moveBonus": 1,
+        "desc": "Son protecteur reçoit +3 Nourriture par tour et +1 mouvement pour ses unités."
+      },
+      "scholars": {
+        "name": "Cité savante",
+        "icon": "📜",
+        "yields": {
+          "science": 3
+        },
+        "desc": "Son protecteur reçoit +3 Science par tour."
+      },
+      "artists": {
+        "name": "Village d'artistes",
+        "icon": "🎨",
+        "yields": {
+          "culture": 3
+        },
+        "desc": "Son protecteur reçoit +3 Culture par tour."
+      }
+    },
+    "names": {
+      "market": [
+        "Port-Salé",
+        "Marché-aux-Sept-Routes",
+        "Comptoir d'Ambrelune"
+      ],
+      "nomads": [
+        "Camp des Vents",
+        "Tribu du Grand Pâturage",
+        "Cavaliers de l'Aube"
+      ],
+      "scholars": [
+        "Bibliothèque d'Orvane",
+        "Cité des Astrolabes",
+        "École de Vellis"
+      ],
+      "artists": [
+        "Village des Peintres",
+        "Colline aux Luthiers",
+        "Hameau des Verriers"
+      ]
+    }
+  },
+  "espionage": {
+    "detect": 0.35,
+    "caughtShare": 0.5,
+    "incident": -15,
+    "chanceryDetect": 0.15,
+    "delayTurns": 2
   }
 }

@@ -10,6 +10,8 @@ import * as CUL from './culture.js';
 import * as SOC from './society.js';
 import * as PEO from './people.js';
 import * as LAND from './land.js';
+import * as AGE from './ages.js';
+import * as IND from './independents.js';
 
 export const RES = ['gold', 'food', 'wood', 'stone'];
 export const GOODS = ['planks', 'tools', 'goods'];
@@ -146,6 +148,8 @@ export function createGame({ data, seed = Math.floor(Math.random() * 1e9), profi
 
   placeLuxuries(s, rng, starts);
   placeFeatures(s, rng, starts);
+  AGE.placeSites(s, rng, starts);
+  IND.placePosts(s, rng, starts);
   const pool = [];
   while (pool.length < aiCount) pool.push(...rng.shuffle(data.profiles.map((p) => p.id)));
   const aiProfiles = pool.slice(0, aiCount);
@@ -236,6 +240,8 @@ export function playerMods(s, pid) {
   for (const st of SUM.standardsOf(s, pid)) if (st.yieldPct) apply({ yieldPct: st.yieldPct });
   const season = SOC.seasonOf(s);
   if (season) apply({ yieldPct: season.yieldPct });
+  if (s.rules.governments) apply(AGE.governmentOf(s, pid)?.effects);
+  if (s.posts?.length) apply({ moveBonus: IND.postMoveBonus(s, pid) });
   // Bâtiments à effet global (une fois par type), ex. Relais des cartographes : +1 vision.
   const seenTypes = new Set();
   for (const b of s.buildings) {
@@ -297,7 +303,7 @@ function claimTerritory(s, city) {
   const r = city.radius;
   for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
     const t = tileAt(s, city.x + dx, city.y + dy);
-    if (t && t.owner === -1) { t.owner = city.owner; t.cityId = city.id; }
+    if (t && t.owner === -1 && !t.post) { t.owner = city.owner; t.cityId = city.id; }
   }
   reveal(s, city.owner, city.x, city.y, r + 2);
 }
@@ -310,6 +316,7 @@ export function canFound(s, u) {
   if (s.cities.some((c) => cheb(c.x, c.y, u.x, u.y) < s.rules.minCityDistance)) return { ok: false, reason: `Trop proche d'une ville (min. ${s.rules.minCityDistance} cases).` };
   if (buildingAt(s, u.x, u.y)) return { ok: false, reason: 'Case occupée par un bâtiment.' };
   if (t.natural) return { ok: false, reason: 'On ne fonde pas de ville sur une merveille naturelle.' };
+  if ((s.posts || []).some((p) => cheb(p.x, p.y, u.x, u.y) <= s.rules.independents.noCityRadius)) return { ok: false, reason: 'Trop proche d\'un comptoir indépendant.' };
   return { ok: true };
 }
 
@@ -358,12 +365,14 @@ export function canBuild(s, pid, type, x, y, opts = {}) {
   if (!def || !t) return { ok: false, reason: 'Invalide.' };
   if (def.tech && !opts.plan && !hasTech(s, pid, def.tech)) return { ok: false, reason: `Nécessite ${techDef(s, def.tech).name}.` };
   if (def.profile && s.players[pid].profile !== def.profile) return { ok: false, reason: `Réservé au profil ${s.data.profilesById[def.profile].name}.` };
+  if (def.era && !opts.plan && s.rules.eras && AGE.eraOf(s, pid) < def.era) return { ok: false, reason: `Disponible à l'ère ${AGE.eraDef(s, def.era).name}.` };
   const tiles = footprintTiles(s, type, x, y);
   if (tiles.some((c) => !c)) return { ok: false, reason: 'Pas assez de place (2×2 cases).' };
   for (const c of tiles) {
     if (c.owner !== pid && !(opts.plan && c.owner === -1)) return { ok: false, reason: tiles.length > 1 ? 'Les 4 cases doivent être dans votre territoire.' : 'Hors de votre territoire.' };
     if (cityAt(s, c.x, c.y) || buildingAt(s, c.x, c.y)) return { ok: false, reason: 'Case occupée.' };
     if (c.natural) return { ok: false, reason: 'Merveille naturelle : construisez à côté pour profiter de son adjacence.' };
+    if (c.post) return { ok: false, reason: 'Comptoir indépendant : on ne construit pas dessus.' };
     if (!def.terrain.includes(c.type)) return { ok: false, reason: `Terrain requis : ${def.terrain.map((k) => s.data.terrain[k].name).join(', ')}.` };
     if (def.luxuryOnly && !c.luxury) return { ok: false, reason: 'À placer sur une ressource rare.' };
     if (!def.luxuryOnly && c.luxury) return { ok: false, reason: 'Case réservée au Comptoir (ressource rare).' };
@@ -494,6 +503,7 @@ export function canTrain(s, pid, cityId, type) {
   if (!city || city.owner !== pid) return { ok: false, reason: 'Ville invalide.' };
   if (city.trained) return { ok: false, reason: 'Une unité par ville et par tour.' };
   if (def.tech && !hasTech(s, pid, def.tech)) return { ok: false, reason: `Nécessite ${techDef(s, def.tech).name}.` };
+  if (def.era && s.rules.eras && AGE.eraOf(s, pid) < def.era) return { ok: false, reason: `Disponible à l'ère ${AGE.eraDef(s, def.era).name}.` };
   if (def.popCost && city.pop <= def.popCost) return { ok: false, reason: 'Population insuffisante (min. 2).' };
   if (def.requiresBuilding && !s.buildings.some((b) => b.cityId === city.id && b.type === def.requiresBuilding && !b.turnsLeft)) {
     return { ok: false, reason: `Nécessite un ${buildingDef(s, def.requiresBuilding).name} terminé dans cette ville.` };
@@ -523,7 +533,7 @@ export function train(s, pid, cityId, type) {
   return { ok: true, unit: u };
 }
 
-const VISITORS = ['caravan', 'ship', 'emissary']; // unités autorisées à entrer dans une ville étrangère (destination)
+const VISITORS = ['caravan', 'ship', 'emissary', 'agent']; // unités autorisées à entrer dans une ville étrangère (destination)
 export function enterCost(s, u, t, isTarget = false) {
   const ter = terrainOf(s, t);
   const def = unitDef(s, u.type);
@@ -624,6 +634,9 @@ export function advanceUnit(s, u) {
     const c = cityAt(s, u.x, u.y);
     if ((u.type === 'caravan' || u.type === 'ship') && c && c.owner !== u.owner) establishTradeRoute(s, u, c);
     if (u.type === 'emissary' && c && c.owner !== u.owner) openEmbassy(s, u, c);
+    const post = IND.postAt(s, u.x, u.y);
+    if (post && (u.type === 'caravan' || u.type === 'emissary')) IND.visitPost(s, u, post);
+    if (u.type === 'archaeologist' && AGE.canExcavate(s, u).ok) AGE.excavate(s, u.id); // arrivé sur un site : il fouille
   }
   return steps;
 }
@@ -1053,6 +1066,7 @@ export function computeYields(s, pid) {
   const nat = naturalYields(s, pid);
   add(nat.yields);
   if (R.vocations) add(LAND.vocationYields(s, pid));
+  if (s.posts?.length) add(IND.postYields(s, pid));
   if (R.treaties) gross.culture += SUM.treatyCulture(s, pid);
   if (R.artworks) gross.culture += CUL.artYields(s, pid).culture;
   if (R.pollution) { const pol = SOC.pollutionYields(s, pid); gross.food -= pol.food; gross.culture -= pol.culture; }
@@ -1139,6 +1153,8 @@ export function computePrestige(s, pid) {
   if (disc) b.decouvertes = Math.floor((p.explored.reduce((a, v) => a + v, 0) / p.explored.length) * disc);
   const nat = naturalYields(s, pid).owned;
   if (nat && s.rules.naturalWonders) b.nature = nat * s.rules.naturalWonders.ownedPrestige;
+  const posts = IND.postsOf(s, pid).length;
+  if (posts) b.comptoirs = posts * s.rules.independents.prestige;
   for (const [k, v] of Object.entries(p.bonusPrestige || {})) b[k] = (b[k] || 0) + v;
   const per = playerMods(s, pid).buildingPrestigePer;
   if (per) b.monuments += Math.floor(s.buildings.filter((x) => x.owner === pid && !x.turnsLeft && !buildingDef(s, x.type).wonder).length / per);
@@ -1258,6 +1274,8 @@ export function endRound(s) {
   SUM.treatiesTick(s);
   SUM.exposTick(s);
   LAND.disastersTick(s);
+  IND.postsTick(s);
+  AGE.erasTick(s);
   PEO.ambitionsTick(s);
   if (s.congress && s.congress.status === 'open') resolveCongress(s); // vote humain non exprimé : abstention
   for (const p of s.players) {

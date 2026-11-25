@@ -1,7 +1,7 @@
 // Galerie de modèles : sert de planche de style pour itérer sur le design.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/OrbitControls.js';
-import { buildingModel, cityModel, unitModel, luxuryModel, naturalModel, ruinModel, prepareAnims, animateParts } from './render/models.js';
+import { buildingModel, cityModel, unitModel, luxuryModel, naturalModel, ruinModel, siteModel, postModel, prepareAnims, animateParts } from './render/models.js';
 import { avatarSVG } from './ui/avatar.js';
 
 const COLORS = ['#ff6b4a', '#8b5cf6', '#f5b700', '#14b8a6', '#ec4899'];
@@ -17,11 +17,20 @@ const items = [
   ...['guildhall', 'academy', 'workshop', 'chancery', 'lodge'].map((t) => [t, () => buildingModel(t, false)]),
   ...[['falls', 'Grandes Chutes'], ['volcano', 'Mont Braise'], ['reef', 'Récif de corail'], ['greattree', 'Arbre millénaire'], ['canyon', 'Canyon rouge'], ['oasis', 'Oasis']].map(([id, n]) => [n, () => naturalModel(id)]),
   ['Ruines', () => ruinModel()],
+  ['Site antique', () => siteModel()], ['Comptoir marchand', () => postModel('market')], ['Campement nomade', () => postModel('nomads')], ['Cité savante', () => postModel('scholars')], ['Village d\'artistes', () => postModel('artists')],
+  ...['museum', 'granddome', 'crystalpalace', 'radiotower'].map((t) => [t, () => buildingModel(t, false)]),
   ['Explorateur', () => { const u = unitModel('explorer', COLORS[0], 0); u.getObjectByName('ready').visible = true; return u; }], ['Colon', () => unitModel('settler', COLORS[2], 1)], ['Caravane', () => unitModel('caravan', COLORS[3], 2)],
   ['Ingénieur', () => unitModel('engineer', COLORS[1], 3)], ['Émissaire', () => unitModel('emissary', COLORS[4], 0)], ['Navire', () => unitModel('ship', COLORS[0], 0)], ['Dirigeable', () => unitModel('airship', COLORS[2], 0)],
 ];
-const NAMES = { farm: 'Ferme', lumber: 'Scierie', quarry: 'Carrière', market: 'Marché', library: 'Bibliothèque', theatre: 'Théâtre', lab: 'Laboratoire', harbor: 'Port', district: 'Quartier', monument: 'Monument', sawmill: 'Menuiserie', manufactory: 'Manufacture', forge: 'Forge', markethall: 'Halle marchande', campus: 'Campus (2×2)', artsquarter: 'Quartier des arts (2×2)', merchantquarter: 'Quartier marchand (2×2)', lighthouse: 'Grand Phare', grandlibrary: 'Grande Bibliothèque', observatory: 'Observatoire', amphitheatre: 'Amphithéâtre', exchange: 'Grande Bourse', nations: 'Palais des Nations', guildhall: 'Maison des Guildes', academy: 'Académie royale', workshop: 'Atelier des maîtres', chancery: 'Chancellerie', lodge: 'Relais des cartographes' };
+const NAMES = { farm: 'Ferme', lumber: 'Scierie', quarry: 'Carrière', market: 'Marché', library: 'Bibliothèque', theatre: 'Théâtre', lab: 'Laboratoire', harbor: 'Port', district: 'Quartier', monument: 'Monument', sawmill: 'Menuiserie', manufactory: 'Manufacture', forge: 'Forge', markethall: 'Halle marchande', campus: 'Campus (2×2)', artsquarter: 'Quartier des arts (2×2)', merchantquarter: 'Quartier marchand (2×2)', lighthouse: 'Grand Phare', grandlibrary: 'Grande Bibliothèque', observatory: 'Observatoire', amphitheatre: 'Amphithéâtre', exchange: 'Grande Bourse', nations: 'Palais des Nations', guildhall: 'Maison des Guildes', academy: 'Académie royale', workshop: 'Atelier des maîtres', chancery: 'Chancellerie', lodge: 'Relais des cartographes', museum: 'Musée', granddome: 'Grand Dôme', crystalpalace: 'Palais de cristal', radiotower: 'Tour des ondes', granary: 'Grenier', levee: 'Digue' };
 
+// ?eras=farm,market : chaque bâtiment dans les quatre ères (une rangée par bâtiment).
+const ERAS = ['Antiquité', 'Renaissance', 'Industrielle', 'Moderne'];
+const erasParam = new URLSearchParams(location.search).get('eras');
+if (erasParam !== null) {
+  const list = erasParam ? erasParam.split(',').map((x) => x.trim()) : ['farm', 'market', 'library', 'theatre'];
+  items.splice(0, items.length, ...list.flatMap((t) => ERAS.map((e, k) => [`${NAMES[t] || t} · ${e}`, () => buildingModel(t, false, undefined, 0, 1, k)])));
+}
 // ?only=forge,quarry : n'affiche que ces modèles (clé ou nom affiché), en grand.
 const only = new URLSearchParams(location.search).get('only')?.split(',').map((x) => x.trim().toLowerCase());
 if (only) for (let i = items.length - 1; i >= 0; i--) if (!only.some((o) => items[i][0].toLowerCase() === o || (NAMES[items[i][0]] || '').toLowerCase() === o)) items.splice(i, 1);
@@ -57,7 +66,7 @@ const models = items.map(([name, make]) => {
 let cols = 1, rows = 1;
 function layout() {
   const n = models.length, aspect = innerWidth / Math.max(1, innerHeight - 80);
-  cols = Math.max(1, Math.min(only ? 3 : 10, n, Math.round(Math.sqrt((n * aspect * ROW_SCREEN) / gap))));
+  cols = erasParam !== null ? 4 : Math.max(1, Math.min(only ? 3 : 10, n, Math.round(Math.sqrt((n * aspect * ROW_SCREEN) / gap))));
   rows = Math.ceil(n / cols);
   models.forEach((o, i) => {
     const at = R.clone().multiplyScalar((i % cols - (cols - 1) / 2) * gap).add(D.clone().multiplyScalar((Math.floor(i / cols) - (rows - 1) / 2) * rowGap));

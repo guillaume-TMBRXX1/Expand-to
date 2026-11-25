@@ -261,6 +261,20 @@ Modules `web/src/core/people.js` (grands personnages, ambitions) et `web/src/cor
 - [x] Interface : bouton Personnages (touche G) avec jauges, personnages et cartes ; vocations, risques et réparations dans le panneau de ville ; aménagement dans le panneau de case ; options de départ ; encyclopédie. Modèles 3D de la digue et du grenier ; les bâtiments endommagés s'affichent en chantier.
 - Équilibrage mesuré sur 60 parties : durée moyenne de 36,1 tours contre 36,9 sans ces systèmes, victoires plus variées. Un réglage plus fin reste à faire avec l'équilibrage global.
 
+## Phase 14 — Ères, gouvernements, archéologie, comptoirs et espionnage ✅
+
+Modules `web/src/core/ages.js` (ères, gouvernements, archéologie) et `web/src/core/independents.js` (comptoirs indépendants, espionnage). Réglages `eras`, `governments`, `archaeology`, `independents` et `espionage` dans `rules.json`.
+
+- [x] **Ères** : Antiquité, Renaissance (3 technologies), ère industrielle (7), ère moderne (11), +4 prestige à chaque passage.
+  - Rendu : palette par ère (ocre, brique et ardoise, blanc et verre) et accessoires (lanterne et bannière, cheminée qui fume, antenne et panneau solaire), plus discrets pour les bâtiments ruraux. Le bâtiment se transforme quand son propriétaire change d'ère.
+  - Merveilles d'ère : Grand Dôme, Palais de cristal, Tour des ondes. Le design reste à valider avec la conversation design (planche : `/gallery.html?eras=farm,market,library,theatre`).
+- [x] **Gouvernements et doctrines** : six régimes ouverts par ère (bonus, contrepartie, parfois un emplacement de politique de plus). Changement : 60 Or, tous les 10 tours au plus.
+- [x] **Archéologie** : sites antiques sur la carte, Archéologue (Renaissance), artefacts exposés comme des œuvres (+3 Culture, +3 tourisme, +3 prestige), nouveau Musée (3 places). Fouiller chez un voisin non allié coûte 6 de relation.
+- [x] **Comptoirs indépendants** (à la place des cités-États) : un par joueur, de quatre natures. Faveur par caravane, émissaire, cadeau et culture ; elle s'érode. Le protecteur reçoit leur bonus et +4 prestige. Pas de ville à 2 cases ou moins.
+- [x] **Espionnage industriel** : Agent (ère industrielle), copier une technologie ou retarder un chantier ; 35 % de risque d'être repéré (+15 % avec une Chancellerie), incident de −15 relation, échec une fois sur deux.
+- [x] IA : gouvernement selon sa voie, cadeaux aux comptoirs, caravanes sans débouché vers un comptoir, archéologues et musées, agents (surtout les opportunistes).
+- [x] Interface : ère à côté du tour, gouvernement dans la fenêtre Politiques, fouille et missions dans le panneau d'unité, comptoir dans le panneau de case et dans la Diplomatie, encyclopédie. Modèles 3D : site antique, quatre comptoirs, Musée, trois merveilles d'ère, Archéologue et Agent.
+
 ## Tailles de carte revues ✅
 
 Mesuré : l'IA fonde environ 4 villes par partie quelle que soit la taille. C'est la place restante en fin de partie qui change, donc la marge du joueur.

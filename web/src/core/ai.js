@@ -8,6 +8,8 @@ import { aiArt, aiHeritage } from './culture.js';
 import { cityPollution, healthCap } from './society.js';
 import { aiGreatPeople, aiAmbitions } from './people.js';
 import { aiVocations, aiRepair, aiPreventionNeed } from './land.js';
+import { aiGovernment, aiArchaeologist, aiWantsArchaeologist, eraOf } from './ages.js';
+import { aiPosts, aiCaravanPost, aiWantsAgent, aiAgent } from './independents.js';
 
 // Paramètres de l'IA : web/data/ai.json, éventuellement surchargés par joueur (s.aiOverrides[pid]) pour l'entraînement.
 function merge(a, b) {
@@ -49,6 +51,8 @@ function aiTurn(s, pid) {
   aiAmbitions(s, pid);
   aiVocations(s, pid, w);
   aiRepair(s, pid);
+  aiGovernment(s, pid, w);
+  aiPosts(s, pid);
   diplomacy(s, pid);
 }
 
@@ -135,12 +139,15 @@ function moveUnit(s, pid, u) {
     G.advanceUnit(s, u);
     return;
   }
+  if (u.type === 'archaeologist') { aiArchaeologist(s, pid, u); return; }
+  if (u.type === 'agent') { aiAgent(s, pid, u); return; }
   if (u.type === 'caravan' || u.type === 'ship') {
     if (!u.target) {
       const routed = new Set(s.tradeRoutes.filter((r) => r.a === pid).map((r) => r.cityId));
       const targets = s.cities.filter((c) => c.owner !== pid && !routed.has(c.id))
         .sort((a, b) => G.getRel(s, pid, b.owner) - G.getRel(s, pid, a.owner) + (G.cheb(a.x, a.y, u.x, u.y) - G.cheb(b.x, b.y, u.x, u.y)) * 0.5);
       for (const c of targets) if (G.findPath(s, u, c.x, c.y)) { u.target = { x: c.x, y: c.y }; break; }
+      if (!u.target && u.type === 'caravan') aiCaravanPost(s, pid, u);
     }
     G.advanceUnit(s, u);
   }
@@ -164,6 +171,14 @@ function trainUnits(s, pid, P) {
   if (!has('emissary') && p.res.gold > 80 && s.players.some((q) => q.id !== pid && !G.hasEmbassy(s, pid, q.id) && G.citiesOf(s, q.id).length)) {
     const c = cities.find((x) => !x.trained);
     if (c) G.train(s, pid, c.id, 'emissary');
+  }
+  if (!has('archaeologist') && p.res.gold > 100 && aiWantsArchaeologist(s, pid)) {
+    const c = cities.find((x) => !x.trained && G.canTrain(s, pid, x.id, 'archaeologist').ok);
+    if (c) G.train(s, pid, c.id, 'archaeologist');
+  }
+  if (p.res.gold > 100 && aiWantsAgent(s, pid)) {
+    const c = cities.find((x) => !x.trained && G.canTrain(s, pid, x.id, 'agent').ok);
+    if (c) G.train(s, pid, c.id, 'agent');
   }
   if (!has('ship') && p.res.gold > 90 && s.tradeRoutes.filter((r) => r.a === pid && r.sea).length < G.seaRouteCap(s, pid)) {
     const c = cities.find((x) => !x.trained && G.canTrain(s, pid, x.id, 'ship').ok);
@@ -211,13 +226,14 @@ function buildSomething(s, pid, w, B) {
     if ((def.id === 'aqueduct' || def.id === 'hospital') && G.citiesOf(s, pid).some((c) => healthCap(s, c).needs === def.id && c.pop >= healthCap(s, c).cap - 1)) score += 16;
     if (missingFor.has(def.id) && count < 2) score += B.pathMaterials ?? 15;
     // Prévention des catastrophes : digue pour les villes riveraines, grenier dans les régions sèches.
+    if (def.id === 'museum') score += aiWantsArchaeologist(s, pid) || s.map.tiles.some((t) => t.site && p.explored[G.idx(s, t.x, t.y)]) ? 8 : -5;
     if (def.id === 'levee' || def.id === 'granary') score += aiPreventionNeed(s, pid, def.id) > 0 ? 12 : -20;
     if (!def.wonder) score -= count * B.diversity; // diversité : on évite d'empiler toujours le même bâtiment
     return { def, score: score + s.rng.next() * 2 };
   }).sort((a, b) => b.score - a.score);
   const tiles = s.map.tiles.filter((t) => t.owner === pid);
   // Épargne pour une merveille : tant qu'une merveille est accessible, l'IA ne construit plus que l'essentiel.
-  const target = B.saveForWonders && scored.find(({ def }) => def.wonder && s.wonders[def.id] === undefined && (!def.tech || G.hasTech(s, pid, def.tech))
+  const target = B.saveForWonders && scored.find(({ def }) => def.wonder && s.wonders[def.id] === undefined && (!def.tech || G.hasTech(s, pid, def.tech)) && (!def.era || eraOf(s, pid) >= def.era)
     && !s.buildings.some((b) => b.owner === pid && b.type === def.id) && tiles.some((t) => def.terrain.includes(t.type) && !G.cityAt(s, t.x, t.y) && !G.buildingAt(s, t.x, t.y) && (!def.coastal || G.isCoastal(s, t))));
   const essential = (def) => (def.yields.food && y.food < 2) || def.id === 'quarry' || (def.id === 'lumber' && y.wood < 4) || missingFor.has(def.id);
   for (const { def } of scored) {
