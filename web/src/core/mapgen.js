@@ -58,11 +58,11 @@ export function generateMap(seed, width, height, type = 'continent') {
       const falloff = Math.min(1, Math.max(0, (d - T.fall0) / (1 - T.fall0)));
       let e = elev(x, y) * T.gain + T.bias;
       if (T.margin) {
-        // Bords du plateau : toujours de la mer sur margin[0] cases, la terre au plus tard à margin[1] cases.
+        // Bords du plateau : toujours de la mer sur margin[0] cases, la terre le plus souvent dès margin[1] cases (quelques criques).
         const dist = Math.min(x, y, width - 1 - x, height - 1 - y);
         if (dist < T.margin[0]) e = 0.2;
-        else if (dist === T.margin[1]) e = Math.max(e, 0.43);
-        else if (dist < T.margin[1]) e -= 0.2; // quelques avancées de terre seulement
+        else if (dist === T.margin[1]) { if (e < 0.43) e = Math.max(e + 0.1, 0.36); } // terre le plus souvent, quelques criques
+        else if (dist < T.margin[1]) e -= 0.3; // quelques avancées de terre seulement
       } else e = e * (1 - falloff * 0.9) - falloff * 0.15;
       e = Math.min(1, Math.max(0, e));
       const m = moist(x, y);

@@ -91,14 +91,15 @@ def generate_map(seed: int, width: int = 36, height: int = 26, map_type: str = "
             falloff = min(1, max(0, (d - T["fall0"]) / (1 - T["fall0"])))
             e = elev(x, y) * T["gain"] + T["bias"]
             if T.get("margin"):
-                # Bords du plateau : toujours de la mer sur margin[0] cases, la terre au plus tard à margin[1] cases.
+                # Bords du plateau : toujours de la mer sur margin[0] cases, la terre le plus souvent dès margin[1] cases (quelques criques).
                 dist = min(x, y, width - 1 - x, height - 1 - y)
                 if dist < T["margin"][0]:
                     e = 0.2
                 elif dist == T["margin"][1]:
-                    e = max(e, 0.43)
+                    if e < 0.43:
+                        e = max(e + 0.1, 0.36)  # terre le plus souvent, quelques criques
                 elif dist < T["margin"][1]:
-                    e -= 0.2  # quelques avancées de terre seulement
+                    e -= 0.3  # quelques avancées de terre seulement
             else:
                 e = e * (1 - falloff * 0.9) - falloff * 0.15
             e = min(1, max(0, e))
