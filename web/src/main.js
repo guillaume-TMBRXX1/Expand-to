@@ -515,7 +515,7 @@ function renderSelectionBody() {
     el.innerHTML = `<button class="btn small ghost close-sel" data-action="deselect" aria-label="Fermer la sélection">✕</button><h3><span class="dot" style="background:${owner.color}"></span>${def.name}${u.owner !== 0 ? ` <span class="muted">· ${esc(owner.name)}</span>` : ''}</h3>
       <p class="muted" style="font-size:13px;margin:6px 0 0">${def.desc}</p>
       <dl class="kv"><dt>Mouvements</dt><dd>${u.movesLeft.toFixed(1).replace('.0', '')} / ${G.unitMaxMoves(s, u)}</dd><dt>Vision</dt><dd>${G.unitVision(s, u)}</dd>
-      ${u.target ? `<dt>Destination</dt><dd>(${u.target.x}, ${u.target.y})</dd>` : ''}
+      ${u.target ? (() => { const pl = u.owner === 0 ? orderPlan(u) : null; return `<dt>Destination</dt><dd>${esc(placeName(u.target.x, u.target.y))}${pl ? ` · ${arrivalText(pl.turns, 'arrivée')}` : ''}</dd>`; })() : ''}
       ${u.owner === 0 && (u.sleep || u.skipTurn === s.turn) ? `<dt>État</dt><dd>${u.sleep ? 'En veille' : 'Tour passé'}</dd>` : ''}</dl>
       ${u.owner === 0 ? `<div class="actions">
         ${u.type === 'settler' ? `<button class="btn primary small" data-action="found" ${found.ok ? '' : 'disabled'}>Fonder une ville${tap() === 'cliquez' ? ' (F)' : ''}</button>` : ''}
@@ -784,6 +784,7 @@ function renderHighlights() {
   const list = [];
   const badges = [];
   const W = s.map.width;
+  let orderPath = null;
   const planned = markers().some((k) => k.plan) ? plannedMap() : null;
   if (mode?.type === 'build') {
     s.map.tiles.forEach((t, i) => {
@@ -809,12 +810,13 @@ function renderHighlights() {
     if (u && u.owner === 0 && u.movesLeft > 0 && !pendingMove) {
       for (const [i, d] of G.reachable(s, u)) if (d > 0) list.push({ i, color: '#ffffff' });
     }
-    if (u && u.owner === 0 && u.target && !pendingMove) list.push({ i: u.target.y * W + u.target.x, color: '#ff6b4a' });
-    if (u && pendingMove && pendingMove.uid === u.id) {
-      const last = pendingMove.plan.steps[pendingMove.plan.steps.length - 1];
-      const turns = pendingMove.plan.turns;
-      badges.push({ i: last.i, html: `<span>${turns === 1 ? 'Arrivée ce tour' : `Arrivée dans ${turns} tours`} · ${tap()} pour confirmer</span>`, lift: 0.75 });
+    if (u && u.owner === 0 && u.target && !pendingMove) {
+      // Ordre en cours sur plusieurs tours : chemin restant en pointillés, fin de chaque tour repérée, arrivée.
+      orderPath = orderPlan(u);
+      if (orderPath) pathBadges(orderPath, badges, 'Arrivée');
+      else list.push({ i: u.target.y * W + u.target.x, color: '#ff6b4a' });
     }
+    if (u && pendingMove && pendingMove.uid === u.id) pathBadges(pendingMove.plan, badges, 'Arrivée', ` · ${tap()} pour confirmer`);
   }
   // Bâtiments prévus : adjacence attendue, en mode Repères ou avec l'affichage des adjacences.
   if ((showAdjacency || mode?.type === 'marker') && mode?.type !== 'build') {
@@ -837,7 +839,8 @@ function renderHighlights() {
   }
   renderer.setBadges(badges);
   const pu = pendingMove && s.units.find((x) => x.id === pendingMove.uid);
-  renderer.setPath(pu ? pendingMove.plan.steps : null, pu ? pu.y * W + pu.x : null);
+  const ou = !pu && orderPath && sel?.kind === 'unit' && s.units.find((x) => x.id === sel.id);
+  renderer.setPath(pu ? pendingMove.plan.steps : ou ? orderPath.steps : null, pu ? pu.y * W + pu.x : ou ? ou.y * W + ou.x : null);
   renderer.setHighlights(list);
   let selIdx = null;
   if (sel?.kind === 'unit') { const u = s.units.find((x) => x.id === sel.id); if (u) selIdx = u.y * W + u.x; }
@@ -849,11 +852,47 @@ function renderHighlights() {
   if (mode?.type === 'build') setHint(`${G.buildingDef(s, mode.id).name} : choisissez une case verte${G.footprintOf(s, mode.id) > 1 ? ' (coin nord-ouest du quartier 2×2)' : ''}`, 'Annuler');
   else if (mode?.type === 'road') setHint('Route : touchez les cases jaunes pour prolonger le réseau', 'Terminer');
   else if (mode?.type === 'marker') setHint(mode.plan ? `Prévoir ${G.buildingDef(s, mode.plan).name} : touchez une case (à nouveau pour retirer le repère)` : `Drapeau ${MARKER_COLORS[mode.color][0].toLowerCase()} : touchez une case (à nouveau pour le retirer)`, 'Terminer');
-  else if (pendingMove) setHint(`Déplacement prévu (${pendingMove.plan.turns === 1 ? 'arrivée ce tour' : `${pendingMove.plan.turns} tours`}) : touchez à nouveau la destination pour confirmer`, 'Annuler');
+  else if (pendingMove) setHint(`Déplacement prévu (${arrivalText(pendingMove.plan.turns, 'arrivée')}) : touchez à nouveau la destination pour confirmer`, 'Annuler');
   else hint.hidden = true;
 }
 
 // ------------------------------------------------------------- interactions
+// Chemin restant d'une unité qui a reçu un ordre (null si la destination est devenue inaccessible).
+function orderPlan(u) {
+  if (!u?.target) return null;
+  const plan = G.planMove(s, u, u.target.x, u.target.y);
+  return plan?.steps.length ? plan : null;
+}
+// Pastilles du chemin : la fin de chaque tour intermédiaire (« Fin du tour 14 ») et l'arrivée.
+function pathBadges(plan, badges, label, suffix = '') {
+  const steps = plan.steps;
+  if (plan.turns > 1 && plan.turns <= 8) {
+    for (let k = 0; k < steps.length - 1; k++) {
+      if (steps[k + 1].turn !== steps[k].turn) badges.push({ i: steps[k].i, html: `<span class="turn-end">Fin du tour ${s.turn + steps[k].turn - 1}</span>`, lift: 0.5 });
+    }
+  }
+  const last = steps[steps.length - 1];
+  badges.push({ i: last.i, html: `<span>${arrivalText(plan.turns, label)}${suffix}</span>`, lift: 0.75 });
+}
+// « Arrivée ce tour » / « Arrivée au tour 14 (dans 3 tours) » : plan.turns compte le tour en cours comme le 1er.
+function arrivalText(turns, label = 'Arrivée') {
+  if (turns <= 1) return `${label} ce tour`;
+  const n = turns - 1;
+  return `${label} au tour ${s.turn + n} (dans ${n} tour${n > 1 ? 's' : ''})`;
+}
+// Nom lisible d'une destination : ville, comptoir, merveille naturelle, sinon le terrain.
+function placeName(x, y) {
+  const c = G.cityAt(s, x, y);
+  if (c) return c.name;
+  const post = IND.postAt(s, x, y);
+  if (post) return post.name;
+  const t = G.tileAt(s, x, y);
+  if (t.natural) return D.naturalDef(s, t.natural).name;
+  if (t.site) return 'Site antique';
+  if (t.ruin) return 'Ruines antiques';
+  return data.terrain[t.type].name;
+}
+
 function select(next) { sel = next; mode = null; pendingMove = null; renderAll(); }
 
 function setMode(next) {
