@@ -1,5 +1,6 @@
 // Fiche des bonus d'adjacence, générée depuis les données du jeu (toujours à jour).
-// Usage : node tools/adjacency-sheet.mjs sortie.html   (puis l'imprimer en PDF, paysage A4)
+// Usage : node tools/adjacency-sheet.mjs sortie.html [--images=dossier]   (puis l'imprimer en PDF, paysage A4)
+// --images : dossier des planches rendues par web/quartiers.html (quartier-<id>.png), ajoutées une par page.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -52,6 +53,11 @@ const rows2 = [...giver.entries()].sort((a, b) => order(a[0]) - order(b[0]) || a
   .map(([, v]) => `<tr><td><b>${v.label}</b></td><td>${v.items.join(' · ')}</td></tr>`).join('');
 
 const NW = R.naturalWonders?.adjacency, RV = R.river;
+const imgFlag = process.argv.find((a) => a.startsWith('--images='));
+const imgDir = imgFlag ? imgFlag.slice(9) : null;
+const QUARTERS = ['savant', 'culture', 'marchand', 'bois', 'pierre', 'grenier', 'residentiel'];
+const plates = imgDir ? QUARTERS.map((k) => path.join(imgDir, `quartier-${k}.png`)).filter((f) => fs.existsSync(f))
+  .map((f, k) => `<div class="plate${k ? '' : ' first'}"><img src="data:image/png;base64,${fs.readFileSync(f).toString('base64')}" alt=""></div>`).join('') : '';
 const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Expand-to — Bonus d'adjacence</title>
 <style>
 @page { size: A4 landscape; margin: 12mm 12mm 14mm; }
@@ -72,6 +78,8 @@ tr.grp td { background: #f7f0ea; font-weight: 800; color: #b9503b; font-size: 9p
 .recipe { border: 1px solid #ece2da; border-radius: 10px; padding: 7px 10px; break-inside: avoid; }
 .recipe b.t { color: #b9503b; }
 .foot { color: #8a7f84; font-size: 8.5pt; margin-top: 10px; }
+.plate { break-before: page; text-align: center; } .plate.first { break-before: auto; }
+.plate img { width: 100%; max-height: 182mm; object-fit: contain; border-radius: 8px; }
 </style></head><body>
 <h1>Expand-<span>to</span> · Bonus d'adjacence</h1>
 <p class="lead">Tous les bonus que les bâtiments tirent de leurs voisins, pour composer des quartiers optimisés. Valeurs tirées directement des données du jeu.</p>
@@ -103,7 +111,8 @@ tr.grp td { background: #f7f0ea; font-weight: 800; color: #b9503b; font-size: 9p
 <div class="recipe"><b class="t">Ville résidentielle</b> — les Quartiers résidentiels groupés et contre un Marché (+1 Or par quartier résidentiel ou marché voisin, max 2), chacun +3 population maximale (2 par ville). Un Parc contre la ville : +1 Culture et −2 pollution.</div>
 <div class="recipe"><b class="t">Repères</b> — avant de bâtir, posez le quartier entier en bâtiments prévus (touche K) : leurs bonus apparaissent dans les aperçus. Pour réorganiser une ville déjà construite, déplacez ses bâtiments un à un.</div>
 </div>
-<p class="foot">Fiche générée depuis les données du jeu (tools/adjacency-sheet.mjs).</p>
+${plates ? `<h2 style="break-before: page">Les quartiers conseillés en images</h2><p class="lead">Chaque planche montre le quartier avec les vrais bâtiments du jeu. Les numéros renvoient à la légende : bonus calculé par le moteur du jeu, et voisins qui le donnent.</p>${plates}` : ''}
+<p class="foot">Fiche générée depuis les données du jeu (tools/adjacency-sheet.mjs, planches : web/quartiers.html).</p>
 </body></html>`;
 
 fs.writeFileSync(process.argv[2] || 'adjacences.html', html);
