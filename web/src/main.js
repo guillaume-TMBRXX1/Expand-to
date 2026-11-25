@@ -543,7 +543,7 @@ function renderSelectionBody() {
     const blds = s.buildings.filter((b) => b.cityId === c.id);
     const mine = c.owner === 0;
     el.innerHTML = `<button class="btn small ghost close-sel" data-action="deselect" aria-label="Fermer la sélection">✕</button><h3><span class="dot" style="background:${owner.color}"></span>${esc(c.name)}${c.capital ? ' <span class="tag">Capitale</span>' : ''}${!mine ? ` <span class="muted">· ${esc(owner.name)}</span>` : ''}</h3>
-      <dl class="kv"><dt>Population</dt><dd>${c.pop} / ${cap}</dd>
+      <dl class="kv"><dt>Population</dt><dd title="${esc(popCapText(c))}">${c.pop} / ${cap}</dd>
       ${mine ? `<dt>Croissance</dt><dd>${fmt(me().res.food)} / ${need} Nourriture</dd>` : `<dt>Relation</dt><dd>${Math.round(G.getRel(s, 0, c.owner))} · ${G.relStatus(G.getRel(s, 0, c.owner)).label}</dd>`}
       <dt>Palier</dt><dd>${s.rules.tiers[c.tier || 0].name}</dd>
       <dt>Rayon du territoire</dt><dd>${c.radius}</dd><dt>Bâtiments</dt><dd>${blds.length}</dd>
@@ -579,6 +579,7 @@ function renderSelectionBody() {
     ${bdef ? `<div class="section-title" style="margin-top:10px"><span>${bdef.name}</span><span>${b.turnsLeft > 0 ? `${b.turnsLeft} tour(s)` : 'actif'}</span></div>
       <div class="chips">${chips(bdef.yields, 'yield')}${bdef.process ? `<span class="chip">${G.fmtBundle(s, bdef.process.in)} → ${G.fmtBundle(s, bdef.process.out)}</span>` : ''}${b.luxury ? chips({ [b.luxury]: 1 }, 'yield') : ''}${bdef.prestige ? `<span class="chip yield">+${bdef.prestige} prestige</span>` : ''}</div>
       ${(() => { const adj = G.adjacencyBonus(s, b.owner, b.type, b.x, b.y); return Object.keys(adj).length && Object.values(adj).some((v) => v) ? `<div class="chips" style="margin-top:4px"><span class="chip">Adjacence :</span>${chips(Object.fromEntries(Object.entries(adj).filter(([, v]) => v)), 'yield')}</div>` : ''; })()}
+      ${b.owner === 0 && !bdef.wonder && !bdef.luxuryOnly ? `<div class="actions" style="margin-top:6px"><button class="btn small" data-action="relocate-start" data-id="${b.id}" title="Déplacer ce bâtiment ailleurs dans votre territoire (${G.fmtBundle(s, s.rules.relocate.cost)}) : utile pour spécialiser vos villes et optimiser les adjacences">Déplacer (${G.fmtBundle(s, s.rules.relocate.cost)})</button></div>` : ''}
       ${LAND.isDamaged(b) ? `<div class="reason bad">Endommagé par une catastrophe : ${b.damaged} tour(s) sans rendement.${b.owner === 0 ? ` <button class="btn small" data-action="repair" data-id="${b.id}">Réparer (${G.fmtBundle(s, s.rules.disasters.repairCost)})</button>` : ''}</div>` : ''}
       <p class="muted" style="font-size:12.5px;margin:6px 0 0">${bdef.desc}</p>` : ''}
     ${t.site ? `<div class="reason">Site antique : un archéologue (Renaissance) peut y exhumer un artefact.</div>` : ''}
@@ -602,7 +603,7 @@ function postHtml(post) {
 // Aménagement d'une case de votre territoire : défricher, reboiser, aplanir.
 function terraformHtml(t) {
   const A = s.rules.terraform?.actions;
-  if (!A || t.owner !== 0) return '';
+  if (!A || t.owner !== 0 || G.buildingAt(s, t.x, t.y) || G.cityAt(s, t.x, t.y)) return '';
   const opts = Object.entries(A).filter(([, a]) => a.from.includes(t.type));
   if (!opts.length) return '';
   return `<div class="section-title" style="margin-top:10px"><span>Aménager</span></div><div class="actions">${opts.map(([k, a]) => {
@@ -668,6 +669,23 @@ function showPeople(tab = peopleTab) {
       ${doneList.length ? `<div class="muted small" style="margin-top:8px">Accomplies : ${doneList.map(esc).join(', ')}.</div>` : ''}`;
   }
   openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Personnages et ambitions"><header><div><h2>Personnages et ambitions</h2></div><button class="btn" data-action="close">Fermer</button></header>${tabs}<div class="people-body">${body}</div></div>`);
+}
+
+// Ce qui fixe la population maximale d'une ville, et ce qui la ferait monter.
+function popCapText(c) {
+  const R = s.rules, parts = [`${R.basePopCap} de base`];
+  R.tiers.slice(1, (c.tier || 0) + 1).forEach((t) => { if (t.popCap) parts.push(`+${t.popCap} ${t.name}`); });
+  const dist = s.buildings.filter((b) => b.cityId === c.id && !b.turnsLeft && G.buildingDef(s, b.type).popCap).reduce((a, b) => a + G.buildingDef(s, b.type).popCap, 0);
+  if (dist) parts.push(`+${dist} quartiers résidentiels`);
+  const mods = G.playerMods(s, c.owner).popCap;
+  if (mods) parts.push(`+${mods} technologies et politiques`);
+  const hc = SOC.healthCap(s, c);
+  const tips = [];
+  if (hc.needs) tips.push(`${G.buildingDef(s, hc.needs).name} requis au-delà de ${hc.cap} habitants`);
+  const nextTier = R.tiers[(c.tier || 0) + 1];
+  if (nextTier) tips.push(`palier ${nextTier.name} (${nextTier.minPop} hab. et ${G.fmtBundle(s, nextTier.needs)} par tour) : +${nextTier.popCap}`);
+  tips.push('Quartier résidentiel : +3 (2 par ville)');
+  return `Plafond : ${parts.join(', ')}. Pour monter : ${tips.join(' ; ')}.`;
 }
 
 function tierHint(c) {
@@ -797,6 +815,20 @@ function renderHighlights() {
     });
   } else if (mode?.type === 'road') {
     s.map.tiles.forEach((t, i) => { if (G.canRoad(s, 0, t.x, t.y).ok) list.push({ i, color: '#f5b700' }); });
+  } else if (mode?.type === 'relocate') {
+    // Déplacement : cases possibles en vert (plus vif si l'adjacence y est meilleure), place actuelle en orange.
+    const b = s.buildings.find((x) => x.id === mode.bid);
+    if (b) {
+      const f = G.footprintOf(s, b.type);
+      const now = bonusSum(G.adjacencyBonus(s, 0, b.type, b.x, b.y, planned));
+      list.push({ i: b.y * W + b.x, color: '#ff6b4a' });
+      s.map.tiles.forEach((t, i) => {
+        if (t.owner !== 0 || !G.canRelocate(s, 0, b.id, t.x, t.y).ok) return;
+        const adj = G.adjacencyIfMoved(s, 0, b.id, t.x, t.y, planned), sum = bonusSum(adj);
+        list.push({ i, color: sum > now ? '#16c172' : '#a8e6c4' });
+        if (sum > 0) badges.push({ i, html: bonusHtml(adj), dx: (f - 1) / 2, dy: (f - 1) / 2, lift: 0.25 });
+      });
+    }
   } else if (mode?.type === 'marker' && mode.plan) {
     const f = G.footprintOf(s, mode.plan);
     s.map.tiles.forEach((t, i) => {
@@ -851,6 +883,7 @@ function renderHighlights() {
   const setHint = (text, btn) => { hint.hidden = false; hint.innerHTML = `<span id="hint-text"></span><button class="btn small hint-btn" data-action="cancel-current">${btn}</button>`; $('#hint-text').textContent = text; };
   if (mode?.type === 'build') setHint(`${G.buildingDef(s, mode.id).name} : choisissez une case verte${G.footprintOf(s, mode.id) > 1 ? ' (coin nord-ouest du quartier 2×2)' : ''}`, 'Annuler');
   else if (mode?.type === 'road') setHint('Route : touchez les cases jaunes pour prolonger le réseau', 'Terminer');
+  else if (mode?.type === 'relocate') { const b = s.buildings.find((x) => x.id === mode.bid); setHint(`Déplacer ${b ? G.buildingDef(s, b.type).name : 'le bâtiment'} (${G.fmtBundle(s, s.rules.relocate.cost)}) : choisissez une case verte, plus vive si l'adjacence y est meilleure`, 'Annuler'); }
   else if (mode?.type === 'marker') setHint(mode.plan ? `Prévoir ${G.buildingDef(s, mode.plan).name} : touchez une case (à nouveau pour retirer le repère)` : `Drapeau ${MARKER_COLORS[mode.color][0].toLowerCase()} : touchez une case (à nouveau pour le retirer)`, 'Terminer');
   else if (pendingMove) setHint(`Déplacement prévu (${arrivalText(pendingMove.plan.turns, 'arrivée')}) : touchez à nouveau la destination pour confirmer`, 'Annuler');
   else hint.hidden = true;
@@ -938,6 +971,15 @@ function handleTileClick(i, shift) {
     refreshWorld(); save(); return;
   }
   if (mode?.type === 'marker') { placeMarker(i); renderBuildbar(); return; }
+  if (mode?.type === 'relocate') {
+    const r = G.relocate(s, 0, mode.bid, t.x, t.y);
+    if (!r.ok) { toast(r.reason, 'bad'); return; }
+    toast(`${G.buildingDef(s, r.building.type).name} déplacé.`, 'good');
+    Sound.sfx.build();
+    clearMarkersUnder(r.building.type, t.x, t.y);
+    mode = null; sel = { kind: 'tile', i };
+    refreshWorld(); save(); return;
+  }
   if (mode?.type === 'road') {
     const r = G.buildRoad(s, 0, t.x, t.y);
     if (!r.ok) toast(r.reason, 'bad');
@@ -1596,6 +1638,7 @@ function onAction(e) {
     }
     case 'policies': showPolicies(); break;
     case 'people': showPeople(); break;
+    case 'relocate-start': setMode({ type: 'relocate', bid: id }); break;
     case 'mv-stance': { const r = MOV.setStance(s, 0, b.dataset.mv, b.dataset.stance); if (!r.ok) toast(r.reason, 'bad'); showCulture(); renderAll(); save(); break; }
     case 'government': { const r = AGE.setGovernment(s, 0, b.dataset.gov); if (!r.ok) toast(r.reason, 'bad'); showPolicies(); renderAll(); save(); break; }
     case 'excavate': { const u = s.units.find((x) => x.id === sel?.id); const r = AGE.excavate(s, u?.id); toast(r.ok ? `Artefact exhumé : « ${r.art.name} ».` : r.reason, r.ok ? 'good' : 'bad'); if (r.ok) sel = null; refreshWorld(); save(); break; }
@@ -1747,14 +1790,15 @@ function bindInput() {
     showTileTip(i, e.clientX, e.clientY);
     if (mode && mode.type !== 'marker' && i !== null) {
       const t = s.map.tiles[i];
-      const r = mode.type === 'build' ? G.canBuild(s, 0, mode.id, t.x, t.y) : G.canRoad(s, 0, t.x, t.y);
-      const base = mode.type === 'build' ? `${G.buildingDef(s, mode.id).name} : ` : 'Route : ';
+      const mb = mode.type === 'relocate' && s.buildings.find((x) => x.id === mode.bid);
+      const r = mode.type === 'build' ? G.canBuild(s, 0, mode.id, t.x, t.y) : mb ? G.canRelocate(s, 0, mb.id, t.x, t.y) : G.canRoad(s, 0, t.x, t.y);
+      const base = mode.type === 'build' ? `${G.buildingDef(s, mode.id).name} : ` : mb ? `Déplacer ${G.buildingDef(s, mb.type).name} : ` : 'Route : ';
       let extra = '';
-      if (r.ok && mode.type === 'build') {
-        const adj = Object.entries(G.adjacencyBonus(s, 0, mode.id, t.x, t.y, plannedMap())).filter(([, v]) => v);
+      if (r.ok && (mode.type === 'build' || mb)) {
+        const adj = Object.entries(mb ? G.adjacencyIfMoved(s, 0, mb.id, t.x, t.y, plannedMap()) : G.adjacencyBonus(s, 0, mode.id, t.x, t.y, plannedMap())).filter(([, v]) => v);
         if (adj.length) extra = ` · adjacence ${adj.map(([k, v]) => `+${v} ${data.resources[k].name}`).join(', ')}`;
       }
-      const ht = $('#hint-text'); if (ht) ht.textContent = base + (r.ok ? `${tap()} pour construire${extra}` : r.reason);
+      const ht = $('#hint-text'); if (ht) ht.textContent = base + (r.ok ? `${tap()} pour ${mb ? 'déplacer' : 'construire'}${extra}` : r.reason);
     }
   });
   window.addEventListener('keydown', (e) => {

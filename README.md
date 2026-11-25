@@ -81,6 +81,8 @@ Sur l'écran d'accueil, vous choisissez :
 - **Déplacer** : cliquez une destination pour voir le chemin et le nombre de tours, puis cliquez à nouveau pour confirmer (Échap annule).
 - **Fonder** : une ville doit être à au moins 3 cases de toute autre. On peut combler les trous de son propre territoire.
 - **Construire** : choisissez un bâtiment dans la barre du bas, puis une case verte de votre territoire. Maintenez `Maj` pour en placer plusieurs.
+- **Déplacer un bâtiment** (comme dans Anno) : sélectionnez-le puis « Déplacer » (10 Or). Les cases possibles s'allument en vert, plus vif là où l'adjacence serait meilleure, avec le bonus attendu. Les merveilles et les comptoirs restent en place. Pratique pour spécialiser une ville une fois les premières fermes et scieries devenues inutiles.
+- **Fiche des adjacences** : `node tools/adjacency-sheet.mjs adjacences.html` génère, depuis les données du jeu, le tableau de tous les bonus d'adjacence (à imprimer en PDF).
 - **Repères** : l'onglet **Repères** de la barre de construction (touche `K`) pose des drapeaux de couleur ou des **bâtiments prévus**, affichés en fantôme bleu. Un bâtiment prévu compte comme voisin dans les aperçus d'adjacence : vous pouvez dessiner un quartier entier, voir ce qu'il rapportera, puis le construire pièce par pièce. Toucher un repère avec le même outil le retire ; construire à cet endroit le remplace. Les repères sont sauvegardés avec la partie.
 - **Caravane** : envoyez-la dans une ville étrangère pour ouvrir une route commerciale. Elle rapporte de l'Or, de la relation et du prestige.
 - **Industrie** : les Menuiseries, Forges et Manufactures transforment vos matières premières en planches, outils et biens. Ces biens font monter vos villes de palier (Artisans, puis Savants).

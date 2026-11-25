@@ -1820,5 +1820,10 @@
         "desc": "+1 Or, +1 Science et +1 Culture par ville touchée."
       }
     ]
+  },
+  "relocate": {
+    "cost": {
+      "gold": 10
+    }
   }
 }
