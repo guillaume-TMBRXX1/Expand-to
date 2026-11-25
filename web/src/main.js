@@ -25,9 +25,12 @@ const BUILD_TABS = {
   wonder: { label: 'Merveilles', ids: ['lighthouse', 'grandlibrary', 'observatory', 'amphitheatre', 'exchange', 'nations'] },
 };
 
+// Repères de carte : drapeaux de couleur et bâtiments prévus (fantômes), pour planifier quartiers et adjacences.
+const MARKER_COLORS = { red: ['Rouge', '#e5484d'], blue: ['Bleu', '#3e8ed0'], yellow: ['Jaune', '#f5b700'], violet: ['Violet', '#8e4ec6'] };
+
 let data, s, renderer;
 let sel = null;          // { kind: 'unit'|'city'|'tile', id|i }
-let mode = null;         // null | { type: 'build', id } | { type: 'road' }
+let mode = null;         // null | { type: 'build', id } | { type: 'road' } | { type: 'marker', color } | { type: 'marker', plan: id }
 let buildTab = 'prod';
 let hoverIdx = null;
 let pendingMove = null; // { uid, x, y, plan } : déplacement en attente de confirmation
@@ -134,7 +137,7 @@ function showStart() {
         ${finished ? `<details class="start-more"><summary>Dernières parties</summary>${finished}</details>` : ''}
         ${touch ? '' : `<details class="start-more"><summary>Commandes</summary><div class="help">
           Clic gauche : sélectionner / déplacer · glisser : déplacer la caméra · clic droit glissé : pivoter · molette : zoom ·
-          <kbd>Entrée</kbd> finir le tour · <kbd>Échap</kbd> annuler · <kbd>Espace</kbd> unité suivante · <kbd>F</kbd> fonder · <kbd>R</kbd> route · <kbd>B</kbd> construire · <kbd>T</kbd> technologies · <kbd>D</kbd> diplomatie · <kbd>M</kbd> menu · <kbd>E</kbd> encyclopédie · <kbd>A</kbd> bonus d'adjacence</div></details>`}
+          <kbd>Entrée</kbd> finir le tour · <kbd>Échap</kbd> annuler · <kbd>Espace</kbd> unité suivante · <kbd>F</kbd> fonder · <kbd>R</kbd> route · <kbd>B</kbd> construire · <kbd>T</kbd> technologies · <kbd>D</kbd> diplomatie · <kbd>M</kbd> menu · <kbd>E</kbd> encyclopédie · <kbd>A</kbd> bonus d'adjacence · <kbd>K</kbd> repères</div></details>`}
       </div>
     </div>`;
   const fillAI = () => {
@@ -562,6 +565,42 @@ function tierHint(c) {
   const up = next ? `Palier suivant, <b>${next.name}</b> : ${next.minPop} habitants et ${G.fmtBundle(s, next.needs)} par tour → ${chipsText(next.yields)}${next.popCap ? `, +${next.popCap} pop. max` : ''}.` : 'Palier maximal atteint.';
   return `<div class="reason">${needs} ${up}</div>`;
 }
+const markers = () => (me().markers ||= []);
+// Cases couvertes par un repère (2×2 pour un quartier prévu).
+function markerTiles(k) {
+  const x = k.i % s.map.width, y = Math.floor(k.i / s.map.width), f = k.plan ? G.footprintOf(s, k.plan) : 1, out = [];
+  for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) out.push((y + dy) * s.map.width + x + dx);
+  return out;
+}
+const markerAt = (i) => markers().find((k) => markerTiles(k).includes(i));
+// Bâtiments prévus, comptés comme voisins dans les aperçus d'adjacence.
+function plannedMap() {
+  const m = new Map();
+  for (const k of markers()) if (k.plan) for (const j of markerTiles(k)) m.set(j, { type: k.plan, x: k.i % s.map.width, y: Math.floor(k.i / s.map.width) });
+  return m;
+}
+const markerName = (k) => (k.plan ? `${G.buildingDef(s, k.plan).name} prévu` : `Drapeau ${MARKER_COLORS[k.color]?.[0].toLowerCase() || ''}`);
+function placeMarker(i) {
+  const t = s.map.tiles[i];
+  if (!G.isExplored(s, 0, t.x, t.y)) { toast('Case inexplorée.', 'bad'); return; }
+  const here = markers().find((k) => k.i === i);
+  const same = here && (mode.plan ? here.plan === mode.plan : here.color === mode.color && !here.plan);
+  if (mode.plan) {
+    const r = G.canBuild(s, 0, mode.plan, t.x, t.y, { plan: true });
+    if (!r.ok && !same) { toast(r.reason, 'bad'); return; }
+  }
+  const covered = new Set(mode.plan ? markerTiles({ i, plan: mode.plan }) : [i]);
+  me().markers = markers().filter((k) => !markerTiles(k).some((j) => covered.has(j)));
+  if (!same) markers().push(mode.plan ? { i, plan: mode.plan } : { i, color: mode.color });
+  renderer.syncEntities(); renderHighlights(); save();
+}
+// Un bâtiment construit remplace les repères posés sous son empreinte.
+function clearMarkersUnder(type, x, y) {
+  const f = G.footprintOf(s, type), under = new Set();
+  for (let dy = 0; dy < f; dy++) for (let dx = 0; dx < f; dx++) under.add((y + dy) * s.map.width + x + dx);
+  if (me().markers) me().markers = markers().filter((k) => !markerTiles(k).some((j) => under.has(j)));
+}
+
 const chipsText = (b) => Object.entries(b || {}).map(([k, v]) => `+${v} ${data.resources[k].name}`).join(', ');
 
 function renderBuildbar() {
@@ -575,9 +614,9 @@ function renderBuildbar() {
   }
   if (!G.citiesOf(s, 0).length) { el.innerHTML = '<div class="muted" style="font-size:13px;padding:4px 2px">Fondez une ville pour débloquer la construction.</div>'; return; }
   const prof = data.profilesById[me().profile];
-  const tabs = { ...BUILD_TABS, ...(prof.unique ? { profile: { label: prof.name, ids: [prof.unique] } } : {}) };
+  const tabs = { ...BUILD_TABS, ...(prof.unique ? { profile: { label: prof.name, ids: [prof.unique] } } : {}), marker: { label: 'Repères', ids: [] } };
   const tab = tabs[buildTab] || BUILD_TABS.prod;
-  const items = tab.ids.map((id) => {
+  const items = buildTab === 'marker' ? markerItems(tabs) : tab.ids.map((id) => {
     if (id === 'road') {
       const pressed = mode?.type === 'road';
       return `<button class="build-item" data-action="mode-road" aria-pressed="${pressed}" title="Prolonge votre réseau ; relier vos villes à la capitale rapporte +${s.rules.road.connectedCityGold} Or par ville."><b>Route (R)</b><div class="chips">${chips(s.rules.road.cost)}</div><div class="line"><span class="chip yield">Déplacement ${s.rules.road.moveCost}</span></div></button>`;
@@ -604,6 +643,18 @@ function renderBuildbar() {
     ${abBtn}<button class="tab adj-toggle" aria-pressed="${showAdjacency}" data-action="toggle-adj" title="Afficher les bonus d'adjacence de vos bâtiments sur la carte (A)">Adjacences${showAdjacency ? ' ✓' : ''}</button></div><button class="build-close" data-action="toggle-build" aria-expanded="true" aria-controls="buildbar" aria-label="Replier la barre de construction" title="Replier (B)"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="build-list">${items}</div>`;
 }
 
+// Onglet Repères : drapeaux de couleur, bâtiments à prévoir, effacement.
+function markerItems(tabs) {
+  const flags = Object.entries(MARKER_COLORS).map(([k, [name, col]]) => `<button class="build-item marker-item" data-action="mode-marker" data-color="${k}" aria-pressed="${mode?.type === 'marker' && mode.color === k}" title="Pose un drapeau ${name.toLowerCase()} pour noter un emplacement (touchez-le à nouveau pour le retirer).">
+      <b><i class="pin" style="background:${col}"></i>Drapeau ${name.toLowerCase()}</b><div class="line"><span class="muted">Repère libre</span></div></button>`).join('');
+  const ids = [...new Set(Object.entries(tabs).filter(([k]) => k !== 'marker').flatMap(([, v]) => v.ids))].filter((id) => id !== 'road' && G.buildingDef(s, id) && !(G.buildingDef(s, id).wonder && s.wonders[id] !== undefined));
+  const plans = ids.map((id) => { const def = G.buildingDef(s, id); const n = markers().filter((k) => k.plan === id).length;
+    return `<button class="build-item marker-item" data-action="mode-marker" data-plan="${id}" aria-pressed="${mode?.type === 'marker' && mode.plan === id}" title="${esc(`Prévoir ${def.name} : un fantôme est posé sur la carte et compte comme voisin dans les aperçus d'adjacence. Il disparaît quand vous construisez à cet endroit.${describeAdjacency(def) ? `\nAdjacence : ${describeAdjacency(def)}` : ''}`)}">
+      <b>${def.name}</b><div class="line"><span class="muted">Prévoir${def.footprint > 1 ? ' · 2×2' : ''}</span>${n ? `<span class="chip">${n}</span>` : ''}</div></button>`; }).join('');
+  const n = markers().length;
+  return `${flags}<button class="build-item marker-item" data-action="markers-clear" aria-disabled="${!n}" title="Retire tous vos repères de la carte"><b>Tout effacer</b><div class="line"><span class="muted">${n} repère${n > 1 ? 's' : ''}</span></div></button>${plans}`;
+}
+
 const bonusHtml = (bundle) => Object.entries(bundle).filter(([, v]) => v).map(([k, v]) => `<span><i style="background:${resColor(k)}"></i>+${v}</span>`).join('');
 const bonusSum = (bundle) => Object.values(bundle).reduce((a, v) => a + v, 0);
 function describeAdjacency(def) {
@@ -619,16 +670,26 @@ function renderHighlights() {
   const list = [];
   const badges = [];
   const W = s.map.width;
+  const planned = markers().some((k) => k.plan) ? plannedMap() : null;
   if (mode?.type === 'build') {
     s.map.tiles.forEach((t, i) => {
       if (t.owner !== 0 || !G.canBuild(s, 0, mode.id, t.x, t.y).ok) return;
-      const adj = G.adjacencyBonus(s, 0, mode.id, t.x, t.y);
+      const adj = G.adjacencyBonus(s, 0, mode.id, t.x, t.y, planned);
       const f = G.footprintOf(s, mode.id);
-      list.push({ i, color: bonusSum(adj) > 0 ? '#16c172' : '#a8e6c4' });
+      const isPlan = markers().some((k) => k.i === i && k.plan === mode.id);
+      list.push({ i, color: isPlan ? '#3e8ed0' : bonusSum(adj) > 0 ? '#16c172' : '#a8e6c4' });
       if (bonusSum(adj) > 0) badges.push({ i, html: bonusHtml(adj), dx: (f - 1) / 2, dy: (f - 1) / 2, lift: 0.25 });
     });
   } else if (mode?.type === 'road') {
     s.map.tiles.forEach((t, i) => { if (G.canRoad(s, 0, t.x, t.y).ok) list.push({ i, color: '#f5b700' }); });
+  } else if (mode?.type === 'marker' && mode.plan) {
+    const f = G.footprintOf(s, mode.plan);
+    s.map.tiles.forEach((t, i) => {
+      if (!G.isExplored(s, 0, t.x, t.y) || !G.canBuild(s, 0, mode.plan, t.x, t.y, { plan: true }).ok) return;
+      const adj = G.adjacencyBonus(s, 0, mode.plan, t.x, t.y, planned);
+      list.push({ i, color: bonusSum(adj) > 0 ? '#16c172' : '#a8e6c4' });
+      if (bonusSum(adj) > 0 && t.owner === 0) badges.push({ i, html: bonusHtml(adj), dx: (f - 1) / 2, dy: (f - 1) / 2, lift: 0.25 });
+    });
   } else if (sel?.kind === 'unit') {
     const u = s.units.find((x) => x.id === sel.id);
     if (u && u.owner === 0 && u.movesLeft > 0 && !pendingMove) {
@@ -641,10 +702,20 @@ function renderHighlights() {
       badges.push({ i: last.i, html: `<span>${turns === 1 ? 'Arrivée ce tour' : `Arrivée dans ${turns} tours`} · ${tap()} pour confirmer</span>`, lift: 0.75 });
     }
   }
+  // Bâtiments prévus : adjacence attendue, en mode Repères ou avec l'affichage des adjacences.
+  if ((showAdjacency || mode?.type === 'marker') && mode?.type !== 'build') {
+    for (const k of markers()) {
+      if (!k.plan) continue;
+      const x = k.i % W, y = Math.floor(k.i / W), adj = G.adjacencyBonus(s, 0, k.plan, x, y, planned);
+      if (bonusSum(adj) <= 0) continue;
+      const f = G.footprintOf(s, k.plan);
+      badges.push({ i: k.i, html: `<span class="plan">prévu</span>${bonusHtml(adj)}`, dx: (f - 1) / 2, dy: (f - 1) / 2, lift: f > 1 ? 0.9 : 0.6 });
+    }
+  }
   if (showAdjacency && mode?.type !== 'build') {
     for (const b of s.buildings) {
       if (b.owner !== 0) continue;
-      const adj = G.adjacencyBonus(s, 0, b.type, b.x, b.y);
+      const adj = G.adjacencyBonus(s, 0, b.type, b.x, b.y, planned);
       if (bonusSum(adj) <= 0) continue;
       const f = G.footprintOf(s, b.type);
       badges.push({ i: b.y * W + b.x, html: bonusHtml(adj), dx: (f - 1) / 2, dy: (f - 1) / 2, lift: f > 1 ? 0.9 : 0.6 });
@@ -663,6 +734,7 @@ function renderHighlights() {
   const setHint = (text, btn) => { hint.hidden = false; hint.innerHTML = `<span id="hint-text"></span><button class="btn small hint-btn" data-action="cancel-current">${btn}</button>`; $('#hint-text').textContent = text; };
   if (mode?.type === 'build') setHint(`${G.buildingDef(s, mode.id).name} : choisissez une case verte${G.footprintOf(s, mode.id) > 1 ? ' (coin nord-ouest du quartier 2×2)' : ''}`, 'Annuler');
   else if (mode?.type === 'road') setHint('Route : touchez les cases jaunes pour prolonger le réseau', 'Terminer');
+  else if (mode?.type === 'marker') setHint(mode.plan ? `Prévoir ${G.buildingDef(s, mode.plan).name} : touchez une case (à nouveau pour retirer le repère)` : `Drapeau ${MARKER_COLORS[mode.color][0].toLowerCase()} : touchez une case (à nouveau pour le retirer)`, 'Terminer');
   else if (pendingMove) setHint(`Déplacement prévu (${pendingMove.plan.turns === 1 ? 'arrivée ce tour' : `${pendingMove.plan.turns} tours`}) : touchez à nouveau la destination pour confirmer`, 'Annuler');
   else hint.hidden = true;
 }
@@ -685,11 +757,13 @@ function handleTileClick(i, shift) {
     const r = G.build(s, 0, mode.id, t.x, t.y);
     if (!r.ok) { toast(r.reason, 'bad'); return; }
     toast(`${G.buildingDef(s, mode.id).name} en construction.`, 'good');
+    clearMarkersUnder(mode.id, t.x, t.y);
     Sound.sfx.build();
     if (!shift || !G.canAfford(s, 0, G.costOf(s, 0, G.buildingDef(s, mode.id)))) mode = null;
     sel = { kind: 'tile', i };
     refreshWorld(); save(); return;
   }
+  if (mode?.type === 'marker') { placeMarker(i); renderBuildbar(); return; }
   if (mode?.type === 'road') {
     const r = G.buildRoad(s, 0, t.x, t.y);
     if (!r.ok) toast(r.reason, 'bad');
@@ -756,6 +830,11 @@ function showTileTip(i, x, y) {
   if (t.river && !b && !c) lines.push(`<span class="muted">Rivière : +${s.rules.river.buildingYield.gold} Or au bâtiment construit ici, Moulin à eau possible</span>`);
   if (t.natural) { const nd = D.naturalDef(s, t.natural); lines.push(`<span class="chip yield">Merveille naturelle : ${nd.name}</span>`, `<span class="muted">${chipsText(nd.yields)} pour le territoire qui l'englobe · +${s.rules.naturalWonders.ownedPrestige} prestige · ${chipsText(s.rules.naturalWonders.adjacency)} aux bâtiments voisins</span>`); }
   if (t.ruin) lines.push('<span class="chip yield">Ruines antiques : envoyez une unité les fouiller</span>');
+  const mk = markerAt(i);
+  if (mk && !b) {
+    const adj = mk.plan ? Object.fromEntries(Object.entries(G.adjacencyBonus(s, 0, mk.plan, mk.i % s.map.width, Math.floor(mk.i / s.map.width), plannedMap())).filter(([, v]) => v)) : {};
+    lines.push(`<span class="chip">${esc(markerName(mk))}</span>${Object.keys(adj).length ? ` <span class="muted">adjacence prévue ${chipsText(adj)}</span>` : ''}`);
+  }
   if (CUL.isHeritage(s, t.x, t.y)) lines.push('<span class="chip yield">Patrimoine mondial</span>');
   if (t.luxury && !b) lines.push(`<span class="chip yield"><i style="background:${resColor(t.luxury)}"></i>${data.resources[t.luxury].name} (ressource rare)</span>`);
   if (b) {
@@ -858,7 +937,7 @@ function showEncyclopedia(tab = 'buildings') {
   const cost = (c) => Object.entries(c || {}).map(([k, v]) => `${v} ${data.resources[k].name}`).join(', ');
   let body = '';
   if (tab === 'buildings') {
-    body = data.buildings.map((d) => `<div class="enc-item"><div class="vhead"><b>${d.name}${d.wonder ? ' <span class="tag warn">Merveille</span>' : ''}${d.footprint ? ' <span class="tag">2×2</span>' : ''}</b><span class="muted">${d.tech ? G.techDef(s, d.tech).name : 'Disponible'}</span></div>
+    body = '<div class="enc-item"><div class="muted">Planifiez vos quartiers avec l\'onglet <b>Repères</b> de la barre de construction (touche K) : un bâtiment prévu s\'affiche en fantôme et compte comme voisin dans les aperçus d\'adjacence, avant même d\'avoir la technologie ou les ressources.</div></div>' + data.buildings.map((d) => `<div class="enc-item"><div class="vhead"><b>${d.name}${d.wonder ? ' <span class="tag warn">Merveille</span>' : ''}${d.footprint ? ' <span class="tag">2×2</span>' : ''}</b><span class="muted">${d.tech ? G.techDef(s, d.tech).name : 'Disponible'}</span></div>
       <div class="muted">${d.desc}</div><div class="enc-line">Coût : ${cost(d.cost)} · ${d.turns} tour(s)${d.upkeep ? ` · entretien ${d.upkeep} Or` : ''}</div>
       <div class="enc-line">${d.process ? `Transforme ${G.fmtBundle(s, d.process.in)} en ${G.fmtBundle(s, d.process.out)}` : chipsText(d.yields) || '—'}${d.prestige ? ` · +${d.prestige} prestige` : ''}</div>
       <div class="enc-line">Terrain : ${d.terrain.map((k) => data.terrain[k].name).join(', ')}${d.coastal ? ' (côtier)' : ''}${d.perCity ? ` · max ${d.perCity} par ville` : ''}</div>
@@ -1221,6 +1300,11 @@ function onAction(e) {
     case 'tab': buildTab = b.dataset.tab; renderBuildbar(); break;
     case 'mode-build': setMode(mode?.type === 'build' && mode.id === b.dataset.id ? null : { type: 'build', id: b.dataset.id }); break;
     case 'mode-road': setMode(mode?.type === 'road' ? null : { type: 'road' }); break;
+    case 'mode-marker': {
+      const next = b.dataset.plan ? { type: 'marker', plan: b.dataset.plan } : { type: 'marker', color: b.dataset.color };
+      setMode(mode?.type === 'marker' && mode.plan === next.plan && mode.color === next.color ? null : next); break;
+    }
+    case 'markers-clear': if (markers().length) { me().markers = []; renderer.syncEntities(); setMode(mode?.type === 'marker' ? mode : null); save(); toast('Repères effacés.'); } break;
     case 'found': foundSelected(); break;
     case 'cancel-current': if (pendingMove) { pendingMove = null; renderSelection(); renderHighlights(); } else setMode(null); break;
     case 'deselect': select(null); break;
@@ -1404,13 +1488,13 @@ function bindInput() {
     hoverIdx = i;
     renderer.setCursor(i, 'hover');
     showTileTip(i, e.clientX, e.clientY);
-    if (mode && i !== null) {
+    if (mode && mode.type !== 'marker' && i !== null) {
       const t = s.map.tiles[i];
       const r = mode.type === 'build' ? G.canBuild(s, 0, mode.id, t.x, t.y) : G.canRoad(s, 0, t.x, t.y);
       const base = mode.type === 'build' ? `${G.buildingDef(s, mode.id).name} : ` : 'Route : ';
       let extra = '';
       if (r.ok && mode.type === 'build') {
-        const adj = Object.entries(G.adjacencyBonus(s, 0, mode.id, t.x, t.y)).filter(([, v]) => v);
+        const adj = Object.entries(G.adjacencyBonus(s, 0, mode.id, t.x, t.y, plannedMap())).filter(([, v]) => v);
         if (adj.length) extra = ` · adjacence ${adj.map(([k, v]) => `+${v} ${data.resources[k].name}`).join(', ')}`;
       }
       const ht = $('#hint-text'); if (ht) ht.textContent = base + (r.ok ? `${tap()} pour construire${extra}` : r.reason);
@@ -1425,6 +1509,7 @@ function bindInput() {
     else if (e.key === ' ') { e.preventDefault(); nextUnit(); }
     else if (e.key === 'f' || e.key === 'F') foundSelected();
     else if (e.key === 'r' || e.key === 'R') setMode(mode?.type === 'road' ? null : { type: 'road' });
+    else if (e.key === 'k' || e.key === 'K') { if (mode?.type === 'marker') setMode(null); else { buildTab = 'marker'; setMode({ type: 'marker', color: 'red' }); } }
     else if (e.key === 't' || e.key === 'T') showTech();
     else if (e.key === 'p' || e.key === 'P') showPolicies();
     else if (e.key === 'c' || e.key === 'C') showCulture();
