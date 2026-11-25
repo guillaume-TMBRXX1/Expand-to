@@ -2,6 +2,7 @@
 // Importé par game.js : les fonctions du moteur ne sont utilisées qu'à l'exécution.
 import * as G from './game.js';
 import { addBonusPrestige, naturalDef } from './diversity.js';
+import { vocationTourism } from './land.js';
 
 const nm = (s, pid) => s.players[pid].name;
 const done = (b) => !b.turnsLeft;
@@ -186,6 +187,8 @@ export function tourismOf(s, pid) {
   if (art) parts.push(["Œuvres d'art", art]);
   const her = heritageOf(s, pid).length * s.rules.heritage.tourism;
   if (her) parts.push(['Patrimoine mondial', her]);
+  const voc = vocationTourism(s, pid);
+  if (voc) parts.push(["Villes d'art", voc]);
   const cult = Math.floor((s.players[pid].lastYield?.net.culture || 0) * T.cultureShare);
   if (cult) parts.push(['Rayonnement culturel', cult]);
   return { total: parts.reduce((a, [, v]) => a + v, 0), parts };

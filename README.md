@@ -51,6 +51,7 @@ Sur l'écran d'accueil, vous choisissez :
 - la **durée** : 40, 60 ou 80 tours ;
 - la **difficulté** : en Difficile, les IA jouent avec les paramètres entraînés (meilleurs choix de recherche et de construction), avec de petits bonus ;
 - le **profil**.
+- deux options, cochées par défaut : les **ambitions secrètes** (cartes d'objectif facultatives) et les **catastrophes naturelles**.
 
 À la fin d'une partie, des graphiques et un tableau résument la partie. Les 10 dernières parties s'affichent sur l'accueil.
 
@@ -73,6 +74,7 @@ Sur l'écran d'accueil, vous choisissez :
 | Encyclopédie | `E` |
 | Bonus d'adjacence sur la carte | `A` |
 | Repères (drapeaux, bâtiments prévus) | `K` |
+| Personnages et ambitions | `G` |
 | Annuler | `Échap` |
 
 - **Fin du tour** : elle attend que chaque unité ait reçu un ordre. Une pastille sur le bouton compte les unités en attente, et le jeu sélectionne la première. Pour une unité qui n'a rien à faire, utilisez **Passer ce tour**, ou **Mettre en veille** : elle ne sera plus signalée jusqu'à ce que vous la réveilliez ou lui donniez un ordre. Ce blocage se désactive dans le menu.
@@ -148,6 +150,23 @@ Sur l'écran d'accueil, vous choisissez :
 - **Traités** (Diplomatie) : un traité de 10 ou 20 tours avec les clauses de votre choix (Frontières respectées, Partage de technologie, Tarifs préférentiels, Échanges culturels). Il apporte de la relation et du prestige. Le rompre avant l'échéance coûte cher, et on le renégocie à la fin.
 - **Expositions universelles et Jeux mondiaux** (tous les 15 tours environ) : deux tours avant, on peut se porter candidat pour accueillir l'événement et choisir sa participation au concours. L'hôte et les deux premiers du concours gagnent du prestige.
 - **Personnalités** : chaque IA est loyale, opportuniste ou isolationniste, et se souvient de vos actes (fiche Diplomatie).
+- **Grands personnages** (bouton Personnages, touche `G`) : vos rendements remplissent quatre jauges. Une jauge pleine fait venir un personnage, que vous employez quand vous voulez.
+  - Savant : une avance sur la recherche en cours.
+  - Artiste : une œuvre d'art offerte (ou de la Culture).
+  - Marchand : de l'Or, du prestige et de meilleures relations.
+  - Ingénieur : un chantier avancé de 2 tours, merveille comprise.
+- **Ambitions secrètes** (option) : vous recevez 3 cartes d'objectif cachées, par exemple « 3 villes au bord d'une rivière » ou « achever 2 merveilles ». Elles sont **facultatives** : rien ne vous oblige à les jouer, et une carte gardée en main ne coûte rien.
+  - Jouez-en jusqu'à 2 à la fois ; une carte jouée rapporte son prestige dès qu'elle est remplie, puis vous en piochez une autre.
+  - Vous pouvez retirer une carte jouée à tout moment, et en défausser une tous les 8 tours pour piocher.
+  - Avec cette option, l'objectif de prestige est un peu plus haut.
+- **Vocations des villes** : à 5 habitants, une ville choisit une vocation dans son panneau : ville universitaire, d'art, place marchande, cité portuaire, centre industriel, siège diplomatique ou grenier régional. Chacune apporte un bonus marqué et une petite contrepartie. En changer coûte 60 Or, au plus tous les 10 tours.
+- **Catastrophes** (option, à partir du tour 8) : le panneau de la ville indique ses risques et si elle est protégée.
+  - Crues au printemps près des rivières : bâtiments endommagés, mais le limon apporte de la Nourriture. Une **Digue** protège la ville.
+  - Sécheresses en été dans le sud aride et les plaines fertiles. Un **Grenier** protège la ville.
+  - Incendies en été dans les villes entourées de forêts. L'Aqueduc protège la ville.
+
+  Un bâtiment endommagé ne produit rien pendant quelques tours ; on peut le réparer contre de l'Or.
+- **Aménager le territoire** : sélectionnez une case libre de votre territoire pour défricher une forêt (+Bois), reboiser une plaine (contre la pollution, près des scieries) ou aplanir une colline (+Pierre, avec l'Urbanisme).
 
 ## Structure
 

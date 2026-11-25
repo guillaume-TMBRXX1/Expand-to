@@ -6,6 +6,8 @@ import * as ECO from './core/economy.js';
 import * as SUM from './core/summits.js';
 import * as CUL from './core/culture.js';
 import * as SOC from './core/society.js';
+import * as PEO from './core/people.js';
+import * as LAND from './core/land.js';
 import { playAITurns } from './core/ai.js';
 import { Renderer } from './render/renderer.js';
 import { avatarSVG } from './ui/avatar.js';
@@ -21,7 +23,7 @@ const BUILD_TABS = {
   industry: { label: 'Industrie', ids: ['sawmill', 'manufactory', 'forge', 'outpost', 'markethall'] },
   know: { label: 'Savoir & culture', ids: ['library', 'lab', 'theatre', 'monument'] },
   quarter: { label: 'Quartiers 2×2', ids: ['campus', 'artsquarter', 'merchantquarter'] },
-  life: { label: 'Cadre de vie', ids: ['park', 'aqueduct', 'hospital'] },
+  life: { label: 'Cadre de vie', ids: ['park', 'aqueduct', 'hospital', 'granary', 'levee'] },
   wonder: { label: 'Merveilles', ids: ['lighthouse', 'grandlibrary', 'observatory', 'amphitheatre', 'exchange', 'nations'] },
 };
 
@@ -126,6 +128,10 @@ function showStart() {
           <label class="field">Type de carte<select id="f-type">${Object.entries(data.rules.mapTypes).map(([k, v]) => `<option value="${k}" title="${esc(v.desc)}">${v.name}</option>`).join('')}</select></label>
           <label class="field">Durée<select id="f-length">${Object.entries(data.rules.gameLengths).map(([k, v]) => `<option value="${k}" ${k === 'normal' ? 'selected' : ''}>${v.name}</option>`).join('')}</select></label>
         </div>
+        <div class="start-options">
+          <label class="check" title="Chaque joueur reçoit des cartes d'objectif secrètes. Elles sont facultatives : jouez celles qui vous plaisent, ignorez les autres sans pénalité."><input type="checkbox" id="f-amb" checked> Ambitions secrètes (cartes facultatives)</label>
+          <label class="check" title="Crues au printemps, sécheresses et incendies en été. Digue, Grenier et Aqueduc protègent vos villes."><input type="checkbox" id="f-dis" checked> Catastrophes naturelles</label>
+        </div>
         <details class="start-more"><summary>Options avancées</summary>
           <label class="field">Graine de carte (même graine, même carte)<input id="f-seed" inputmode="numeric" placeholder="ex. 4242"></label>
         </details>
@@ -137,7 +143,7 @@ function showStart() {
         ${finished ? `<details class="start-more"><summary>Dernières parties</summary>${finished}</details>` : ''}
         ${touch ? '' : `<details class="start-more"><summary>Commandes</summary><div class="help">
           Clic gauche : sélectionner / déplacer · glisser : déplacer la caméra · clic droit glissé : pivoter · molette : zoom ·
-          <kbd>Entrée</kbd> finir le tour · <kbd>Échap</kbd> annuler · <kbd>Espace</kbd> unité suivante · <kbd>F</kbd> fonder · <kbd>R</kbd> route · <kbd>B</kbd> construire · <kbd>T</kbd> technologies · <kbd>D</kbd> diplomatie · <kbd>M</kbd> menu · <kbd>E</kbd> encyclopédie · <kbd>A</kbd> bonus d'adjacence · <kbd>K</kbd> repères</div></details>`}
+          <kbd>Entrée</kbd> finir le tour · <kbd>Échap</kbd> annuler · <kbd>Espace</kbd> unité suivante · <kbd>F</kbd> fonder · <kbd>R</kbd> route · <kbd>B</kbd> construire · <kbd>T</kbd> technologies · <kbd>D</kbd> diplomatie · <kbd>M</kbd> menu · <kbd>E</kbd> encyclopédie · <kbd>A</kbd> bonus d'adjacence · <kbd>K</kbd> repères · <kbd>G</kbd> personnages et ambitions</div></details>`}
       </div>
     </div>`;
   const fillAI = () => {
@@ -155,7 +161,7 @@ function showStart() {
     const seedTxt = $('#f-seed').value.trim();
     const seed = seedTxt ? (Number(seedTxt) || [...seedTxt].reduce((a, c) => a * 31 + c.charCodeAt(0), 7)) >>> 0 : undefined;
     const game = G.createGame({ data, seed, profile, name: $('#f-name').value.trim() || 'Vous', aiCount: Number($('#f-ai').value), difficulty: $('#f-diff').value,
-      size: $('#f-size').value, mapType: $('#f-type').value, length: $('#f-length').value });
+      size: $('#f-size').value, mapType: $('#f-type').value, length: $('#f-length').value, ambitions: $('#f-amb').checked, disasters: $('#f-dis').checked });
     Tuto.initTutorial(game, $('#f-tuto').checked);
     startGame(game);
   });
@@ -392,6 +398,8 @@ function updateSideBadge() {
   const free = freePolicySlots();
   const pb = $('#policy-badge');
   if (pb) { pb.hidden = free === 0; pb.textContent = free; }
+  const gb = $('#people-badge');
+  if (gb) { const n = PEO.greatPeopleOf(s, 0).length; gb.hidden = n === 0; gb.textContent = n; }
 }
 
 const myEvents = () => (s.pendingEvents || []).filter((pe) => pe.pid === 0);
@@ -530,6 +538,7 @@ function renderSelectionBody() {
         <dt>Santé</dt><dd class="${c.pop >= hc.cap ? 'bad' : ''}">${hc.needs ? `${G.buildingDef(s, hc.needs).name} requis au-delà de ${hc.cap} hab.` : 'Eau courante et soins'}</dd>
         <dt>Attractivité</dt><dd title="Palier, culture, tourisme, rivière, pollution et santé. Les habitants migrent vers les villes les plus attrayantes.">${String(SOC.attractiveness(s, c)).replace('.', ',')}</dd>`; })()}</dl>
       ${mine ? tierHint(c) : ''}
+      ${cityLandHtml(c, mine)}
       ${mine ? `<div class="section-title" style="margin-top:12px"><span>Former une unité</span><span>${c.trained ? '1 / tour — fait' : '1 / tour'}</span></div>
       <div class="actions">${data.units.map((d) => {
         const chk = G.canTrain(s, 0, c.id, d.id);
@@ -555,7 +564,80 @@ function renderSelectionBody() {
     ${bdef ? `<div class="section-title" style="margin-top:10px"><span>${bdef.name}</span><span>${b.turnsLeft > 0 ? `${b.turnsLeft} tour(s)` : 'actif'}</span></div>
       <div class="chips">${chips(bdef.yields, 'yield')}${bdef.process ? `<span class="chip">${G.fmtBundle(s, bdef.process.in)} → ${G.fmtBundle(s, bdef.process.out)}</span>` : ''}${b.luxury ? chips({ [b.luxury]: 1 }, 'yield') : ''}${bdef.prestige ? `<span class="chip yield">+${bdef.prestige} prestige</span>` : ''}</div>
       ${(() => { const adj = G.adjacencyBonus(s, b.owner, b.type, b.x, b.y); return Object.keys(adj).length && Object.values(adj).some((v) => v) ? `<div class="chips" style="margin-top:4px"><span class="chip">Adjacence :</span>${chips(Object.fromEntries(Object.entries(adj).filter(([, v]) => v)), 'yield')}</div>` : ''; })()}
-      <p class="muted" style="font-size:12.5px;margin:6px 0 0">${bdef.desc}</p>` : ''}`;
+      ${LAND.isDamaged(b) ? `<div class="reason bad">Endommagé par une catastrophe : ${b.damaged} tour(s) sans rendement.${b.owner === 0 ? ` <button class="btn small" data-action="repair" data-id="${b.id}">Réparer (${G.fmtBundle(s, s.rules.disasters.repairCost)})</button>` : ''}</div>` : ''}
+      <p class="muted" style="font-size:12.5px;margin:6px 0 0">${bdef.desc}</p>` : ''}
+    ${terraformHtml(t)}`;
+}
+
+// Aménagement d'une case de votre territoire : défricher, reboiser, aplanir.
+function terraformHtml(t) {
+  const A = s.rules.terraform?.actions;
+  if (!A || t.owner !== 0) return '';
+  const opts = Object.entries(A).filter(([, a]) => a.from.includes(t.type));
+  if (!opts.length) return '';
+  return `<div class="section-title" style="margin-top:10px"><span>Aménager</span></div><div class="actions">${opts.map(([k, a]) => {
+    const chk = LAND.canTerraform(s, 0, k, t.x, t.y);
+    return `<button class="btn small unit-btn" data-action="terraform" data-act="${k}" data-x="${t.x}" data-y="${t.y}" ${chk.ok ? '' : 'disabled'} title="${esc(`${a.desc}${chk.ok ? '' : `\n${chk.reason}`}`)}">${a.name}<span class="cost">${G.fmtBundle(s, a.cost)}${a.gain ? ` → ${G.fmtBundle(s, a.gain)}` : ''}</span></button>`;
+  }).join('')}</div>`;
+}
+
+// Panneau de ville : vocation, risques de catastrophe, bâtiments endommagés.
+function cityLandHtml(c, mine) {
+  const V = s.rules.vocations, out = [];
+  if (V) {
+    const cur = c.vocation && LAND.vocationDef(s, c.vocation);
+    if (!mine) { if (cur) out.push(`<div class="reason">Vocation : <b>${cur.icon} ${cur.name}</b></div>`); }
+    else if (c.pop < V.minPop && !cur) out.push(`<div class="reason">Vocation : possible à ${V.minPop} habitants (ville universitaire, d'art, portuaire…).</div>`);
+    else {
+      out.push(`<div class="section-title" style="margin-top:12px"><span>Vocation</span><span>${cur ? `${cur.icon} ${cur.name}` : 'à choisir'}</span></div>
+        <div class="voc-grid">${Object.entries(V.list).map(([id, d]) => { const chk = LAND.canSetVocation(s, c, id);
+          return `<button class="voc ${c.vocation === id ? 'on' : ''}" data-action="vocation" data-id="${c.id}" data-voc="${id}" ${chk.ok ? '' : 'aria-disabled="true"'} aria-pressed="${c.vocation === id}" title="${esc(`${d.desc}${chk.ok ? '' : `\n${chk.reason}`}`)}"><b>${d.icon} ${d.name}</b><span>${esc(d.desc)}</span></button>`; }).join('')}</div>
+        ${cur ? `<div class="reason">Changer de vocation coûte ${G.fmtBundle(s, V.changeCost)}, au plus tous les ${V.cooldown} tours.</div>` : ''}`);
+    }
+  }
+  if (mine && s.rules.disasters && s.settings?.disasters !== false) {
+    const risks = LAND.disasterRisks(s, c);
+    if (risks.length) out.push(`<div class="reason">Risques : ${risks.map((r) => `${r.def.icon} ${r.def.name} (${s.rules.seasons.list.find((x) => x.id === r.def.season).name.toLowerCase()}) — ${r.protectedBy ? `<span class="good">protégée par ${G.buildingDef(s, r.protectedBy).name.toLowerCase()}</span>` : `<span class="bad">${G.buildingDef(s, r.def.protect).name} conseillé(e)</span>`}`).join(' · ')}</div>`);
+    const dmg = s.buildings.filter((b) => b.cityId === c.id && LAND.isDamaged(b));
+    if (dmg.length) out.push(`<div class="reason bad">Endommagé : ${dmg.map((b) => `${G.buildingDef(s, b.type).name} (${b.damaged} t.) <button class="btn small" data-action="repair" data-id="${b.id}">Réparer</button>`).join(' ')}</div>`);
+  }
+  return out.join('');
+}
+
+// Panneau Personnages et ambitions (touche G).
+let peopleTab = 'people';
+function showPeople(tab = peopleTab) {
+  peopleTab = tab;
+  const GP = s.rules.greatPeople, p = me();
+  const tabs = `<div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="${tab === 'people'}" data-action="people-tab" data-tab="people">Grands personnages${PEO.greatPeopleOf(s, 0).length ? ` (${PEO.greatPeopleOf(s, 0).length})` : ''}</button>${PEO.ambitionsOn(s) ? `<button class="tab" role="tab" aria-selected="${tab === 'ambitions'}" data-action="people-tab" data-tab="ambitions">Ambitions secrètes</button>` : ''}</div>`;
+  let body = '';
+  if (tab === 'people' || !PEO.ambitionsOn(s)) {
+    const gain = PEO.gpGain(s, 0, p.lastYield || G.computeYields(s, 0));
+    const gauges = Object.entries(GP.kinds).map(([k, K]) => { const need = PEO.gpThreshold(s, 0, k), have = Math.floor((p.gp || {})[k] || 0);
+      return `<div class="gp-gauge" title="${esc(K.desc)}"><div class="row"><b>${K.icon} ${K.name}</b><span class="muted">${have} / ${need} · +${String(gain[k]).replace('.', ',')}/tour</span></div><div class="bar"><span style="width:${Math.min(100, Math.round((have / need) * 100))}%"></span></div><div class="muted small">${esc(K.desc)}</div></div>`; }).join('');
+    const wip = s.buildings.filter((b) => b.owner === 0 && b.turnsLeft > 0);
+    const list = PEO.greatPeopleOf(s, 0).map((g) => { const K = GP.kinds[g.kind];
+      const pick = g.kind === 'engineer' && wip.length > 1 ? `<select id="gp-target-${g.id}" aria-label="Chantier à faire avancer">${wip.map((b) => `<option value="${b.id}" ${b === PEO.engineerTarget(s, 0) ? 'selected' : ''}>${G.buildingDef(s, b.type).name} (${b.turnsLeft} t.)</option>`).join('')}</select>` : '';
+      return `<div class="gp-card"><div><b>${K.icon} ${esc(g.name)}</b><div class="muted">${K.name} · arrivé au tour ${g.turn}</div><div>${esc(PEO.describeUse(s, 0, g))}</div></div><div class="row">${pick}<button class="btn primary small" data-action="gp-use" data-id="${g.id}">Employer</button></div></div>`; }).join('');
+    body = `<p class="muted">Vos rendements remplissent quatre jauges. Une jauge pleine fait venir un grand personnage (+${GP.prestige} prestige) ; employez-le quand vous voulez. Chaque nouveau personnage du même type demande davantage de points.</p>
+      <div class="gp-gauges">${gauges}</div>
+      <div class="section-title" style="margin-top:14px"><span>À votre service</span><span>${PEO.greatPeopleOf(s, 0).length}</span></div>
+      ${list || '<div class="muted">Personne pour le moment.</div>'}
+      ${Object.values(p.gpCount || {}).some(Boolean) ? `<div class="muted small" style="margin-top:8px">Déjà accueillis : ${Object.entries(p.gpCount).filter(([, v]) => v).map(([k, v]) => `${v} ${GP.kinds[k].name.toLowerCase()}${v > 1 ? 's' : ''}`).join(', ')}.</div>` : ''}`;
+  } else {
+    const A = s.rules.ambitions;
+    const hand = (p.ambitions || []).map((a) => { const c = PEO.ambitionDef(s, a.id), [have, need] = PEO.ambitionProgress(s, 0, c);
+      const play = PEO.canPlayAmbition(s, 0, a.id);
+      return `<div class="amb-card ${a.active ? 'active' : ''}"><div class="row"><b>${esc(c.name)}</b><span class="chip yield">+${PEO.ambitionPrestige(s, c)} prestige</span></div><div>${esc(c.desc)}</div>
+        <div class="bar"><span style="width:${Math.min(100, Math.round((have / need) * 100))}%"></span></div><div class="muted small">${Math.min(have, need)} / ${need}${a.active ? ' · jouée : elle rapporte dès qu\'elle est remplie' : ' · en main : ne rapporte rien tant qu\'elle n\'est pas jouée'}</div>
+        <div class="row">${a.active ? `<button class="btn small" data-action="amb-withdraw" data-amb="${a.id}">Retirer</button>` : `<button class="btn primary small" data-action="amb-play" data-amb="${a.id}" ${play.ok ? '' : 'disabled'} title="${esc(play.reason || '')}">Jouer</button>`}
+        <button class="btn small ghost" data-action="amb-discard" data-amb="${a.id}" ${PEO.discardReadyIn(s, 0) > 0 ? `disabled title="Prochaine défausse dans ${PEO.discardReadyIn(s, 0)} tour(s)"` : 'title="Défausser et piocher une autre carte"'}>Défausser</button></div></div>`; }).join('');
+    const doneList = (p.ambitionsDone || []).map((id) => PEO.ambitionDef(s, id).name);
+    body = `<p class="muted">Vos ambitions sont secrètes et <b>facultatives</b> : gardez en main celles qui ne vous intéressent pas, sans pénalité. Jouez-en jusqu'à ${A.maxActive} à la fois ; une carte jouée rapporte son prestige dès qu'elle est remplie, puis vous en piochez une nouvelle. Une défausse tous les ${A.discardCooldown} tours.</p>
+      <div class="amb-grid">${hand || '<div class="muted">Plus aucune carte à piocher.</div>'}</div>
+      ${doneList.length ? `<div class="muted small" style="margin-top:8px">Accomplies : ${doneList.map(esc).join(', ')}.</div>` : ''}`;
+  }
+  openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Personnages et ambitions"><header><div><h2>Personnages et ambitions</h2></div><button class="btn" data-action="close">Fermer</button></header>${tabs}<div class="people-body">${body}</div></div>`);
 }
 
 function tierHint(c) {
@@ -748,7 +830,8 @@ function setMode(next) {
   renderBuildbar(); renderHighlights();
 }
 
-function refreshWorld() { renderer.refresh(); renderAll(); }
+// Terrain modifié (aménagement, incendie) : on reconstruit la scène pour replacer arbres et décor.
+function refreshWorld() { if (s.terrainDirty) { delete s.terrainDirty; renderer.setState(s, 0); } else renderer.refresh(); renderAll(); }
 
 function handleTileClick(i, shift) {
   if (s.winner) return;
@@ -985,7 +1068,12 @@ function showEncyclopedia(tab = 'buildings') {
       <div class="enc-item"><b>Normes communes</b><div class="muted">À chaque Congrès, une norme est proposée. Elle entre en vigueur dès 2 signataires, et l'on peut y adhérer à un Congrès suivant : ${R.standards.map((d) => `${d.name} (${d.desc.toLowerCase()})`).join(' ; ')}</div></div>
       <div class="enc-item"><b>Marché mondial</b><div class="muted">Les cours sont communs à tous les joueurs : chaque vente fait baisser le cours, chaque achat le fait monter, et il revient peu à peu vers un niveau qui dépend de la rareté (nombre de producteurs). Avec une Halle marchande, on vend à ${Math.round(R.market.baseRate * 100)} % du cours et on achète avec une marge de ${Math.round((R.economy.buySpread - 1) * 100)} %, si un autre joueur produit la ressource.</div></div>
       <div class="enc-item"><b>Bulles et monopoles</b><div class="muted">De temps en temps, une ressource devient à la mode : son cours s'envole pendant quelques tours, puis la bulle éclate. Le seul producteur d'une ressource rare détient un monopole : il la vend ${Math.round(R.economy.monopolyBonus * 100)} % plus cher, les autres la paient plus cher, et il touche une part de leurs achats.</div></div>
-      <div class="enc-item"><b>Ligue marchande</b><div class="muted">Une seule par partie (${G.techDef(s, R.league.tech).name}, ${G.fmtBundle(s, R.league.foundCost)}). Cotisation de ${R.league.dues} Or par tour. Les routes entre membres rapportent +${R.league.routeGold} Or et +${R.league.routePrestige} prestige, et les ventes à la Halle sont payées ${Math.round(R.league.sellBonus * 100)} % de plus. Un conflit ouvert entre membres (relation sous ${R.league.excludeBelow}), une cotisation impayée ou un contrat non honoré vaut l'exclusion.</div></div>`;
+      <div class="enc-item"><b>Ligue marchande</b><div class="muted">Une seule par partie (${G.techDef(s, R.league.tech).name}, ${G.fmtBundle(s, R.league.foundCost)}). Cotisation de ${R.league.dues} Or par tour. Les routes entre membres rapportent +${R.league.routeGold} Or et +${R.league.routePrestige} prestige, et les ventes à la Halle sont payées ${Math.round(R.league.sellBonus * 100)} % de plus. Un conflit ouvert entre membres (relation sous ${R.league.excludeBelow}), une cotisation impayée ou un contrat non honoré vaut l'exclusion.</div></div>
+      <div class="enc-item"><b>Grands personnages</b><div class="muted">Vos rendements remplissent quatre jauges (touche G). Une jauge pleine fait venir un grand personnage, que l'on emploie quand on veut : ${Object.values(R.greatPeople.kinds).map((k) => `${k.name} — ${k.desc}`).join(' ')}</div></div>
+      <div class="enc-item"><b>Ambitions secrètes</b><div class="muted">Option de partie. Chacun reçoit ${R.ambitions.hand} cartes d'objectif cachées, toutes facultatives. On en joue au plus ${R.ambitions.maxActive} à la fois ; seule une carte jouée rapporte son prestige, puis on en pioche une autre. Une défausse tous les ${R.ambitions.discardCooldown} tours. Avec les ambitions, l'objectif de prestige est un peu plus haut. Cartes : ${R.ambitions.cards.map((c) => c.name).join(', ')}.</div></div>
+      <div class="enc-item"><b>Vocations des villes</b><div class="muted">À ${R.vocations.minPop} habitants, une ville choisit une vocation (changement : ${G.fmtBundle(s, R.vocations.changeCost)}, au plus tous les ${R.vocations.cooldown} tours) : ${Object.values(R.vocations.list).map((v) => `${v.name} (${v.desc})`).join(' · ')}</div></div>
+      <div class="enc-item"><b>Catastrophes</b><div class="muted">Option de partie, à partir du tour ${R.disasters.grace}. ${Object.values(R.disasters.list).map((d) => `${d.name} : ${d.desc}`).join(' ')} Un bâtiment endommagé se répare pour ${G.fmtBundle(s, R.disasters.repairCost)}.</div></div>
+      <div class="enc-item"><b>Aménagement du territoire</b><div class="muted">Sélectionnez une case libre de votre territoire : ${Object.values(R.terraform.actions).map((a) => `${a.name} (${G.fmtBundle(s, a.cost)}) — ${a.desc}`).join(' · ')}</div></div>`;
   }
   openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Encyclopédie"><header><h2>Encyclopédie</h2><button class="btn" data-action="close">Fermer</button></header>
     <div class="tabs" role="tablist">${Object.entries(tabs).map(([k, v]) => `<button class="tab" role="tab" aria-selected="${k === tab}" data-action="enc-tab" data-tab="${k}">${v}</button>`).join('')}</div>
@@ -1356,6 +1444,15 @@ function onAction(e) {
       refreshWorld(); save(); break;
     }
     case 'policies': showPolicies(); break;
+    case 'people': showPeople(); break;
+    case 'people-tab': showPeople(b.dataset.tab); break;
+    case 'gp-use': { const sel2 = $(`#gp-target-${id}`); const r = PEO.useGreatPerson(s, 0, id, { buildingId: sel2 ? Number(sel2.value) : null }); toast(r.ok ? r.what : r.reason, r.ok ? 'good' : 'bad'); showPeople(); refreshWorld(); save(); break; }
+    case 'amb-play': { const r = PEO.playAmbition(s, 0, b.dataset.amb); if (!r.ok) toast(r.reason, 'bad'); showPeople(); renderAll(); save(); break; }
+    case 'amb-withdraw': PEO.withdrawAmbition(s, 0, b.dataset.amb); showPeople(); save(); break;
+    case 'amb-discard': { const r = PEO.discardAmbition(s, 0, b.dataset.amb); toast(r.ok ? (r.drawn ? `Nouvelle carte : « ${r.drawn.name} ».` : 'Carte défaussée.') : r.reason, r.ok ? 'good' : 'bad'); showPeople(); save(); break; }
+    case 'vocation': { const c = s.cities.find((x) => x.id === id); const r = LAND.setVocation(s, c, b.dataset.voc); if (!r.ok) toast(r.reason, 'bad'); renderAll(); save(); break; }
+    case 'repair': { const r = LAND.repair(s, 0, id); toast(r.ok ? 'Bâtiment réparé.' : r.reason, r.ok ? 'good' : 'bad'); refreshWorld(); save(); break; }
+    case 'terraform': { const r = LAND.terraform(s, 0, b.dataset.act, Number(b.dataset.x), Number(b.dataset.y)); toast(r.ok ? `${s.rules.terraform.actions[b.dataset.act].name} : c'est fait.` : r.reason, r.ok ? 'good' : 'bad'); refreshWorld(); save(); break; }
     case 'ability': { const r = W.useAbility(s, 0); toast(r.ok ? `${data.profilesById[me().profile].ability.name} !` : r.reason, r.ok ? 'good' : 'bad'); refreshWorld(); save(); break; }
     case 'contract-accept': W.acceptContract(s, id); renderAll(); save(); break;
     case 'contract-decline': W.declineContract(s, id); renderAll(); save(); break;
@@ -1513,6 +1610,7 @@ function bindInput() {
     else if (e.key === 't' || e.key === 'T') showTech();
     else if (e.key === 'p' || e.key === 'P') showPolicies();
     else if (e.key === 'c' || e.key === 'C') showCulture();
+    else if (e.key === 'g' || e.key === 'G') showPeople();
     else if (e.key === 'd' || e.key === 'D') showDiplo();
     else if (e.key === 'm' || e.key === 'M') showMenu();
     else if (e.key === 'e' || e.key === 'E') showEncyclopedia();

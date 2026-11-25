@@ -6,6 +6,8 @@ import { aiMarket, aiLeague } from './economy.js';
 import { aiTreaties } from './summits.js';
 import { aiArt, aiHeritage } from './culture.js';
 import { cityPollution, healthCap } from './society.js';
+import { aiGreatPeople, aiAmbitions } from './people.js';
+import { aiVocations, aiRepair, aiPreventionNeed } from './land.js';
 
 // Paramètres de l'IA : web/data/ai.json, éventuellement surchargés par joueur (s.aiOverrides[pid]) pour l'entraînement.
 function merge(a, b) {
@@ -43,6 +45,10 @@ function aiTurn(s, pid) {
   aiTreaties(s, pid);
   aiArt(s, pid);
   aiHeritage(s, pid);
+  aiGreatPeople(s, pid);
+  aiAmbitions(s, pid);
+  aiVocations(s, pid, w);
+  aiRepair(s, pid);
   diplomacy(s, pid);
 }
 
@@ -204,6 +210,8 @@ function buildSomething(s, pid, w, B) {
     if (def.id === 'park') score += G.citiesOf(s, pid).filter((c) => cityPollution(s, c).net > 0).length > count ? 10 : -20;
     if ((def.id === 'aqueduct' || def.id === 'hospital') && G.citiesOf(s, pid).some((c) => healthCap(s, c).needs === def.id && c.pop >= healthCap(s, c).cap - 1)) score += 16;
     if (missingFor.has(def.id) && count < 2) score += B.pathMaterials ?? 15;
+    // Prévention des catastrophes : digue pour les villes riveraines, grenier dans les régions sèches.
+    if (def.id === 'levee' || def.id === 'granary') score += aiPreventionNeed(s, pid, def.id) > 0 ? 12 : -20;
     if (!def.wonder) score -= count * B.diversity; // diversité : on évite d'empiler toujours le même bâtiment
     return { def, score: score + s.rng.next() * 2 };
   }).sort((a, b) => b.score - a.score);

@@ -237,6 +237,30 @@ Module `web/src/core/society.js`, réglages `seasons`, `pollution`, `migration` 
 - [x] Interface : onglet « Cadre de vie » (Parc, Aqueduc, Hôpital), pollution, santé et attractivité dans le panneau de ville, encyclopédie. Modèles 3D du parc, de l'aqueduc et de l'hôpital.
 - [x] IA : parcs dans les villes polluées, aqueduc et hôpital avant que ses villes ne plafonnent.
 
+## Phase 13 — Personnages, ambitions et territoire ✅
+
+Modules `web/src/core/people.js` (grands personnages, ambitions) et `web/src/core/land.js` (vocations, catastrophes, aménagement). Réglages `greatPeople`, `ambitions`, `vocations`, `disasters` et `terraform` dans `rules.json`.
+
+- [x] **Grands personnages** : quatre jauges alimentées par les rendements.
+  - Savant (Science), Artiste (Culture), Marchand (Or et routes ouvertes), Ingénieur (Bois et Pierre).
+  - Seuil : 150 points, +100 % par personnage déjà accueilli du même type.
+  - On les emploie quand on veut : avance de 25 % sur la recherche, œuvre d'art offerte, +110 Or et +4 prestige, chantier avancé de 2 tours.
+  - Le Diplomate attire plus souvent marchands (+60 %) et artistes (+40 %).
+- [x] **Ambitions secrètes** : option de partie, cochée par défaut, et **facultatives**.
+  - 16 cartes, 3 en main, 2 jouées au plus ; seule une carte jouée rapporte son prestige (8 à 14).
+  - Retrait libre, une défausse tous les 8 tours, une nouvelle carte à chaque réussite.
+  - Avec l'option, l'objectif de prestige passe de 290 à 335.
+- [x] **Vocations des villes** : à 5 habitants, sept vocations, chacune avec un bonus et une contrepartie (changement : 60 Or, tous les 10 tours au plus).
+- [x] **Catastrophes** : option de partie, à partir du tour 8, une au plus par ville et par tour.
+  - Crue (printemps, rivières) : nouvelle Digue.
+  - Sécheresse (été, sud aride et plaines fertiles) : nouveau Grenier.
+  - Incendie (été, villes boisées) : l'Aqueduc protège ; les forêts brûlées deviennent des plaines.
+  - Bâtiments endommagés 2 à 3 tours, réparables contre 15 Or. Alerte au début de la saison à risque.
+- [x] **Aménagement** : défricher (+20 Bois), reboiser, aplanir une colline (+20 Pierre, Urbanisme), sur une case libre de son territoire.
+- [x] IA : emploie ses personnages, joue ses ambitions les plus avancées, choisit des vocations selon sa voie, construit digues et greniers où il faut, répare.
+- [x] Interface : bouton Personnages (touche G) avec jauges, personnages et cartes ; vocations, risques et réparations dans le panneau de ville ; aménagement dans le panneau de case ; options de départ ; encyclopédie. Modèles 3D de la digue et du grenier ; les bâtiments endommagés s'affichent en chantier.
+- Équilibrage mesuré sur 60 parties : durée moyenne de 36,1 tours contre 36,9 sans ces systèmes, victoires plus variées. Un réglage plus fin reste à faire avec l'équilibrage global.
+
 ## Tailles de carte revues ✅
 
 Mesuré : l'IA fonde environ 4 villes par partie quelle que soit la taille. C'est la place restante en fin de partie qui change, donc la marge du joueur.

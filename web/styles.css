@@ -534,3 +534,27 @@ html.compact #selection .kv { font-size: 13.5px; }
 .marker-item b { display: flex; align-items: center; gap: 6px; }
 .marker-item .pin { width: 10px; height: 10px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 0 0 3px rgba(0,0,0,.12); }
 .tile-badge .plan { color: #3e8ed0; font-weight: 700; text-transform: lowercase; }
+
+/* Phase 13 : grands personnages, ambitions, vocations */
+.start-options { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 10px 0 4px; font-size: 13.5px; }
+.people-body { margin-top: 10px; font-size: 13.5px; }
+.people-body .small, .muted.small { font-size: 12px; }
+.people-body .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.people-body .bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin: 6px 0 3px; }
+.people-body .bar > span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.gp-gauges { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 10px; }
+.gp-gauge { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--surface); }
+.gp-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 8px; background: var(--surface); }
+.gp-card select { font: inherit; font-size: 12.5px; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
+.amb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-top: 10px; }
+.amb-card { display: flex; flex-direction: column; gap: 4px; border: 1px dashed var(--line); border-radius: 12px; padding: 10px 12px; background: var(--surface); }
+.amb-card.active { border-style: solid; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.amb-card .row:last-child { justify-content: flex-start; margin-top: 4px; }
+.voc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-top: 6px; }
+.voc { display: flex; flex-direction: column; gap: 2px; text-align: left; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 6px 8px; font: inherit; font-size: 12px; color: inherit; cursor: pointer; }
+.voc b { font-size: 12.5px; }
+.voc span { color: var(--muted); }
+.voc.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.voc[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+.reason .good { color: var(--good); }
+.reason .bad, .reason.bad { color: var(--bad); }
