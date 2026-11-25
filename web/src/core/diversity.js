@@ -2,6 +2,7 @@
 // Tout est piloté par les données (web/data/rules.json, events.json, policies.json).
 // Ce module est importé par game.js : il n'utilise les fonctions du moteur qu'à l'exécution.
 import * as G from './game.js';
+import { governmentSlots } from './ages.js';
 
 const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
@@ -231,7 +232,7 @@ export function policySlots(s, pid) {
   const n = s.players[pid].techs.length;
   let slots = 0;
   for (const t of s.data.policies?.slots || []) if (n >= t.techs) slots = Math.max(slots, t.slots);
-  return slots;
+  return slots + governmentSlots(s, pid);
 }
 export const policyUnlocked = (s, pid, def) => !def.tech || s.players[pid].techs.includes(def.tech);
 export const activePolicies = (s, pid) => (s.players[pid].policies || []).filter(Boolean).map((id) => policyDef(s, id)).filter(Boolean);

@@ -8,6 +8,8 @@ import * as CUL from './core/culture.js';
 import * as SOC from './core/society.js';
 import * as PEO from './core/people.js';
 import * as LAND from './core/land.js';
+import * as AGE from './core/ages.js';
+import * as IND from './core/independents.js';
 import { playAITurns } from './core/ai.js';
 import { Renderer } from './render/renderer.js';
 import { avatarSVG } from './ui/avatar.js';
@@ -21,10 +23,10 @@ const BRANCHES = { economy: 'Économie', science: 'Science', culture: 'Culture',
 const BUILD_TABS = {
   prod: { label: 'Production', ids: ['farm', 'lumber', 'quarry', 'market', 'watermill', 'harbor', 'district', 'road'] },
   industry: { label: 'Industrie', ids: ['sawmill', 'manufactory', 'forge', 'outpost', 'markethall'] },
-  know: { label: 'Savoir & culture', ids: ['library', 'lab', 'theatre', 'monument'] },
+  know: { label: 'Savoir & culture', ids: ['library', 'lab', 'theatre', 'monument', 'museum'] },
   quarter: { label: 'Quartiers 2×2', ids: ['campus', 'artsquarter', 'merchantquarter'] },
   life: { label: 'Cadre de vie', ids: ['park', 'aqueduct', 'hospital', 'granary', 'levee'] },
-  wonder: { label: 'Merveilles', ids: ['lighthouse', 'grandlibrary', 'observatory', 'amphitheatre', 'exchange', 'nations'] },
+  wonder: { label: 'Merveilles', ids: ['lighthouse', 'grandlibrary', 'observatory', 'amphitheatre', 'exchange', 'nations', 'granddome', 'crystalpalace', 'radiotower'] },
 };
 
 // Repères de carte : drapeaux de couleur et bâtiments prévus (fantômes), pour planifier quartiers et adjacences.
@@ -296,10 +298,16 @@ function renderTop() {
   items.push(`<span class="res" title="Prestige — objectif de victoire"><i style="background:var(--accent)"></i><b>${p.prestige}<span class="pt-target"> / ${s.rules.prestigeTarget}</span></b><small class="lbl-long">prestige</small><small class="lbl-short">★</small></span>`);
   $('#resources').innerHTML = items.join('');
   const season = SOC.seasonOf(s);
-  $('#turn').textContent = `Tour ${s.turn} / ${s.rules.turnLimit}${season ? ` · ${season.icon} ${season.name}` : ''}`;
-  $('#turn').title = season ? `${season.name} : ${Object.entries(season.yieldPct).map(([k, v]) => `${v > 0 ? '+' : ''}${Math.round(v * 100)} % ${data.resources[k].name}`).join(', ')}${season.northMove ? ', déplacements plus lents au nord' : ''}. Encore ${SOC.seasonTurnsLeft(s)} tour(s).` : '';
+  $('#turn').textContent = `Tour ${s.turn} / ${s.rules.turnLimit}${season ? ` · ${season.icon} ${season.name}` : ''}${s.rules.eras ? ` · ${AGE.eraName(s, 0)}` : ''}`;
+  $('#turn').title = season ? `${season.name} : ${Object.entries(season.yieldPct).map(([k, v]) => `${v > 0 ? '+' : ''}${Math.round(v * 100)} % ${data.resources[k].name}`).join(', ')}${season.northMove ? ', déplacements plus lents au nord' : ''}. Encore ${SOC.seasonTurnsLeft(s)} tour(s).${eraTip()}` : '';
   const short = document.querySelector('[data-action="end-turn"] .lbl-short');
   if (short) short.textContent = `Fin du tour ${s.turn}/${s.rules.turnLimit}`;
+}
+
+function eraTip() {
+  if (!s.rules.eras) return '';
+  const e = AGE.eraOf(s, 0), next = AGE.eraDef(s, e + 1);
+  return `\nÈre : ${AGE.eraDef(s, e).name} (${me().techs.length} technologies).${next ? ` ${next.name} à ${next.techs} technologies.` : ''}`;
 }
 
 // Seuil de vente automatique choisi par ressource (gardé même quand la vente auto est coupée).
@@ -510,6 +518,9 @@ function renderSelectionBody() {
         ${u.type === 'settler' ? `<button class="btn primary small" data-action="found" ${found.ok ? '' : 'disabled'}>Fonder une ville${tap() === 'cliquez' ? ' (F)' : ''}</button>` : ''}
         ${u.type === 'engineer' ? (() => { const a = G.canEngineerRoad(s, u), b2 = G.canClearForest(s, u);
           return `<button class="btn small" data-action="eng-road" ${a.ok ? '' : 'disabled'} title="${esc(a.reason || '')}">Route ici (1 Bois)</button><button class="btn small" data-action="eng-clear" ${b2.ok ? '' : 'disabled'} title="${esc(b2.reason || '')}">Défricher (+${s.rules.engineer.clearWood} Bois)</button>`; })() : ''}
+        ${u.type === 'archaeologist' ? (() => { const x = AGE.canExcavate(s, u); return `<button class="btn primary small" data-action="excavate" ${x.ok ? '' : 'disabled'} title="${esc(x.reason || 'Exhumer un artefact')}">Fouiller le site</button>`; })() : ''}
+        ${u.type === 'agent' ? (() => { const tg = IND.spyTargets(s, u); if (!tg) return ''; const risk = Math.round(IND.detectChance(s, u, tg.city) * 100);
+          return `<button class="btn small" data-action="spy" data-mission="tech" ${tg.techs.length ? '' : 'disabled'} title="Copie la technologie la plus simple que ${esc(s.players[tg.city.owner].name)} connaît et que vous pouvez apprendre. Risque d'être repéré : ${risk} %.">Copier une technologie</button><button class="btn small" data-action="spy" data-mission="delay" ${tg.sites.length ? '' : 'disabled'} title="Retarde de ${s.rules.espionage.delayTurns} tours un chantier (merveille en priorité). Risque d'être repéré : ${risk} %.">Retarder un chantier</button>`; })() : ''}
         ${pendingMove && pendingMove.uid === u.id ? '<button class="btn primary small" data-action="confirm-move">Confirmer le déplacement</button><button class="btn small" data-action="cancel-move">Annuler</button>' : ''}
         ${u.target ? '<button class="btn small" data-action="cancel-order">Annuler l\'ordre</button>' : ''}
         ${!u.target && !u.sleep && u.skipTurn !== s.turn ? '<button class="btn small" data-action="unit-skip" title="Ne rien faire ce tour-ci">Passer ce tour</button>' : ''}
@@ -517,7 +528,7 @@ function renderSelectionBody() {
         <button class="btn small ghost" data-action="next-unit">Unité suivante${tap() === 'cliquez' ? ' (Espace)' : ''}</button>
       </div>
       ${found && !found.ok ? `<div class="reason">${found.reason}</div>` : ''}
-      <div class="reason">${Tap()} une case pour vous y rendre${{ caravan: ' — visez une ville étrangère pour ouvrir une route commerciale', ship: ' — naviguez jusqu\'à une ville étrangère au bord de l\'eau pour une route maritime', emissary: ' — entrez dans une ville étrangère pour y ouvrir une ambassade', airship: ' — il survole montagnes et océans', engineer: ' — puis tracez une route ou défrichez' }[u.type] || ''}.</div>` : ''}`;
+      <div class="reason">${Tap()} une case pour vous y rendre${{ caravan: ' — visez une ville étrangère pour ouvrir une route commerciale', ship: ' — naviguez jusqu\'à une ville étrangère au bord de l\'eau pour une route maritime', emissary: ' — entrez dans une ville étrangère pour y ouvrir une ambassade', airship: ' — il survole montagnes et océans', engineer: ' — puis tracez une route ou défrichez', archaeologist: ' — rejoignez un site antique pour le fouiller', agent: ' — entrez dans une ville étrangère pour y mener une mission (risque d\'incident diplomatique)' }[u.type] || ''}.</div>` : ''}`;
     return;
   }
   if (sel.kind === 'city') {
@@ -566,7 +577,22 @@ function renderSelectionBody() {
       ${(() => { const adj = G.adjacencyBonus(s, b.owner, b.type, b.x, b.y); return Object.keys(adj).length && Object.values(adj).some((v) => v) ? `<div class="chips" style="margin-top:4px"><span class="chip">Adjacence :</span>${chips(Object.fromEntries(Object.entries(adj).filter(([, v]) => v)), 'yield')}</div>` : ''; })()}
       ${LAND.isDamaged(b) ? `<div class="reason bad">Endommagé par une catastrophe : ${b.damaged} tour(s) sans rendement.${b.owner === 0 ? ` <button class="btn small" data-action="repair" data-id="${b.id}">Réparer (${G.fmtBundle(s, s.rules.disasters.repairCost)})</button>` : ''}</div>` : ''}
       <p class="muted" style="font-size:12.5px;margin:6px 0 0">${bdef.desc}</p>` : ''}
+    ${t.site ? `<div class="reason">Site antique : un archéologue (Renaissance) peut y exhumer un artefact.</div>` : ''}
+    ${postHtml(IND.postAt(s, t.x, t.y))}
     ${terraformHtml(t)}`;
+}
+
+// Comptoir indépendant : nature, protecteur, faveur de chacun, cadeau.
+function postHtml(post) {
+  if (!post) return '';
+  const K = IND.postKind(s, post), I = s.rules.independents;
+  const known = s.players.filter((p) => p.id === 0 || IND.favorOf(post, p.id) > 0).sort((a, b) => IND.favorOf(post, b.id) - IND.favorOf(post, a.id));
+  const gift = IND.canGift(s, 0, post.id);
+  return `<div class="section-title" style="margin-top:10px"><span>${K.icon} ${esc(post.name)}</span><span>${K.name}</span></div>
+    <div class="reason">${K.desc} Protecteur : <b>${post.patron === null ? 'aucun' : esc(s.players[post.patron].name)}</b> (il faut ${I.patronMin} de faveur et la plus haute). +${I.prestige} prestige pour le protecteur.</div>
+    <div class="city-blds">${known.map((p) => `<div class="mem"><span>${esc(p.name)}</span><span class="muted">${Math.floor(IND.favorOf(post, p.id))} faveur</span></div>`).join('')}</div>
+    <div class="actions"><button class="btn small" data-action="post-gift" data-id="${post.id}" ${gift.ok ? '' : 'disabled'} title="${esc(gift.reason || '')}">Offrir ${G.fmtBundle(s, I.gift.cost)} (+${I.gift.favor} faveur)</button></div>
+    <div class="reason">Gagnez aussi de la faveur en y envoyant une caravane (+${I.caravanFavor}) ou un émissaire (+${I.emissaryFavor}), et par la culture de vos villes proches.</div>`;
 }
 
 // Aménagement d'une case de votre territoire : défricher, reboiser, aplanir.
@@ -704,19 +730,21 @@ function renderBuildbar() {
       return `<button class="build-item" data-action="mode-road" aria-pressed="${pressed}" title="Prolonge votre réseau ; relier vos villes à la capitale rapporte +${s.rules.road.connectedCityGold} Or par ville."><b>Route (R)</b><div class="chips">${chips(s.rules.road.cost)}</div><div class="line"><span class="chip yield">Déplacement ${s.rules.road.moveCost}</span></div></button>`;
     }
     const def = G.buildingDef(s, id);
-    const locked = def.tech && !G.hasTech(s, 0, def.tech);
+    const eraLock = def.era && s.rules.eras && AGE.eraOf(s, 0) < def.era ? AGE.eraDef(s, def.era).name : null;
+    const locked = (def.tech && !G.hasTech(s, 0, def.tech)) || !!eraLock;
     const taken = def.wonder && s.wonders[id] !== undefined;
     const adjTxt = describeAdjacency(def);
     const sites = def.wonder && !taken ? G.wonderSites(s, id) : [];
     const mine = sites.find((r) => r.pid === 0), rivals = sites.filter((r) => r.pid !== 0);
     const raceTxt = rivals.length ? `\nEn chantier chez ${rivals.map((r) => `${s.players[r.pid].name} (fin dans ${r.turnsLeft} tour${r.turnsLeft > 1 ? 's' : ''})`).join(', ')}. Seul le premier à la terminer la garde ; les autres récupèrent 50 % du coût.` : '';
     const raceChip = rivals.length ? `<div class="chip race" style="margin-top:3px">${esc(s.players[rivals[0].pid].name)} · ${rivals[0].turnsLeft} t.${rivals.length > 1 ? ` +${rivals.length - 1}` : ''}${mine ? ` · vous ${mine.turnsLeft} t.` : ''}</div>` : '';
-    const reason = (locked ? `Nécessite ${G.techDef(s, def.tech).name}` : taken ? `Construite par ${s.players[s.wonders[id]].name}` : def.desc) + raceTxt + (adjTxt ? `\nAdjacence : ${adjTxt}` : '');
+    const lockTxt = eraLock && !(def.tech && !G.hasTech(s, 0, def.tech)) ? `Ère ${eraLock}` : def.tech ? G.techDef(s, def.tech).name : '';
+    const reason = (locked ? `Nécessite ${def.tech && !G.hasTech(s, 0, def.tech) ? G.techDef(s, def.tech).name : `l'ère ${eraLock}`}` : taken ? `Construite par ${s.players[s.wonders[id]].name}` : def.desc) + raceTxt + (adjTxt ? `\nAdjacence : ${adjTxt}` : '');
     const pressed = mode?.type === 'build' && mode.id === id;
     return `<button class="build-item" data-action="mode-build" data-id="${id}" aria-pressed="${pressed}" aria-disabled="${locked || taken}" title="${esc(reason)}">
       <b>${def.name}${def.wonder ? '' : ''}</b><div class="chips">${costChips(def)}</div>
       <div class="line"><span class="chips">${def.process ? `<span class="chip yield">${Object.values(def.process.in).reduce((a, v) => a + v, 0)}→${chips(def.process.out, 'yield')}</span>` : chips(def.yields, 'yield')}${def.luxuryOnly ? '<span class="chip yield">+1 ressource rare</span>' : ''}${def.prestige ? `<span class="chip yield">+${def.prestige} prest.</span>` : ''}</span></div>
-      ${locked ? `<div class="chip" style="margin-top:3px">${G.techDef(s, def.tech).name}</div>` : taken ? '<div class="chip" style="margin-top:3px">Indisponible</div>' : raceChip}
+      ${locked ? `<div class="chip" style="margin-top:3px">${lockTxt}</div>` : taken ? '<div class="chip" style="margin-top:3px">Indisponible</div>' : raceChip}
     </button>`;
   }).join('');
   const ab = prof.ability, wait = W.abilityReadyIn(s, 0), abOk = W.canUseAbility(s, 0);
@@ -913,6 +941,9 @@ function showTileTip(i, x, y) {
   if (t.river && !b && !c) lines.push(`<span class="muted">Rivière : +${s.rules.river.buildingYield.gold} Or au bâtiment construit ici, Moulin à eau possible</span>`);
   if (t.natural) { const nd = D.naturalDef(s, t.natural); lines.push(`<span class="chip yield">Merveille naturelle : ${nd.name}</span>`, `<span class="muted">${chipsText(nd.yields)} pour le territoire qui l'englobe · +${s.rules.naturalWonders.ownedPrestige} prestige · ${chipsText(s.rules.naturalWonders.adjacency)} aux bâtiments voisins</span>`); }
   if (t.ruin) lines.push('<span class="chip yield">Ruines antiques : envoyez une unité les fouiller</span>');
+  if (t.site && !b) lines.push('<span class="chip yield">Site antique : à fouiller par un archéologue</span>');
+  const post = IND.postAt(s, t.x, t.y);
+  if (post) lines.push(`<span class="chip yield">${IND.postKind(s, post).icon} ${esc(post.name)}</span>`, `<span class="muted">${IND.postKind(s, post).name} · protecteur : ${post.patron === null ? 'aucun' : esc(s.players[post.patron].name)}</span>`);
   const mk = markerAt(i);
   if (mk && !b) {
     const adj = mk.plan ? Object.fromEntries(Object.entries(G.adjacencyBonus(s, 0, mk.plan, mk.i % s.map.width, Math.floor(mk.i / s.map.width), plannedMap())).filter(([, v]) => v)) : {};
@@ -1073,7 +1104,12 @@ function showEncyclopedia(tab = 'buildings') {
       <div class="enc-item"><b>Ambitions secrètes</b><div class="muted">Option de partie. Chacun reçoit ${R.ambitions.hand} cartes d'objectif cachées, toutes facultatives. On en joue au plus ${R.ambitions.maxActive} à la fois ; seule une carte jouée rapporte son prestige, puis on en pioche une autre. Une défausse tous les ${R.ambitions.discardCooldown} tours. Avec les ambitions, l'objectif de prestige est un peu plus haut. Cartes : ${R.ambitions.cards.map((c) => c.name).join(', ')}.</div></div>
       <div class="enc-item"><b>Vocations des villes</b><div class="muted">À ${R.vocations.minPop} habitants, une ville choisit une vocation (changement : ${G.fmtBundle(s, R.vocations.changeCost)}, au plus tous les ${R.vocations.cooldown} tours) : ${Object.values(R.vocations.list).map((v) => `${v.name} (${v.desc})`).join(' · ')}</div></div>
       <div class="enc-item"><b>Catastrophes</b><div class="muted">Option de partie, à partir du tour ${R.disasters.grace}. ${Object.values(R.disasters.list).map((d) => `${d.name} : ${d.desc}`).join(' ')} Un bâtiment endommagé se répare pour ${G.fmtBundle(s, R.disasters.repairCost)}.</div></div>
-      <div class="enc-item"><b>Aménagement du territoire</b><div class="muted">Sélectionnez une case libre de votre territoire : ${Object.values(R.terraform.actions).map((a) => `${a.name} (${G.fmtBundle(s, a.cost)}) — ${a.desc}`).join(' · ')}</div></div>`;
+      <div class="enc-item"><b>Aménagement du territoire</b><div class="muted">Sélectionnez une case libre de votre territoire : ${Object.values(R.terraform.actions).map((a) => `${a.name} (${G.fmtBundle(s, a.cost)}) — ${a.desc}`).join(' · ')}</div></div>
+      <div class="enc-item"><b>Ères</b><div class="muted">${R.eras.list.map((e) => `${e.name} (${e.techs} technologies) : ${e.desc}`).join(' ')} Chaque nouvelle ère rapporte ${R.eras.prestige} prestige et ouvre gouvernements, merveille d'ère, Musée (Renaissance), Archéologue (Renaissance) et Agent (ère industrielle).</div></div>
+      <div class="enc-item"><b>Gouvernements</b><div class="muted">Dans la fenêtre Politiques. Changement : ${G.fmtBundle(s, R.governments.changeCost)}, au plus tous les ${R.governments.cooldown} tours. ${R.governments.list.map((g) => `${g.name} (${R.eras.list[g.era].name}, doctrine ${g.doctrine}) : ${g.desc}`).join(' · ')}</div></div>
+      <div class="enc-item"><b>Archéologie</b><div class="muted">Des sites antiques parsèment la carte. Un Archéologue qui en atteint un exhume un artefact (+${R.artworks.kinds.artifact.culture} Culture et +${R.artworks.kinds.artifact.tourism} tourisme par tour, +${R.archaeology.prestige} prestige), à condition d'avoir une place d'exposition libre (le Musée en offre ${R.artworks.slots.museum}). Fouiller chez un voisin non allié le froisse (${R.archaeology.foreignRelation} relation).</div></div>
+      <div class="enc-item"><b>Comptoirs indépendants</b><div class="muted">${Object.values(R.independents.kinds).map((k) => `${k.name} : ${k.desc}`).join(' ')} Faveur : cadeau (${G.fmtBundle(s, R.independents.gift.cost)} → +${R.independents.gift.favor}), caravane (+${R.independents.caravanFavor}), émissaire (+${R.independents.emissaryFavor}), culture des villes proches ; elle s'érode de ${R.independents.decay} par tour. Le protecteur doit avoir au moins ${R.independents.patronMin} de faveur et la plus haute ; il gagne +${R.independents.prestige} prestige. On ne fonde pas de ville à ${R.independents.noCityRadius} cases ou moins.</div></div>
+      <div class="enc-item"><b>Espionnage industriel</b><div class="muted">Un Agent entré dans une ville étrangère copie une technologie (la plus simple que vous puissiez apprendre) ou retarde un chantier de ${R.espionage.delayTurns} tours. Risque d'être repéré : ${Math.round(R.espionage.detect * 100)} % (+${Math.round(R.espionage.chanceryDetect * 100)} % chez un joueur qui a une Chancellerie) ; repéré, c'est un incident diplomatique (${R.espionage.incident} relation) et, une fois sur deux, l'échec de la mission.</div></div>`;
   }
   openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Encyclopédie"><header><h2>Encyclopédie</h2><button class="btn" data-action="close">Fermer</button></header>
     <div class="tabs" role="tablist">${Object.entries(tabs).map(([k, v]) => `<button class="tab" role="tab" aria-selected="${k === tab}" data-action="enc-tab" data-tab="${k}">${v}</button>`).join('')}</div>
@@ -1110,7 +1146,7 @@ function showPolicies() {
   const swap = G.fmtBundle(s, data.policies.swapCost);
   if (policyPick === null || policyPick >= slots) policyPick = pol.slice(0, slots).findIndex((x) => !x);
   if (policyPick < 0) policyPick = 0;
-  const slotHtml = Array.from({ length: 3 }, (_, i) => {
+  const slotHtml = Array.from({ length: Math.max(3, slots) }, (_, i) => {
     if (i >= slots) {
       const t = (data.policies.slots || []).find((x) => x.slots > i);
       return `<div class="policy-slot locked"><span class="muted">Emplacement ${i + 1}</span><b>Verrouillé</b><span class="muted">${t ? `à ${t.techs} technologies` : ''}</span></div>`;
@@ -1129,9 +1165,21 @@ function showPolicies() {
   openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Politiques"><header><div><h2>Politiques</h2>
     <div class="muted" style="font-size:13px;margin-top:2px">${slots} emplacement(s)${next ? ` · le suivant s'ouvre à ${next.techs} technologies` : ''}. Remplir un emplacement libre est gratuit ; remplacer une politique coûte ${swap}.</div></div>
     <button class="btn" data-action="close">Fermer</button></header>
+    ${governmentHtml()}
     <div class="policy-slots">${slotHtml}</div>
     ${current ? `<div class="row" style="margin:6px 0 10px"><button class="btn small" data-action="policy-set" data-slot="${policyPick}" data-policy="">Libérer l'emplacement ${policyPick + 1}</button></div>` : ''}
     <div class="tech-grid">${list}</div></div>`);
+}
+
+// Gouvernement : un régime par ère, chacun avec sa doctrine (bonus, contrepartie, parfois un emplacement de plus).
+function governmentHtml() {
+  const Gv = s.rules.governments;
+  if (!Gv) return '';
+  const cur = AGE.governmentOf(s, 0);
+  return `<div class="section-title" style="margin-top:4px"><span>Gouvernement</span><span>${esc(cur.name)} · doctrine ${esc(cur.doctrine)}</span></div>
+    <div class="voc-grid gov-grid">${Gv.list.map((g) => { const chk = AGE.canSetGovernment(s, 0, g.id), on = cur.id === g.id;
+      return `<button class="voc ${on ? 'on' : ''}" data-action="government" data-gov="${g.id}" aria-pressed="${on}" ${chk.ok || on ? '' : 'aria-disabled="true"'} title="${esc(`${g.desc}${chk.ok || on ? '' : `\n${chk.reason}`}`)}"><b>${esc(g.name)}</b><span>${esc(AGE.eraDef(s, g.era).name)} · ${esc(g.doctrine)}</span><span>${esc(g.desc)}</span></button>`; }).join('')}</div>
+    <div class="reason">Changer de gouvernement coûte ${G.fmtBundle(s, Gv.changeCost)}, au plus tous les ${Gv.cooldown} tours.</div>`;
 }
 
 function treatyForm(q) {
@@ -1142,6 +1190,15 @@ function treatyForm(q) {
     <div class="treaty-clauses">${Object.entries(T.clauses).map(([k, c]) => `<label class="check small" title="${esc(c.desc)}"><input type="checkbox" name="clause-${q.id}" value="${k}" ${k === 'tariffs' ? 'checked' : ''}> ${c.name}</label>`).join('')}</div>
     <div class="row"><label class="field small">Durée <select id="treaty-dur-${q.id}">${T.durations.map((d) => `<option value="${d}">${d} tours</option>`).join('')}</select></label>
     <button class="btn small" data-action="treaty-propose" data-id="${q.id}" title="Relation requise : ${T.baseRelation} + ${T.perClause} par clause">Proposer</button></div></details>`;
+}
+
+function postsBox() {
+  const list = (s.posts || []).filter((post) => G.isExplored(s, 0, post.x, post.y));
+  if (!list.length) return '';
+  const I = s.rules.independents;
+  return `<div class="card civ"><h3>Comptoirs indépendants</h3><div class="muted" style="font-size:13px">On ne les conquiert pas : on les courtise (caravanes, émissaires, cadeaux, culture). Le plus apprécié, au-delà de ${I.patronMin} de faveur, devient leur protecteur.</div>
+    <div class="city-blds">${list.map((post) => { const K = IND.postKind(s, post);
+      return `<div class="mem"><span>${K.icon} <b>${esc(post.name)}</b> <span class="muted">· ${K.name} · protecteur : ${post.patron === null ? 'aucun' : esc(s.players[post.patron].name)} · votre faveur ${Math.floor(IND.favorOf(post, 0))}</span></span><button class="btn small" data-action="post-gift" data-id="${post.id}" ${IND.canGift(s, 0, post.id).ok ? '' : 'disabled'}>Offrir ${G.fmtBundle(s, I.gift.cost)}</button></div>`; }).join('')}</div></div>`;
 }
 
 function leagueBox() {
@@ -1198,6 +1255,7 @@ function showDiplo() {
     <div class="muted" style="font-size:13px;margin-top:2px">Les voisins méfiants ou hostiles réduisent votre productivité. Les accords et alliances la renforcent. Vos alliés partagent leurs technologies (−25 % de coût).</div></div>
     <button class="btn" data-action="close">Fermer</button></header>
     ${leagueBox()}
+    ${postsBox()}
     <div class="diplo-grid">${cards}</div>
     <div class="effects"><b>Effets actuels sur votre productivité</b>${dip.reasons.length ? `<ul>${dip.reasons.map((r) => `<li class="${r.tone}">${esc(r.text)} : ${r.value > 0 ? '+' : ''}${Math.round(r.value * 100)}%${r.res ? ' Or' : ''}</li>`).join('')}</ul>` : '<div class="muted" style="margin-top:4px">Aucun effet pour le moment.</div>'}</div></div>`);
 }
@@ -1445,6 +1503,10 @@ function onAction(e) {
     }
     case 'policies': showPolicies(); break;
     case 'people': showPeople(); break;
+    case 'government': { const r = AGE.setGovernment(s, 0, b.dataset.gov); if (!r.ok) toast(r.reason, 'bad'); showPolicies(); renderAll(); save(); break; }
+    case 'excavate': { const u = s.units.find((x) => x.id === sel?.id); const r = AGE.excavate(s, u?.id); toast(r.ok ? `Artefact exhumé : « ${r.art.name} ».` : r.reason, r.ok ? 'good' : 'bad'); if (r.ok) sel = null; refreshWorld(); save(); break; }
+    case 'spy': { const u = s.units.find((x) => x.id === sel?.id); const r = IND.spyMission(s, u?.id, b.dataset.mission); toast(r.ok ? r.text : r.reason, !r.ok || r.caught ? 'bad' : r.detected ? '' : 'good'); if (r.ok) sel = null; refreshWorld(); save(); break; }
+    case 'post-gift': { const r = IND.giftPost(s, 0, id); toast(r.ok ? 'Cadeau offert.' : r.reason, r.ok ? 'good' : 'bad'); if (!$('#modal').hidden) showDiplo(); renderAll(); save(); break; }
     case 'people-tab': showPeople(b.dataset.tab); break;
     case 'gp-use': { const sel2 = $(`#gp-target-${id}`); const r = PEO.useGreatPerson(s, 0, id, { buildingId: sel2 ? Number(sel2.value) : null }); toast(r.ok ? r.what : r.reason, r.ok ? 'good' : 'bad'); showPeople(); refreshWorld(); save(); break; }
     case 'amb-play': { const r = PEO.playAmbition(s, 0, b.dataset.amb); if (!r.ok) toast(r.reason, 'bad'); showPeople(); renderAll(); save(); break; }

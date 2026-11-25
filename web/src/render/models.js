@@ -33,8 +33,22 @@ const VARIANTS = [
   { '#e0674f': '#d98a4e', '#4f86d9': '#3f9ac9', '#5cb56b': '#4fa88a', '#e2574c': '#c9564b', '#f6ead6': '#f1e1c9', '#8b79d9': '#b06fd0' },
   { '#e0674f': '#b8675a', '#4f86d9': '#6a7fd6', '#5cb56b': '#79b84f', '#e2574c': '#e07a5f', '#f6ead6': '#f3dcc8', '#8b79d9': '#7a8fe0' },
 ];
+// Ères : palette appliquée par-dessus les variantes (murs, toits, bois, pavés).
+let ERA = null;
+export const ERA_PALETTES = [
+  null,
+  { // Renaissance : façades ocre, toits de tuiles sombres, pierre dorée
+    '#f6ead6': '#f1d49c', '#e8d6ba': '#dfb978', '#e0674f': '#b9472f', '#b9503b': '#933826', '#e2574c': '#a94434', '#4f86d9': '#34609e',
+    '#e9e1d6': '#e6d2b0', '#d4cdc4': '#e3cfa6', '#b07446': '#8f5530', '#5cb56b': '#3f8f63', '#8b79d9': '#7b4f9e' },
+  { // Ère industrielle : brique rouge, ardoise, pavés gris
+    '#f6ead6': '#c4654a', '#e8d6ba': '#a5503a', '#d9704f': '#a9472f', '#e0674f': '#59606b', '#b9503b': '#474d57', '#e2574c': '#5d6470',
+    '#4f86d9': '#4b5e7a', '#5cb56b': '#5f7f6a', '#8b79d9': '#6c6680', '#e9e1d6': '#b9b4ad', '#d4cdc4': '#a9a39b', '#b9b2aa': '#8f8a84', '#b07446': '#7d6450' },
+  { // Ère moderne : façades blanches, toits de verre et de cuivre oxydé, béton clair
+    '#f6ead6': '#f4f5f7', '#e8d6ba': '#dfe3e8', '#d9704f': '#e6e8eb', '#e0674f': '#2f8f9d', '#b9503b': '#25707b', '#e2574c': '#3d7fb8',
+    '#4f86d9': '#2f6fde', '#5cb56b': '#3aa17e', '#8b79d9': '#7b6fe0', '#e9e1d6': '#dfe2e6', '#d4cdc4': '#e7e9ec', '#b9b2aa': '#c3c7cd', '#b07446': '#c9ccd1', '#8a5634': '#8d939c' },
+];
 function place(geo, color, x, y, z, opts) {
-  const m = new THREE.Mesh(geo, mat((REMAP && REMAP[color]) || color, opts));
+  const m = new THREE.Mesh(geo, mat((ERA && ERA[color]) || (REMAP && REMAP[color]) || color, opts));
   m.position.set(x, y, z);
   return m;
 }
@@ -560,6 +574,53 @@ BUILDERS.aqueduct = () => { // Aqueduc : arches de pierre et canal d'eau
   return p;
 };
 
+BUILDERS.granddome = () => { // Grand Dôme (Renaissance) : rotonde ocre, colonnade, dôme côtelé doré et lanterne
+  const p = [plinth('#e6d2b0'), rbox(0.82, 0.04, 0.82, '#dcc39a', 0, Y0, 0, 0.02)];
+  p.push(cyl(0.3, 0.32, 0.24, '#f1d49c', 0, Y0 + 0.04, 0, 24), cyl(0.33, 0.33, 0.03, '#dfb978', 0, Y0 + 0.28, 0, 24));
+  for (let k = 0; k < 12; k++) { const a = (k / 12) * Math.PI * 2; p.push(cyl(0.016, 0.018, 0.24, '#fbf3e2', Math.cos(a) * 0.335, Y0 + 0.04, Math.sin(a) * 0.335, 8)); }
+  p.push(cyl(0.24, 0.26, 0.08, '#f1d49c', 0, Y0 + 0.31, 0, 24));
+  const dome = new THREE.Mesh(cached('gdome', () => new THREE.SphereGeometry(0.25, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2)), mat('#b9472f')); dome.position.set(0, Y0 + 0.39, 0); dome.scale.y = 1.15; p.push(dome);
+  for (let k = 0; k < 8; k++) { const r = rbox(0.012, 0.012, 0.012, PAL.gold, 0, 0, 0, 0.003); const a = (k / 8) * Math.PI * 2; r.position.set(Math.cos(a) * 0.2, Y0 + 0.55, Math.sin(a) * 0.2); p.push(r); }
+  p.push(cyl(0.05, 0.06, 0.1, '#fbf3e2', 0, Y0 + 0.66, 0, 12), cone(0.06, 0.08, PAL.gold, 0, Y0 + 0.76, 0, 12), sph(0.02, PAL.gold, 0, Y0 + 0.86, 0));
+  p.push(rbox(0.16, 0.2, 0.08, '#fbf3e2', 0, Y0 + 0.04, 0.33, 0.01), gable(0.2, 0.07, 0.1, '#dfb978', 0, Y0 + 0.24, 0.33), door(0, Y0 + 0.04, 0.372, PAL.woodDark));
+  p.push(...lollipopTree(-0.36, 0.34, 0.7), ...lollipopTree(0.36, 0.34, 0.7), flag('#2f5fa8', -0.38, Y0, -0.38, 0.36), flag('#2f5fa8', 0.38, Y0, -0.38, 0.36));
+  return p;
+};
+BUILDERS.crystalpalace = () => { // Palais de cristal (ère industrielle) : nef de verre et d'acier, voûte en berceau, fontaine
+  const p = [plinth('#b9b4ad')];
+  const glass = (w, h, d, x, y, z) => { const m = rbox(w, h, d, '#9fd3f0', x, y, z, 0.006); m.material = mat('#9fd3f0', { transparent: true, opacity: 0.55, roughness: 0.1 }); return m; };
+  p.push(rbox(0.8, 0.04, 0.44, '#7f8c9b', 0, Y0, -0.04, 0.01), glass(0.78, 0.2, 0.42, 0, Y0 + 0.04, -0.04));
+  const vault = new THREE.Mesh(cached('cpvault', () => new THREE.CylinderGeometry(0.21, 0.21, 0.78, 20, 1, false, 0, Math.PI)), mat('#9fd3f0', { transparent: true, opacity: 0.5, roughness: 0.1 }));
+  vault.rotation.z = Math.PI / 2; vault.rotation.y = 0; vault.position.set(0, Y0 + 0.24, -0.04); p.push(vault);
+  for (let k = 0; k < 7; k++) { const x = -0.36 + k * 0.12; p.push(rbox(0.012, 0.22, 0.012, '#4b5560', x, Y0 + 0.04, 0.17, 0.003), rbox(0.012, 0.22, 0.012, '#4b5560', x, Y0 + 0.04, -0.25, 0.003));
+    const rib = new THREE.Mesh(cached('cprib', () => new THREE.TorusGeometry(0.21, 0.007, 4, 16, Math.PI)), mat('#4b5560')); rib.position.set(x, Y0 + 0.24, -0.04); rib.rotation.y = Math.PI / 2; p.push(rib); }
+  const tr = new THREE.Mesh(cached('cptrans', () => new THREE.CylinderGeometry(0.17, 0.17, 0.44, 18, 1, false, 0, Math.PI)), mat('#9fd3f0', { transparent: true, opacity: 0.5, roughness: 0.1 })); tr.rotation.x = Math.PI / 2; tr.rotation.z = Math.PI / 2; tr.position.set(0, Y0 + 0.3, -0.04); p.push(tr);
+  p.push(cyl(0.09, 0.1, 0.04, '#d4cdc4', 0, Y0, 0.33, 16), cyl(0.07, 0.07, 0.01, PAL.water, 0, Y0 + 0.04, 0.33, 16), cyl(0.012, 0.016, 0.1, '#d4cdc4', 0, Y0 + 0.04, 0.33, 8));
+  p.push(flag('#c4654a', -0.38, Y0, 0.3, 0.3), flag('#c4654a', 0.38, Y0, 0.3, 0.3), ...bush(-0.3, 0.38), ...bush(0.28, 0.4));
+  return p;
+};
+BUILDERS.radiotower = () => { // Tour des ondes (ère moderne) : fût effilé, nacelle vitrée, antenne et feu rouge
+  const p = [plinth('#dfe2e6'), rbox(0.4, 0.08, 0.4, '#f4f5f7', 0, Y0, 0, 0.02), rbox(0.3, 0.03, 0.3, '#c3c7cd', 0, Y0 + 0.08, 0, 0.01)];
+  p.push(cyl(0.04, 0.075, 0.46, '#e7e9ec', 0, Y0 + 0.11, 0, 14));
+  for (const y of [0.2, 0.32, 0.44]) p.push(torus(0.06 - (y - 0.2) * 0.06, 0.005, '#2f6fde', 0, Y0 + y, 0));
+  p.push(cyl(0.11, 0.09, 0.04, '#2f6fde', 0, Y0 + 0.56, 0, 18), cyl(0.1, 0.1, 0.05, '#9fd3f0', 0, Y0 + 0.6, 0, 18), cyl(0.115, 0.11, 0.02, '#f4f5f7', 0, Y0 + 0.65, 0, 18));
+  p.push(cyl(0.01, 0.018, 0.26, '#c3c7cd', 0, Y0 + 0.67, 0, 8), sph(0.022, '#ff4d4d', 0, Y0 + 0.94, 0));
+  for (const [x, z] of [[0.28, 0.28], [-0.28, 0.28]]) { const sp = rbox(0.22, 0.01, 0.14, '#25406b', x, Y0 + 0.07, z, 0.003); sp.rotation.x = -0.35; p.push(rbox(0.012, 0.07, 0.012, '#8d939c', x, Y0, z, 0.003), sp); }
+  p.push(...lollipopTree(-0.34, -0.32, 0.7), ...lollipopTree(0.34, -0.32, 0.7));
+  return p;
+};
+BUILDERS.museum = () => { // Musée : façade à colonnes, fronton, escalier, bannières d'exposition et statue
+  const p = [plinth('#e9e1d6')];
+  p.push(rbox(0.6, 0.05, 0.42, '#d4cdc4', 0, Y0, -0.04, 0.012), rbox(0.54, 0.24, 0.32, '#f6ead6', 0, Y0 + 0.05, -0.07, 0.02));
+  for (let k = 0; k < 6; k++) p.push(cyl(0.017, 0.019, 0.22, '#fbf8f3', -0.22 + k * 0.088, Y0 + 0.05, 0.13, 10));
+  p.push(rbox(0.56, 0.035, 0.08, '#e8d6ba', 0, Y0 + 0.27, 0.12, 0.008), gable(0.58, 0.09, 0.42, '#e0674f', 0, Y0 + 0.3, -0.04));
+  for (let k = 0; k < 3; k++) p.push(rbox(0.36 - k * 0.04, 0.018, 0.05, '#e8d6ba', 0, Y0 + k * 0.018, 0.21 + k * -0.025, 0.004));
+  p.push(door(0, Y0 + 0.05, 0.091, PAL.woodDark));
+  for (const x of [-0.13, 0.13]) p.push(rbox(0.05, 0.12, 0.006, x < 0 ? '#8b79d9' : '#4f86d9', x, Y0 + 0.1, 0.095, 0.002));
+  p.push(rbox(0.07, 0.06, 0.07, '#d4cdc4', 0.32, Y0, 0.3, 0.008), sph(0.03, '#e8d6ba', 0.32, Y0 + 0.1, 0.3), cyl(0.02, 0.025, 0.04, '#e8d6ba', 0.32, Y0 + 0.06, 0.3, 8));
+  p.push(...lollipopTree(-0.33, 0.3, 0.7), bench(-0.18, 0.34));
+  return p;
+};
 BUILDERS.levee = () => { // Digue : levée de terre engazonnée, parement de pierre, vanne et rivière canalisée
   const p = [plinth('#cfe6c0')];
   p.push(rbox(0.86, 0.025, 0.22, PAL.water, 0, Y0 - 0.012, 0.22, 0.01));
@@ -1034,12 +1095,40 @@ BUILDERS.chancery = () => { // Chancellerie (Diplomate) : palais blanc, coupole 
   return p;
 };
 
-const NO_ROTATE = new Set(['watermill', 'harbor', 'lighthouse', 'campus', 'artsquarter', 'merchantquarter', 'outpost']);
+const NO_ROTATE = new Set(['granddome', 'radiotower', 'watermill', 'harbor', 'lighthouse', 'campus', 'artsquarter', 'merchantquarter', 'outpost']);
 // variant : 0..3 (déterministe selon la case) ; progress : 0..1 pour un chantier.
-export function buildingModel(type, wip, lux, variant = 0, progress = 0) {
+// Accessoires d'ère posés à deux coins de la dalle : lanterne et bannière, cheminée d'usine, antenne et panneau solaire.
+const ERA_WONDERS = new Set(['granddome', 'crystalpalace', 'radiotower']);
+// Bâtiments ruraux : accessoires plus discrets (pas de cheminée d'usine au milieu des champs).
+const RURAL = new Set(['farm', 'lumber', 'quarry', 'park', 'levee', 'watermill', 'granary', 'outpost', 'lodge']);
+function ruralProps(era, k) {
+  if (era === 1) return [cyl(0.009, 0.011, 0.22, PAL.ink, 0.4 * k, Y0, 0.4 * k, 8), rbox(0.04, 0.05, 0.04, '#3a3530', 0.4 * k, Y0 + 0.22, 0.4 * k, 0.008), sph(0.016, '#ffd27a', 0.4 * k, Y0 + 0.245, 0.4 * k)];
+  if (era === 2) return [cyl(0.008, 0.01, 0.22, '#3f454d', 0.4 * k, Y0, 0.4 * k, 8), rbox(0.035, 0.045, 0.035, '#2b2b33', 0.4 * k, Y0 + 0.22, 0.4 * k, 0.006), sph(0.014, '#ffc46b', 0.4 * k, Y0 + 0.243, 0.4 * k),
+    ...[[-0.05, -0.05], [0.05, -0.05], [-0.05, 0.05], [0.05, 0.05]].map(([dx, dz]) => cyl(0.006, 0.006, 0.18, '#59606b', -0.38 * k + dx, Y0, -0.38 * k + dz, 4)), cyl(0.07, 0.07, 0.09, '#8f8a84', -0.38 * k, Y0 + 0.18, -0.38 * k, 12), cone(0.075, 0.04, '#59606b', -0.38 * k, Y0 + 0.27, -0.38 * k, 12)];
+  if (era === 3) { const panel = rbox(0.16, 0.012, 0.11, '#25406b', -0.36 * k, Y0 + 0.08, 0.36 * k, 0.004); panel.rotation.x = -0.45;
+    return [rbox(0.012, 0.08, 0.012, '#8d939c', -0.36 * k, Y0, 0.36 * k, 0.003), panel, cyl(0.006, 0.008, 0.22, '#c3c7cd', 0.4 * k, Y0, 0.4 * k, 8), rbox(0.05, 0.012, 0.02, '#f4f5f7', 0.4 * k, Y0 + 0.22, 0.4 * k, 0.004)]; }
+  return [];
+}
+function eraProps(era, k, type) {
+  if (RURAL.has(type)) return ruralProps(era, k);
+  if (era === 1) return [cyl(0.009, 0.011, 0.24, PAL.ink, 0.4 * k, Y0, 0.4 * k, 8), rbox(0.04, 0.05, 0.04, '#3a3530', 0.4 * k, Y0 + 0.24, 0.4 * k, 0.008), sph(0.016, '#ffd27a', 0.4 * k, Y0 + 0.265, 0.4 * k),
+    flag('#2f5fa8', -0.41 * k, Y0, -0.41 * k, 0.36), sph(0.012, PAL.gold, -0.41 * k, Y0 + 0.365, -0.41 * k)];
+  if (era === 2) return [cyl(0.034, 0.044, 0.5, '#9c4632', 0.38 * k, Y0, -0.38 * k, 12), cyl(0.04, 0.04, 0.025, '#5b2a1f', 0.38 * k, Y0 + 0.5, -0.38 * k, 12), smoke(0.38 * k, Y0 + 0.55, -0.38 * k, 0.9),
+    cyl(0.008, 0.01, 0.22, '#3f454d', -0.4 * k, Y0, 0.4 * k, 8), rbox(0.035, 0.045, 0.035, '#2b2b33', -0.4 * k, Y0 + 0.22, 0.4 * k, 0.006), sph(0.014, '#ffc46b', -0.4 * k, Y0 + 0.243, 0.4 * k)];
+  if (era === 3) {
+    const panel = rbox(0.16, 0.012, 0.11, '#25406b', -0.36 * k, Y0 + 0.08, 0.36 * k, 0.004); panel.rotation.x = -0.45;
+    return [cyl(0.006, 0.009, 0.56, '#c3c7cd', 0.4 * k, Y0, -0.4 * k, 8), rbox(0.05, 0.004, 0.004, '#c3c7cd', 0.4 * k, Y0 + 0.45, -0.4 * k, 0.001), sph(0.014, '#ff4d4d', 0.4 * k, Y0 + 0.565, -0.4 * k),
+      rbox(0.012, 0.08, 0.012, '#8d939c', -0.36 * k, Y0, 0.36 * k, 0.003), panel, rbox(0.15, 0.003, 0.004, '#9fd3f0', -0.36 * k, Y0 + 0.095, 0.36 * k, 0.001)];
+  }
+  return [];
+}
+
+export function buildingModel(type, wip, lux, variant = 0, progress = 0, era = 0) {
   REMAP = VARIANTS[variant % VARIANTS.length];
+  ERA = ERA_PALETTES[era] || null;
+  const big = type === 'campus' || type === 'artsquarter' || type === 'merchantquarter';
   let body;
-  try { body = bake(group((BUILDERS[type] || BUILDERS.market)(lux))); } finally { REMAP = null; }
+  try { body = bake(group(...[].concat((BUILDERS[type] || BUILDERS.market)(lux)), ...(ERA_WONDERS.has(type) ? [] : eraProps(era, big ? 2.1 : 1, type)))); } finally { REMAP = null; ERA = null; }
   const g = new THREE.Group();
   g.add(body);
   if (!NO_ROTATE.has(type)) body.rotation.y = (variant % 4) * (Math.PI / 2);
@@ -1165,6 +1254,17 @@ export function unitModel(type, color, skinIdx = 0) {
     parts.push(rbox(0.06, 0.05, 0.02, '#6b4226', 0.07, 0.03, 0.02, 0.008), rbox(0.006, 0.12, 0.006, '#6b4226', 0.045, 0.06, 0.0, 0.002));
     parts.push(cyl(0.005, 0.005, 0.32, PAL.ink, 0.1, 0, -0.04, 6), sph(0.01, PAL.gold, 0.1, 0.32, -0.04));
     const pennant = group(rbox(0.09, 0.05, 0.006, color, 0.045, -0.025, 0, 0.003)); pennant.position.set(0.1, 0.31, -0.04); parts.push(anim(pennant, { type: 'flag' }));
+  } else if (type === 'archaeologist') {
+    // Archéologue : chapeau de paille, pelle sur l'épaule, panier de tessons et pinceau.
+    parts = [...character(color, skin, 'straw', 1.1)];
+    const spade = group(cyl(0.006, 0.006, 0.26, PAL.wood, 0, 0, 0, 6), rbox(0.04, 0.05, 0.008, PAL.steel, 0, 0.26, 0, 0.004)); spade.position.set(0.08, 0.04, -0.03); spade.rotation.z = -0.5; parts.push(spade);
+    parts.push(cyl(0.035, 0.03, 0.04, '#c9a26b', -0.09, 0, 0.05, 10), sph(0.015, '#c9774b', -0.09, 0.045, 0.05), rbox(0.008, 0.008, 0.05, PAL.woodDark, -0.07, 0.1, 0.06, 0.002));
+  } else if (type === 'agent') {
+    // Agent : chapeau feutre, long manteau sombre, valise et loupe.
+    parts = [...character('#3a3f4b', skin, 'cap', 1.1)];
+    parts.push(cyl(0.1, 0.1, 0.012, '#2b2b33', 0, 0.28, 0, 16), cyl(0.065, 0.07, 0.05, '#2b2b33', 0, 0.28, 0, 14), cyl(0.071, 0.071, 0.012, color, 0, 0.29, 0, 14));
+    parts.push(rbox(0.07, 0.05, 0.022, '#6b4226', 0.09, 0.02, 0.02, 0.008), rbox(0.02, 0.008, 0.006, PAL.gold, 0.09, 0.075, 0.02, 0.002));
+    parts.push(torus(0.018, 0.004, PAL.gold, -0.08, 0.12, 0.06), cyl(0.004, 0.004, 0.04, PAL.woodDark, -0.08, 0.08, 0.06, 4));
   } else if (type === 'ship') {
     parts = cargoShip(color, true);
   } else if (type === 'airship') {
@@ -1303,6 +1403,54 @@ export function naturalModel(id) {
 }
 
 // Ruines antiques : colonnes brisées sur un dallage envahi de mousse.
+// Site antique (archéologie) : fouille carrée balisée, piquets et cordes, amphore à demi enterrée.
+export function siteModel() {
+  const p = [rbox(0.46, 0.03, 0.46, '#cdb79a', 0, 0, 0, 0.015), rbox(0.3, 0.012, 0.3, '#a8906f', 0, 0.03, 0, 0.004)];
+  for (const [x, z] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) p.push(cyl(0.008, 0.008, 0.12, PAL.woodDark, x, 0.03, z, 6));
+  for (const [x, z, w, d] of [[0, -0.18, 0.36, 0.004], [0, 0.18, 0.36, 0.004], [-0.18, 0, 0.004, 0.36], [0.18, 0, 0.004, 0.36]]) p.push(rbox(w, 0.004, d, '#e2574c', x, 0.13, z, 0.001));
+  const amph = group(sph(0.045, '#c9774b', 0, 0, 0, 1.3), cyl(0.016, 0.022, 0.04, '#c9774b', 0, 0.045, 0, 8)); amph.position.set(0.05, 0.05, 0.02); amph.rotation.z = 0.7; p.push(amph);
+  p.push(rbox(0.07, 0.03, 0.05, '#ece6dc', -0.07, 0.04, -0.05, 0.006), sph(0.02, '#ece6dc', -0.1, 0.05, 0.08), rbox(0.012, 0.012, 0.12, '#8a8f99', 0.12, 0.05, 0.1, 0.003));
+  return bake(group(p));
+}
+
+// Comptoir indépendant : un hameau neutre, différent selon sa nature (marché, campement, cité savante, artistes).
+export function postModel(kind) {
+  const p = [rbox(0.82, 0.05, 0.82, '#e6dccb', 0, 0, 0, 0.03)];
+  const Y = 0.05;
+  const palisade = () => { for (let k = 0; k < 16; k++) { const a = (k / 16) * Math.PI * 2; p.push(cyl(0.018, 0.02, 0.1, '#a8784e', Math.cos(a) * 0.37, Y, Math.sin(a) * 0.37, 6)); } };
+  if (kind === 'nomads') {
+    const tent = (x, z, c, s = 1) => { p.push(cone(0.13 * s, 0.22 * s, c, x, Y, z, 10), cyl(0.006, 0.006, 0.05, PAL.woodDark, x, Y + 0.22 * s, z, 4)); };
+    tent(-0.15, -0.1, '#f1e1c4', 1.1); tent(0.16, -0.14, '#d98a4e'); tent(0.02, 0.18, '#e9d3a8', 0.9);
+    p.push(cyl(0.05, 0.05, 0.02, '#6b5b4b', 0.2, Y, 0.15, 10), cone(0.03, 0.06, '#ff8a3d', 0.2, Y + 0.02, 0.15, 8));
+    const horse = group(rbox(0.1, 0.05, 0.04, '#8a5634', 0, 0.06, 0, 0.012), rbox(0.03, 0.06, 0.03, '#8a5634', 0.05, 0.09, 0, 0.008));
+    for (const [x, z] of [[-0.035, -0.012], [0.035, -0.012], [-0.035, 0.012], [0.035, 0.012]]) horse.add(rbox(0.01, 0.05, 0.01, '#6e4228', x, 0, z, 0.002));
+    horse.position.set(-0.22, Y, 0.2); p.push(horse);
+  } else if (kind === 'scholars') {
+    palisade();
+    p.push(rbox(0.26, 0.2, 0.22, '#f6ead6', -0.06, Y, -0.04, 0.02), gable(0.3, 0.1, 0.26, '#4f86d9', -0.06, Y + 0.2, -0.04));
+    p.push(cyl(0.07, 0.08, 0.34, '#e8d6ba', 0.18, Y, 0.1, 14), cyl(0.085, 0.085, 0.02, '#d4cdc4', 0.18, Y + 0.34, 0.1, 14));
+    const dome = new THREE.Mesh(cached('scdome', () => new THREE.SphereGeometry(0.07, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2)), mat('#7f8c9b')); dome.position.set(0.18, Y + 0.36, 0.1); p.push(dome);
+    p.push(rbox(0.06, 0.004, 0.04, '#f3e7c9', -0.2, Y + 0.02, 0.22, 0.001), rbox(0.08, 0.02, 0.05, PAL.wood, -0.2, Y, 0.22, 0.004));
+  } else if (kind === 'artists') {
+    palisade();
+    const house = (x, z, c, r) => p.push(rbox(0.16, 0.14, 0.14, c, x, Y, z, 0.015), gable(0.19, 0.08, 0.17, r, x, Y + 0.14, z));
+    house(-0.15, -0.12, '#f7c6d0', '#8b79d9'); house(0.15, -0.1, '#c9e8f5', '#e2574c'); house(0.0, 0.17, '#fbe7a1', '#5cb56b');
+    const easel = group(rbox(0.008, 0.12, 0.008, PAL.woodDark, 0, 0, 0, 0.002), rbox(0.07, 0.05, 0.006, '#fffdfb', 0, 0.07, 0.008, 0.002), rbox(0.02, 0.02, 0.007, '#ff6b4a', -0.01, 0.08, 0.012, 0.002));
+    easel.position.set(0.24, Y, 0.18); p.push(easel);
+  } else {
+    palisade();
+    for (const [x, z, c] of [[-0.16, -0.12, '#e2574c'], [0.14, -0.14, '#f5b700'], [-0.02, 0.16, '#4f86d9']]) {
+      p.push(rbox(0.16, 0.06, 0.12, PAL.wood, x, Y, z, 0.01));
+      for (const [dx, dz] of [[-0.07, -0.05], [0.07, -0.05], [-0.07, 0.05], [0.07, 0.05]]) p.push(cyl(0.006, 0.006, 0.16, PAL.woodDark, x + dx, Y, z + dz, 4));
+      p.push(rbox(0.19, 0.015, 0.15, c, x, Y + 0.16, z, 0.004));
+      p.push(rbox(0.03, 0.03, 0.03, '#f1c95a', x - 0.03, Y + 0.06, z, 0.005), sph(0.02, '#e0674f', x + 0.04, Y + 0.08, z));
+    }
+    p.push(crate(0.25, 0.2, PAL.wood, 0.06), crate(0.27, 0.27, '#d9a15f', 0.05));
+  }
+  p.push(flag('#fffdfb', 0.3, Y, -0.3, 0.38));
+  return bake(group(p));
+}
+
 export function ruinModel() {
   const p = [rbox(0.5, 0.04, 0.42, '#d8d0c3', 0, 0, 0, 0.02)];
   for (const [x, z, h] of [[-0.17, -0.13, 0.26], [0.0, -0.13, 0.12], [0.17, -0.13, 0.2], [-0.17, 0.12, 0.08]]) p.push(cyl(0.035, 0.04, h, '#ece6dc', x, 0.04, z, 12), rbox(0.1, 0.025, 0.1, '#d4cdc4', x, 0.04 + h, z, 0.008));

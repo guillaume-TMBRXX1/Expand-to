@@ -167,6 +167,13 @@ Sur l'écran d'accueil, vous choisissez :
 
   Un bâtiment endommagé ne produit rien pendant quelques tours ; on peut le réparer contre de l'Or.
 - **Aménager le territoire** : sélectionnez une case libre de votre territoire pour défricher une forêt (+Bois), reboiser une plaine (contre la pollution, près des scieries) ou aplanir une colline (+Pierre, avec l'Urbanisme).
+- **Ères** : Antiquité, Renaissance (3 technologies), ère industrielle (7) et ère moderne (11). L'ère s'affiche à côté du numéro de tour.
+  - Vos bâtiments changent d'allure à chaque ère : façades ocre et lanternes, puis brique et cheminées, puis façades blanches, antennes et panneaux solaires.
+  - Chaque ère rapporte du prestige et ouvre une merveille (Grand Dôme, Palais de cristal, Tour des ondes), de nouveaux gouvernements, le Musée et l'Archéologue (Renaissance), puis l'Agent (ère industrielle).
+- **Gouvernements** (fenêtre Politiques) : Conseil des anciens, puis République marchande ou Monarchie éclairée, Démocratie ou Technocratie, Fédération culturelle. Chacun a sa doctrine : bonus, contrepartie, parfois un emplacement de politique de plus. En changer coûte 60 Or, au plus tous les 10 tours.
+- **Archéologie** : des sites antiques parsèment la carte. Un Archéologue qui en atteint un exhume un artefact, exposé comme une œuvre d'art (Culture, tourisme, prestige) ; il faut une place d'exposition libre (le Musée en offre 3). Fouiller chez un voisin le froisse.
+- **Comptoirs indépendants** : comptoirs marchands, campements nomades, cités savantes et villages d'artistes, neutres. On ne les conquiert pas, on les courtise : caravane, émissaire, cadeau (30 Or), culture des villes proches. Le plus apprécié devient leur protecteur et reçoit leur bonus et du prestige. Sélectionnez-les sur la carte ou dans la Diplomatie.
+- **Espionnage industriel** : un Agent entré dans une ville étrangère copie une technologie ou retarde un chantier. S'il est repéré (35 % de risque, davantage chez un joueur qui a une Chancellerie), c'est un incident diplomatique, et une fois sur deux la mission échoue.
 
 ## Structure
 
