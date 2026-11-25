@@ -558,3 +558,8 @@ html.compact #selection .kv { font-size: 13.5px; }
 .voc[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
 .reason .good { color: var(--good); }
 .reason .bad, .reason.bad { color: var(--bad); }
+
+/* Mouvements culturels */
+.city-label .mv { margin-left: 4px; font-size: 11px; letter-spacing: 1px; }
+.mv-row { align-items: center; gap: 10px; }
+.mv-row .row { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }

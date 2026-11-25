@@ -4,7 +4,7 @@
     "height": 36
   },
   "turnLimit": 60,
-  "prestigeTarget": 290,
+  "prestigeTarget": 310,
   "cityBaseYield": {
     "food": 3,
     "gold": 2,
@@ -1726,5 +1726,99 @@
     "incident": -15,
     "chanceryDetect": 0.15,
     "delayTurns": 2
+  },
+  "movements": {
+    "firstTurn": 8,
+    "gap": 5,
+    "range": 7,
+    "threshold": 16,
+    "routeBoost": 3,
+    "allyBoost": 1,
+    "cultureShare": 0.04,
+    "adoptBoost": 1.5,
+    "banFactor": 0.25,
+    "maxAdopted": 2,
+    "foundPrestige": 2,
+    "foreignPrestige": 1,
+    "foreignCap": 6,
+    "relationAdherents": 0.1,
+    "list": [
+      {
+        "id": "stoicism",
+        "name": "Stoïcisme",
+        "icon": "🏛️",
+        "era": 0,
+        "perCity": {
+          "culture": 1
+        },
+        "desc": "+1 Culture par ville touchée."
+      },
+      {
+        "id": "humanism",
+        "name": "Humanisme",
+        "icon": "📖",
+        "era": 1,
+        "perCity": {
+          "science": 1,
+          "culture": 1
+        },
+        "desc": "+1 Science et +1 Culture par ville touchée."
+      },
+      {
+        "id": "enlightenment",
+        "name": "Lumières",
+        "icon": "💡",
+        "era": 1,
+        "perCity": {
+          "science": 2
+        },
+        "relation": true,
+        "desc": "+2 Science par ville touchée ; +0,1 relation par tour entre pays adhérents."
+      },
+      {
+        "id": "enterprise",
+        "name": "Esprit d'entreprise",
+        "icon": "⚙️",
+        "era": 2,
+        "perCity": {
+          "gold": 2
+        },
+        "desc": "+2 Or par ville touchée."
+      },
+      {
+        "id": "romanticism",
+        "name": "Romantisme",
+        "icon": "🌹",
+        "era": 2,
+        "perCity": {
+          "culture": 2
+        },
+        "tourism": 1,
+        "desc": "+2 Culture et +1 tourisme par ville touchée."
+      },
+      {
+        "id": "hygiene",
+        "name": "Mouvement hygiéniste",
+        "icon": "🧼",
+        "era": 2,
+        "perCity": {
+          "food": 1
+        },
+        "pollution": 1,
+        "desc": "+1 Nourriture et −1 pollution par ville touchée."
+      },
+      {
+        "id": "modernism",
+        "name": "Modernisme",
+        "icon": "🔷",
+        "era": 3,
+        "perCity": {
+          "gold": 1,
+          "science": 1,
+          "culture": 1
+        },
+        "desc": "+1 Or, +1 Science et +1 Culture par ville touchée."
+      }
+    ]
   }
 }

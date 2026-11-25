@@ -10,6 +10,7 @@ import * as PEO from './core/people.js';
 import * as LAND from './core/land.js';
 import * as AGE from './core/ages.js';
 import * as IND from './core/independents.js';
+import * as MOV from './core/movements.js';
 import { playAITurns } from './core/ai.js';
 import { Renderer } from './render/renderer.js';
 import { avatarSVG } from './ui/avatar.js';
@@ -550,6 +551,7 @@ function renderSelectionBody() {
         <dt>Attractivité</dt><dd title="Palier, culture, tourisme, rivière, pollution et santé. Les habitants migrent vers les villes les plus attrayantes.">${String(SOC.attractiveness(s, c)).replace('.', ',')}</dd>`; })()}</dl>
       ${mine ? tierHint(c) : ''}
       ${cityLandHtml(c, mine)}
+      ${(c.movements || []).length ? `<div class="reason">Mouvements : ${c.movements.map((id) => { const d = MOV.movementDef(s, id); return `${d.icon} ${d.name}${MOV.stanceOf(s, c.owner, id) === 'adopt' ? ' (adopté)' : ''}`; }).join(' · ')}</div>` : ''}
       ${mine ? `<div class="section-title" style="margin-top:12px"><span>Former une unité</span><span>${c.trained ? '1 / tour — fait' : '1 / tour'}</span></div>
       <div class="actions">${data.units.map((d) => {
         const chk = G.canTrain(s, 0, c.id, d.id);
@@ -1109,7 +1111,8 @@ function showEncyclopedia(tab = 'buildings') {
       <div class="enc-item"><b>Gouvernements</b><div class="muted">Dans la fenêtre Politiques. Changement : ${G.fmtBundle(s, R.governments.changeCost)}, au plus tous les ${R.governments.cooldown} tours. ${R.governments.list.map((g) => `${g.name} (${R.eras.list[g.era].name}, doctrine ${g.doctrine}) : ${g.desc}`).join(' · ')}</div></div>
       <div class="enc-item"><b>Archéologie</b><div class="muted">Des sites antiques parsèment la carte. Un Archéologue qui en atteint un exhume un artefact (+${R.artworks.kinds.artifact.culture} Culture et +${R.artworks.kinds.artifact.tourism} tourisme par tour, +${R.archaeology.prestige} prestige), à condition d'avoir une place d'exposition libre (le Musée en offre ${R.artworks.slots.museum}). Fouiller chez un voisin non allié le froisse (${R.archaeology.foreignRelation} relation).</div></div>
       <div class="enc-item"><b>Comptoirs indépendants</b><div class="muted">${Object.values(R.independents.kinds).map((k) => `${k.name} : ${k.desc}`).join(' ')} Faveur : cadeau (${G.fmtBundle(s, R.independents.gift.cost)} → +${R.independents.gift.favor}), caravane (+${R.independents.caravanFavor}), émissaire (+${R.independents.emissaryFavor}), culture des villes proches ; elle s'érode de ${R.independents.decay} par tour. Le protecteur doit avoir au moins ${R.independents.patronMin} de faveur et la plus haute ; il gagne +${R.independents.prestige} prestige. On ne fonde pas de ville à ${R.independents.noCityRadius} cases ou moins.</div></div>
-      <div class="enc-item"><b>Espionnage industriel</b><div class="muted">Un Agent entré dans une ville étrangère copie une technologie (la plus simple que vous puissiez apprendre) ou retarde un chantier de ${R.espionage.delayTurns} tours. Risque d'être repéré : ${Math.round(R.espionage.detect * 100)} % (+${Math.round(R.espionage.chanceryDetect * 100)} % chez un joueur qui a une Chancellerie) ; repéré, c'est un incident diplomatique (${R.espionage.incident} relation) et, une fois sur deux, l'échec de la mission.</div></div>`;
+      <div class="enc-item"><b>Espionnage industriel</b><div class="muted">Un Agent entré dans une ville étrangère copie une technologie (la plus simple que vous puissiez apprendre) ou retarde un chantier de ${R.espionage.delayTurns} tours. Risque d'être repéré : ${Math.round(R.espionage.detect * 100)} % (+${Math.round(R.espionage.chanceryDetect * 100)} % chez un joueur qui a une Chancellerie) ; repéré, c'est un incident diplomatique (${R.espionage.incident} relation) et, une fois sur deux, l'échec de la mission.</div></div>
+      <div class="enc-item"><b>Mouvements culturels</b><div class="muted">À partir du tour ${R.movements.firstTurn}, un mouvement naît au plus tous les ${R.movements.gap} tours dans la capitale du pays le plus cultivé de son ère, puis se propage de ville en ville (proximité, culture, routes commerciales, alliances). Chaque pays y adhère (au plus ${R.movements.maxAdopted} à la fois ; propagation ×${R.movements.adoptBoost} chez lui), reste neutre ou l'interdit (propagation ×${R.movements.banFactor}). Le fondateur gagne ${R.movements.foundPrestige} prestige, puis ${R.movements.foreignPrestige} par ville étrangère gagnée (au plus ${R.movements.foreignCap}). ${R.movements.list.map((m) => `${m.name} (${R.eras.list[m.era].name}) : ${m.desc}`).join(' · ')}</div></div>`;
   }
   openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Encyclopédie"><header><h2>Encyclopédie</h2><button class="btn" data-action="close">Fermer</button></header>
     <div class="tabs" role="tablist">${Object.entries(tabs).map(([k, v]) => `<button class="tab" role="tab" aria-selected="${k === tab}" data-action="enc-tab" data-tab="${k}">${v}</button>`).join('')}</div>
@@ -1347,9 +1350,29 @@ function showCulture() {
     <p class="muted" style="font-size:12.5px;margin:0 0 6px">Faire classer une merveille naturelle, une merveille, un monument ou un théâtre de votre territoire (${G.techDef(s, H.tech).name}, ${G.fmtBundle(s, H.cost)}, un classement tous les ${H.cooldown} tours) : la case est protégée contre l'influence des voisins, +${H.tourism} tourisme et +${H.prestige} prestige.</p>
     ${CUL.heritageOf(s, 0).length ? `<div class="memories">${CUL.heritageOf(s, 0).map((h) => `<div class="mem"><span>${esc(h.name)}</span><b class="good">Classé</b></div>`).join('')}</div>` : ''}
     <div class="actions crisis-levels">${cands.length ? cands.map((c) => { const ok = CUL.canClassify(s, 0, c.x, c.y); return `<button class="btn small" data-action="heritage" data-x="${c.x}" data-y="${c.y}" ${ok.ok ? '' : 'aria-disabled="true"'} title="${esc(ok.ok ? 'Faire classer' : ok.reason)}">Classer : ${esc(c.name)}</button>`; }).join('') : '<span class="muted">Aucun site éligible pour l\'instant.</span>'}</div>
+    ${movementsHtml()}
     <div class="section-title" style="margin-top:14px"><span>Défis scientifiques</span></div>
     <div class="memories">${chal}</div>
   </div>`);
+}
+
+// Mouvements culturels : naissance, propagation, choix d'adhérer, de rester neutre ou d'interdire.
+function movementsHtml() {
+  const M = s.rules.movements;
+  if (!M) return '';
+  const born = MOV.movementsBorn(s);
+  const head = `<div class="section-title" style="margin-top:14px"><span>Mouvements culturels</span><span>${MOV.adoptedOf(s, 0).length} / ${M.maxAdopted} adoptés</span></div>
+    <p class="muted" style="font-size:12.5px;margin:0 0 6px">Un mouvement naît dans la capitale du pays le plus cultivé de son ère, puis gagne les villes voisines, portée par la culture, les routes commerciales et les alliances. Adhérez-y pour son bonus dans chaque ville touchée (il s'y propage aussi plus vite), restez neutre, ou interdisez-le pour le freiner chez vous. Son fondateur gagne du prestige à chaque ville étrangère gagnée.</p>`;
+  if (!born.length) return `${head}<p class="muted">Aucun mouvement pour l'instant : le premier naîtra vers le tour ${M.firstTurn}.</p>`;
+  return head + `<div class="memories">${born.map((mv) => {
+    const def = MOV.movementDef(s, mv.id), st = MOV.stanceOf(s, 0, mv.id), mine = MOV.citiesTouched(s, 0, mv.id).length, total = G.citiesOf(s, 0).length;
+    const world = s.cities.filter((c) => MOV.touched(c, mv.id)).length;
+    const btn = (k, label) => { const chk = k === 'adopt' ? MOV.canAdopt(s, 0, mv.id) : { ok: true }; return `<button class="btn small ${st === k ? 'primary' : ''}" data-action="mv-stance" data-mv="${mv.id}" data-stance="${k}" aria-pressed="${st === k}" ${st === k || chk.ok ? '' : 'aria-disabled="true"'} title="${esc(chk.reason || '')}">${label}</button>`; };
+    const pending = G.citiesOf(s, 0).filter((c) => !MOV.touched(c, mv.id) && (c.mv?.[mv.id] || 0) > 0).length;
+    return `<div class="mem mv-row"><span><b>${def.icon} ${esc(def.name)}</b> <span class="muted">né à ${esc(s.cities.find((c) => c.id === mv.cityId)?.name || '?')} (${esc(s.players[mv.founder].name)}) au tour ${mv.turn} · ${esc(def.desc)}</span><br>
+      <span class="muted">Vos villes touchées : <b>${mine}</b> / ${total}${pending ? ` (${pending} en passe de l'être)` : ''} · dans le monde : ${world} / ${s.cities.length}${st === 'adopt' && mine ? ` · vous rapporte ${chipsText(Object.fromEntries(Object.entries(def.perCity).map(([k, v]) => [k, v * mine])))}` : ''}</span></span>
+      <span class="row">${btn('adopt', 'Adhérer')}${btn('neutral', 'Neutre')}${btn('ban', 'Interdire')}</span></div>`;
+  }).join('')}</div>`;
 }
 
 function showVictory() {
@@ -1503,6 +1526,7 @@ function onAction(e) {
     }
     case 'policies': showPolicies(); break;
     case 'people': showPeople(); break;
+    case 'mv-stance': { const r = MOV.setStance(s, 0, b.dataset.mv, b.dataset.stance); if (!r.ok) toast(r.reason, 'bad'); showCulture(); renderAll(); save(); break; }
     case 'government': { const r = AGE.setGovernment(s, 0, b.dataset.gov); if (!r.ok) toast(r.reason, 'bad'); showPolicies(); renderAll(); save(); break; }
     case 'excavate': { const u = s.units.find((x) => x.id === sel?.id); const r = AGE.excavate(s, u?.id); toast(r.ok ? `Artefact exhumé : « ${r.art.name} ».` : r.reason, r.ok ? 'good' : 'bad'); if (r.ok) sel = null; refreshWorld(); save(); break; }
     case 'spy': { const u = s.units.find((x) => x.id === sel?.id); const r = IND.spyMission(s, u?.id, b.dataset.mission); toast(r.ok ? r.text : r.reason, !r.ok || r.caught ? 'bad' : r.detected ? '' : 'good'); if (r.ok) sel = null; refreshWorld(); save(); break; }

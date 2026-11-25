@@ -10,6 +10,7 @@ import { aiGreatPeople, aiAmbitions } from './people.js';
 import { aiVocations, aiRepair, aiPreventionNeed } from './land.js';
 import { aiGovernment, aiArchaeologist, aiWantsArchaeologist, eraOf } from './ages.js';
 import { aiPosts, aiCaravanPost, aiWantsAgent, aiAgent } from './independents.js';
+import { aiMovements } from './movements.js';
 
 // Paramètres de l'IA : web/data/ai.json, éventuellement surchargés par joueur (s.aiOverrides[pid]) pour l'entraînement.
 function merge(a, b) {
@@ -53,6 +54,7 @@ function aiTurn(s, pid) {
   aiRepair(s, pid);
   aiGovernment(s, pid, w);
   aiPosts(s, pid);
+  aiMovements(s, pid, w);
   diplomacy(s, pid);
 }
 

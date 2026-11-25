@@ -2,6 +2,7 @@
 // Importé par game.js : les fonctions du moteur ne sont utilisées qu'à l'exécution.
 import * as G from './game.js';
 import { vocationPollution } from './land.js';
+import { movementPollution } from './movements.js';
 
 // ------------------------------------------------------------ saisons
 // Un cycle de quatre saisons de quelques tours chacune : récoltes en automne, disette et chemins enneigés au nord en hiver.
@@ -28,7 +29,7 @@ export function cityPollution(s, city) {
   }
   emitted += vocationPollution(s, city);
   const forests = s.map.tiles.filter((t) => t.cityId === city.id && t.owner === city.owner && t.type === 'forest' && !G.buildingAt(s, t.x, t.y)).length;
-  const absorbed = parks * P.park + Math.min(P.forestMax, forests * P.forestAbsorb);
+  const absorbed = parks * P.park + Math.min(P.forestMax, forests * P.forestAbsorb) + movementPollution(s, city);
   return { emitted, absorbed, net: Math.max(0, Math.round((emitted - absorbed) * 10) / 10) };
 }
 export function pollutionYields(s, pid) {

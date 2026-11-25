@@ -111,7 +111,7 @@ Sur l'écran d'accueil, vous choisissez :
   - On s'y déplace plus vite.
   - Le Moulin à eau et le port fluvial s'y construisent.
 - **Diplomatie** : les voisins méfiants ou hostiles réduisent votre productivité. Accords et alliances la renforcent.
-- **Victoire** : la première voie complétée l'emporte. Sinon, la victoire va au premier à 290 points de prestige (en partie normale sur carte moyenne), ou au meilleur score après 60 tours. Les voies (valeurs en partie normale) :
+- **Victoire** : la première voie complétée l'emporte. Sinon, la victoire va au premier à 310 points de prestige (355 avec les ambitions, en partie normale sur carte moyenne), ou au meilleur score après 60 tours. Les voies (valeurs en partie normale) :
   - Science : Observatoire Céleste et 13 technologies ;
   - Culture : Amphithéâtre et 650 de culture ;
   - Économie : Grande Bourse et 3 450 Or en caisse ;
@@ -174,6 +174,10 @@ Sur l'écran d'accueil, vous choisissez :
 - **Archéologie** : des sites antiques parsèment la carte. Un Archéologue qui en atteint un exhume un artefact, exposé comme une œuvre d'art (Culture, tourisme, prestige) ; il faut une place d'exposition libre (le Musée en offre 3). Fouiller chez un voisin le froisse.
 - **Comptoirs indépendants** : comptoirs marchands, campements nomades, cités savantes et villages d'artistes, neutres. On ne les conquiert pas, on les courtise : caravane, émissaire, cadeau (30 Or), culture des villes proches. Le plus apprécié devient leur protecteur et reçoit leur bonus et du prestige. Sélectionnez-les sur la carte ou dans la Diplomatie.
 - **Espionnage industriel** : un Agent entré dans une ville étrangère copie une technologie ou retarde un chantier. S'il est repéré (35 % de risque, davantage chez un joueur qui a une Chancellerie), c'est un incident diplomatique, et une fois sur deux la mission échoue.
+- **Mouvements culturels** (fenêtre Culture, touche `C`) : Stoïcisme, Humanisme, Lumières, Esprit d'entreprise, Romantisme, Mouvement hygiéniste, Modernisme.
+  - Chacun naît dans la capitale du pays le plus cultivé de son ère, puis gagne les villes voisines, porté par la culture, les routes commerciales et les alliances. Les icônes des mouvements présents s'affichent à côté du nom des villes.
+  - Pour chaque mouvement, vous choisissez d'**adhérer** (bonus dans chaque ville touchée, propagation plus rapide chez vous ; 2 adhésions au plus), de rester **neutre** ou de l'**interdire** (il se propage beaucoup moins chez vous).
+  - Le pays fondateur gagne du prestige quand son mouvement gagne des villes étrangères.
 
 ## Structure
 
