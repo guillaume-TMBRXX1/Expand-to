@@ -300,6 +300,7 @@ function renderTop() {
   items.push(`<span class="res" title="Prestige — objectif de victoire"><i style="background:var(--accent)"></i><b>${p.prestige}<span class="pt-target"> / ${s.rules.prestigeTarget}</span></b><small class="lbl-long">prestige</small><small class="lbl-short">★</small></span>`);
   $('#resources').innerHTML = items.join('');
   const season = SOC.seasonOf(s);
+  Sound.music.setMood(season?.id, s.rules.eras ? AGE.eraOf(s, 0) : 0); // l'humeur suit la saison, les instruments l'ère
   $('#turn').textContent = `Tour ${s.turn} / ${s.rules.turnLimit}${season ? ` · ${season.icon} ${season.name}` : ''}${s.rules.eras ? ` · ${AGE.eraName(s, 0)}` : ''}`;
   $('#turn').title = season ? `${season.name} : ${Object.entries(season.yieldPct).map(([k, v]) => `${v > 0 ? '+' : ''}${Math.round(v * 100)} % ${data.resources[k].name}`).join(', ')}${season.northMove ? ', déplacements plus lents au nord' : ''}. Encore ${SOC.seasonTurnsLeft(s)} tour(s).${eraTip()}` : '';
   const short = document.querySelector('[data-action="end-turn"] .lbl-short');
@@ -1428,8 +1429,10 @@ function showMenu() {
     <div class="actions"><button class="btn small" data-action="toggle-confirm" aria-pressed="${confirmMoves}">Confirmation des déplacements : ${confirmMoves ? 'activée' : 'désactivée'}</button>
       <button class="btn small" data-action="toggle-blockend" aria-pressed="${blockEnd}" title="Empêche de finir le tour tant qu'une unité n'a pas reçu d'ordre">Attendre les unités avant la fin du tour : ${blockEnd ? 'activé' : 'désactivé'}</button>
       <button class="btn small" data-action="toggle-sound" aria-pressed="${Sound.soundEnabled()}">Sons : ${Sound.soundEnabled() ? 'activés' : 'coupés'}</button>
+      <button class="btn small" data-action="toggle-music" aria-pressed="${Sound.musicEnabled()}" title="Musique d'ambiance générée en continu : son humeur suit la saison, ses instruments suivent l'ère">Musique : ${Sound.musicEnabled() ? 'activée' : 'coupée'}</button>
       <button class="btn small" data-action="toggle-daynight" aria-pressed="${renderer.dayNight}">Cycle jour / nuit : ${renderer.dayNight ? 'activé' : 'désactivé'}</button></div>
-    <label class="field" style="margin-top:10px;max-width:260px">Volume<input type="range" min="0" max="1" step="0.05" value="${Sound.soundVolume()}" id="f-volume"></label>
+    <div class="start-row" style="margin-top:10px"><label class="field" style="max-width:260px">Volume des sons<input type="range" min="0" max="1" step="0.05" value="${Sound.soundVolume()}" id="f-volume"></label>
+      <label class="field" style="max-width:260px">Volume de la musique<input type="range" min="0" max="1" step="0.05" value="${Sound.musicLevel()}" id="f-music"></label></div>
     <div class="actions"><button class="btn small" data-action="encyclopedia">Encyclopédie (E)</button></div>
     <div class="section-title" style="margin-top:16px"><span>Partie</span></div>
     <div class="actions"><button class="btn small" data-action="tuto-restart">${s.tutorial?.active ? 'Recommencer le tutoriel' : 'Relancer le tutoriel'}</button><button class="btn small" data-action="new-game">Retour à l'accueil</button></div>
@@ -1507,6 +1510,7 @@ function onAction(e) {
     case 'confirm-move': { const u = s.units.find((x) => x.id === pendingMove?.uid); if (u) executeMove(u, pendingMove.x, pendingMove.y); break; }
     case 'cancel-move': pendingMove = null; renderSelection(); renderHighlights(); break;
     case 'toggle-sound': Sound.setSound(!Sound.soundEnabled()); showMenu(); break;
+    case 'toggle-music': Sound.setMusic(!Sound.musicEnabled()); showMenu(); break;
     case 'toggle-daynight': renderer.dayNight = !renderer.dayNight; try { localStorage.setItem('expandto.daynight', renderer.dayNight ? '1' : '0'); } catch { /* ignore */ } if (!renderer.dayNight) renderer.resetLight(); showMenu(); break;
     case 'encyclopedia': showEncyclopedia(); break;
     case 'enc-tab': showEncyclopedia(b.dataset.tab); break;
@@ -1603,7 +1607,7 @@ function onAction(e) {
       toast(r.ok ? 'Échange accepté.' : r.reason, r.ok ? 'good' : 'bad');
       showDiplo(); renderAll(); save(); break;
     }
-    case 'new-game': closeModal(); save(); for (const x of ['#topbar', '#side', '#buildbar', '#selection', '#hint', '#tutorial', '#summary']) $(x).hidden = true; s = null; showStart(); break;
+    case 'new-game': Sound.music.setMood('menu', 0); closeModal(); save(); for (const x of ['#topbar', '#side', '#buildbar', '#selection', '#hint', '#tutorial', '#summary']) $(x).hidden = true; s = null; showStart(); break;
     case 'menu': showMenu(); break;
     case 'toggle-build': toggleBuild(); break;
     case 'toggle-side': setSide(!document.documentElement.classList.contains('side-open')); break;
@@ -1688,7 +1692,11 @@ function bindInput() {
   });
   canvas.addEventListener('pointerleave', () => { $('#tiptile').hidden = true; });
   canvas.addEventListener('pointerdown', () => { $('#tiptile').hidden = true; });
-  document.addEventListener('input', (e) => { if (e.target.id === 'f-volume') Sound.setVolume(Number(e.target.value)); });
+  document.addEventListener('input', (e) => { if (e.target.id === 'f-volume') Sound.setVolume(Number(e.target.value)); if (e.target.id === 'f-music') Sound.setMusicVolume(Number(e.target.value)); });
+  // Musique : les navigateurs n'autorisent le son qu'après un geste de l'utilisateur.
+  const startMusic = () => Sound.music.start();
+  document.addEventListener('pointerdown', startMusic, { once: true });
+  document.addEventListener('keydown', startMusic, { once: true });
   canvas.addEventListener('pointermove', (e) => {
     if (!s) return;
     const tip = $('#tiptile');

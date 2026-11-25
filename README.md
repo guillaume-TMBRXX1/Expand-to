@@ -137,6 +137,7 @@ Sur l'écran d'accueil, vous choisissez :
   - **Patrimoine mondial** : faire classer une merveille naturelle, une merveille, un monument ou un théâtre protège la case contre l'influence des voisins et attire des visiteurs.
   - **Tourisme** : il rapporte de l'Or chaque tour, et du prestige en s'accumulant.
   - **Défis scientifiques** : six objectifs ouverts à tous (Atlas du monde, Grande Encyclopédie…). Le premier qui en remplit un gagne du prestige et de la Science.
+- **Musique de fond** : une musique d'ambiance générée en continu (aucun fichier audio), qui ne se répète jamais à l'identique. Son humeur suit la saison (claire au printemps, plus lente et sombre en hiver) et ses instruments suivent l'ère (lyre, luth et flûte, boîte à musique, piano électrique). Elle démarre au premier clic et se coupe ou se règle dans le menu, séparément des sons.
 - **Saisons** : chacune dure 3 tours et s'affiche à côté du numéro de tour.
   - Printemps : un peu plus de Nourriture et de Culture.
   - Été : plus d'Or.
