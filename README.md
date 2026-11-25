@@ -112,9 +112,9 @@ Sur l'écran d'accueil, vous choisissez :
   - Le Moulin à eau et le port fluvial s'y construisent.
 - **Diplomatie** : les voisins méfiants ou hostiles réduisent votre productivité. Accords et alliances la renforcent.
 - **Victoire** : la première voie complétée l'emporte. Sinon, la victoire va au premier à 310 points de prestige (355 avec les ambitions, en partie normale sur carte moyenne), ou au meilleur score après 60 tours. Les voies (valeurs en partie normale) :
-  - Science : Observatoire Céleste et 13 technologies ;
-  - Culture : Amphithéâtre et 650 de culture ;
-  - Économie : Grande Bourse et 3 450 Or en caisse ;
+  - Science : Observatoire Céleste et 15 technologies ;
+  - Culture : Amphithéâtre et 680 de culture ;
+  - Économie : Grande Bourse et 2 645 Or en caisse ;
   - Diplomatie : élu 4 fois Secrétaire et allié de la moitié des rivaux, ou allié de tous et élu 3 fois.
 
   En partie rapide, les seuils sont plus bas et les technologies moins chères ; en partie longue, c'est l'inverse. Le bouton « Voies de victoire » (panneau Prestige) suit votre progression.
@@ -124,9 +124,9 @@ Sur l'écran d'accueil, vous choisissez :
 - **Ruines antiques** : la première unité qui y entre les fouille et y trouve de l'Or, de la Science, de la Culture, des matériaux ou une carte de la région.
 - **Profils** : chacun a son bâtiment propre (onglet à son nom dans la barre de construction) et une capacité active, avec un temps de recharge (bouton ★ à côté des onglets) :
   - Négociant : Maison des Guildes, et la Grande foire (+30 % Or pendant 3 tours) ;
-  - Érudit : Académie royale, et la Percée (la moitié de la recherche en cours) ;
+  - Érudit : Académie royale, et la Percée (40 % de la recherche en cours) ;
   - Bâtisseur : Atelier des maîtres, et le Chantier éclair (tous les chantiers avancent de 2 tours) ;
-  - Diplomate : Chancellerie, et le Sommet (+6 relation avec tous) ;
+  - Diplomate : Chancellerie, et le Sommet (+4 relation avec tous) ;
   - Explorateur : Relais des cartographes, et la Grande expédition (carte révélée autour des unités, +2 mouvements).
 - **Contrats commerciaux** : une IA vous demande une livraison (par exemple 15 planches en 6 tours) contre de l'Or, de la relation et du prestige. Un contrat accepté puis non honoré coûte de la relation.
 - **Influence culturelle** : votre culture s'accumule en influence et agrandit votre territoire d'une case neutre à la fois. Avec une culture bien plus forte qu'un voisin, vous pouvez attirer une case de sa frontière, ce qui le fâche. Le détail s'affiche au survol de la Culture.

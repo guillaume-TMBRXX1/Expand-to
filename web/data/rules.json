@@ -353,9 +353,9 @@
     }
   },
   "victory": {
-    "scienceTechs": 13,
-    "cultureTotal": 720,
-    "economyGold": 3000,
+    "scienceTechs": 15,
+    "cultureTotal": 680,
+    "economyGold": 2300,
     "secretaryWins": 4,
     "allyAllElections": 3
   },

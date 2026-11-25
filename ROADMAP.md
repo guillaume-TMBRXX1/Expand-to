@@ -332,6 +332,27 @@ Mesuré sur 60 à 100 parties simulées par réglage, toutes les nouveautés des
 
 ---
 
+## Équilibrage global (après les phases 13 à 15) ✅
+
+Mesuré sur 160 parties IA contre IA (8 graines × 20 parties, carte moyenne, durée normale).
+
+| Profil | Avant | Après |
+|---|---|---|
+| Négociant | 15 % | 20 % |
+| Érudit | 31 à 40 % | 30 % |
+| Bâtisseur | 22 % | 28 % |
+| Diplomate | 43 % | 25 % |
+| Explorateur | 16 % | 22 % |
+
+- Profils :
+  - Négociant : +25 % Or, +9 prestige par route.
+  - Érudit : +12 % Science, +0,7 prestige par palier, Percée à 40 %.
+  - Bâtisseur : bâtiments −12 %.
+  - Diplomate : +4 relation au départ, +0,1 par tour, grands artistes plus fréquents (plus les marchands), Sommet +4.
+  - Explorateur : +20 % Culture, jusqu'à +40 prestige d'exploration.
+- Voies de victoire : science à 15 technologies et Observatoire Céleste plus cher ; culture à 680 ; économie à 2 300 Or (2 645 en partie normale).
+- Durée moyenne : 37,7 tours en partie normale, environ 32 en rapide, 47 en longue. Victoires : prestige 51 %, science 21 %, culture 15 %, diplomatie 9 %, économie 5 %.
+
 ## Méthode de travail proposée
 
 1. Une **issue** par fonctionnalité, une **branche** et une **PR** en brouillon ; le jeu se teste sur Railway une fois la PR fusionnée.
