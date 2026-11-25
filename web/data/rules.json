@@ -397,7 +397,7 @@
   "mapTypes": {
     "continent": {
       "name": "Continent",
-      "desc": "Une grande terre entourée d'océan."
+      "desc": "Une grande terre, bordée de 2 à 3 cases de mer."
     },
     "pangaea": {
       "name": "Pangée",
