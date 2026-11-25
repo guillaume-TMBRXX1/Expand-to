@@ -87,8 +87,12 @@ function bus() {
     for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
     reverb.buffer = ir;
     const wet = c.createGain(); wet.gain.value = 0.32;
-    musicBus.connect(c.destination);
-    musicBus.connect(reverb); reverb.connect(wet); wet.connect(c.destination);
+    // Aigus adoucis : étagère −6 dB au-dessus de 2,5 kHz, puis coupure douce vers 7 kHz.
+    const shelf = c.createBiquadFilter(); shelf.type = 'highshelf'; shelf.frequency.value = 2500; shelf.gain.value = -6;
+    const soft = c.createBiquadFilter(); soft.type = 'lowpass'; soft.frequency.value = 7000; soft.Q.value = 0.5;
+    shelf.connect(soft); soft.connect(c.destination);
+    musicBus.connect(shelf);
+    musicBus.connect(reverb); reverb.connect(wet); wet.connect(shelf);
   }
   return c;
 }
@@ -122,7 +126,7 @@ function scheduleBar(c, t0) {
   if (resting) return;
   const arp = [chord[0], chord[1], chord[2], chord[1] + 12];
   for (let k = 0; k < 4; k++) if (Math.random() < 0.55 + M.density * 0.4) {
-    voice(c, { freq: midi(root + arp[k]), t: t0 + k * beat + (k % 2 ? beat * 0.5 : 0), dur: I.pluckDecay, type: I.pluck, gain: 0.055, cutoff: 2600 });
+    voice(c, { freq: midi(root + arp[k]), t: t0 + k * beat + (k % 2 ? beat * 0.5 : 0), dur: I.pluckDecay, type: I.pluck, gain: 0.055, cutoff: 2000 });
   }
   // Mélodie : pas conjoints dans la gamme, plus de notes de l'accord sur les temps forts.
   const sc = M.scale.flatMap((d) => [d, d + 12]);
@@ -135,7 +139,7 @@ function scheduleBar(c, t0) {
     lastNote = idx;
     const len = (Math.random() < 0.3 ? 2 : 1) * beat * 0.5;
     voice(c, { freq: midi(root + 12 + sc[idx]), t: t0 + k * beat * 0.5, dur: len * 1.4, type: I.lead, gain: 0.065, attack: 0.03, release: len, vibrato: I.leadVib });
-    if (I.bell && strong && Math.random() < 0.35) voice(c, { freq: midi(root + 24 + sc[idx]), t: t0 + k * beat * 0.5, dur: 1.8, type: 'sine', gain: 0.025 });
+    if (I.bell && strong && Math.random() < 0.35) voice(c, { freq: midi(root + 24 + sc[idx]), t: t0 + k * beat * 0.5, dur: 1.8, type: 'sine', gain: 0.018 });
   }
 }
 
