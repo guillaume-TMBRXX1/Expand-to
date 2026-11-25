@@ -1077,6 +1077,7 @@ export class Renderer {
     this.waterUniform.value = this.time;
     this.setSmokeVisible(this.camera.position.distanceTo(this.controls.target) <= ANIM_MAX_DIST);
     if (!this.reducedMotion) this.animate(dt);
+    if (this.tradeLines?.length && !this.reducedMotion) this.updateTradeRoutes(this.time);
     this.updateEffects(dt);
     this.villagers.update(this.time);
     this.ambience.update(this.time, this.seasonId);
@@ -1133,6 +1134,62 @@ export class Renderer {
     g.renderOrder = 6;
     this.pathGroup = g;
     this.scene.add(g);
+  }
+
+  // Routes commerciales : pointillés qui défilent de la ville d'origine vers la ville de destination,
+  // flèche à l'arrivée. lines : [{ pts: [index de case…], color }].
+  setTradeRoutes(lines) {
+    if (this.tradeGroup) { this.scene.remove(this.tradeGroup); this.tradeGroup.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } }); this.tradeGroup = null; }
+    this.tradeLines = [];
+    if (!lines?.length) return;
+    const g = new THREE.Group();
+    const explored = this.state.players[this.viewer].explored;
+    for (const ln of lines) {
+      if (ln.pts.length < 2) continue;
+      const raw = ln.pts.map((i) => new THREE.Vector3(this.wx(i % this.W), Math.max(0.05, this.heights[i]) + 0.08, this.wz(Math.floor(i / this.W))));
+      // Chaque route roule « à droite » : deux routes en sens inverse sur le même chemin restent lisibles.
+      const poly = raw.map((p, k) => {
+        const a = raw[Math.max(0, k - 1)], b = raw[Math.min(raw.length - 1, k + 1)];
+        const d = b.clone().sub(a).setY(0); if (d.lengthSq() < 1e-6) return p.clone();
+        d.normalize();
+        return p.clone().add(new THREE.Vector3(-d.z, 0, d.x).multiplyScalar(k === 0 || k === raw.length - 1 ? 0.06 : 0.13));
+      });
+      const cum = [0];
+      for (let k = 1; k < poly.length; k++) cum.push(cum[k - 1] + poly[k].distanceTo(poly[k - 1]));
+      const len = cum[cum.length - 1], spacing = 0.34, n = Math.max(1, Math.floor(len / spacing));
+      const mat = new THREE.MeshBasicMaterial({ color: ln.color });
+      const dots = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06, 0.06, 0.03, 10), mat, n);
+      dots.renderOrder = 5;
+      const end = poly[poly.length - 1], prev = poly[poly.length - 2];
+      const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.24, 12), new THREE.MeshBasicMaterial({ color: ln.color }));
+      const dir = end.clone().sub(prev).setY(0).normalize();
+      arrow.position.copy(end).addScaledVector(dir, -0.42).setY(end.y + 0.05);
+      arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      const tileOf = (p) => Math.round(p.z + this.H / 2 - 0.5) * this.W + Math.round(p.x + this.W / 2 - 0.5);
+      arrow.visible = explored[ln.pts[ln.pts.length - 1]] === 1;
+      g.add(dots, arrow);
+      this.tradeLines.push({ dots, poly, cum, len, spacing, n, tileOf, explored });
+    }
+    this.tradeGroup = g;
+    this.scene.add(g);
+    this.updateTradeRoutes(0);
+  }
+  updateTradeRoutes(t) {
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), zero = new THREE.Vector3(0, 0, 0);
+    for (const ln of this.tradeLines || []) {
+      const off = this.reducedMotion ? 0 : (t * 0.45) % ln.spacing;
+      let seg = 1;
+      for (let k = 0; k < ln.n; k++) {
+        const d = Math.min(ln.len - 0.001, off + k * ln.spacing);
+        while (seg < ln.cum.length - 1 && ln.cum[seg] < d) seg++;
+        const a = ln.poly[seg - 1], b = ln.poly[seg], f = (d - ln.cum[seg - 1]) / Math.max(1e-6, ln.cum[seg] - ln.cum[seg - 1]);
+        v.lerpVectors(a, b, f);
+        const seen = ln.explored[ln.tileOf(v)] === 1;
+        m.compose(v, q, seen ? one : zero);
+        ln.dots.setMatrixAt(k, m);
+      }
+      ln.dots.instanceMatrix.needsUpdate = true;
+    }
   }
 
   // Pastilles posées sur des cases (bonus d'adjacence) : [{ i, html }]

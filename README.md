@@ -47,7 +47,7 @@ node tools/sim.mjs 10 --size=large --type=archipelago --length=long --ais=7
 
 Sur l'écran d'accueil, vous choisissez :
 - la **taille de carte** : petite (40 × 30, jusqu'à 3 IA), moyenne (50 × 36, jusqu'à 5 IA), grande (62 × 42, jusqu'à 7 IA) ou Immense (72 × 48, 7 IA, expérimentale : elle peut être lente sur un iPad ancien) ;
-- le **type de carte** : continent, pangée ou archipel. En archipel, la Navigation permet de traverser les lagunes ;
+- le **type de carte** : continent (une grande terre, bordée de 2 à 3 cases de mer), pangée ou archipel. En archipel, la Navigation permet de traverser les lagunes ;
 - la **durée** : 40, 60 ou 80 tours ;
 - la **difficulté** : en Difficile, les IA jouent avec les paramètres entraînés (meilleurs choix de recherche et de construction), avec de petits bonus ;
 - le **profil**.
@@ -174,6 +174,7 @@ Sur l'écran d'accueil, vous choisissez :
 - **Archéologie** : des sites antiques parsèment la carte. Un Archéologue qui en atteint un exhume un artefact, exposé comme une œuvre d'art (Culture, tourisme, prestige) ; il faut une place d'exposition libre (le Musée en offre 3). Fouiller chez un voisin le froisse.
 - **Comptoirs indépendants** : comptoirs marchands, campements nomades, cités savantes et villages d'artistes, neutres. On ne les conquiert pas, on les courtise : caravane, émissaire, cadeau (30 Or), culture des villes proches. Le plus apprécié devient leur protecteur et reçoit leur bonus et du prestige. Sélectionnez-les sur la carte ou dans la Diplomatie.
 - **Espionnage industriel** : un Agent entré dans une ville étrangère copie une technologie ou retarde un chantier. S'il est repéré (35 % de risque, davantage chez un joueur qui a une Chancellerie), c'est un incident diplomatique, et une fois sur deux la mission échoue.
+- **Routes commerciales sur la carte** : les routes qui vous concernent sont tracées en pointillés qui défilent dans le sens du trajet. En doré, celles que vous avez ouvertes avec vos caravanes et navires ; en bleu, celles que vos voisins ont ouvertes vers vos villes. L'infobulle d'une ville les rappelle.
 - **Mouvements culturels** (fenêtre Culture, touche `C`) : Stoïcisme, Humanisme, Lumières, Esprit d'entreprise, Romantisme, Mouvement hygiéniste, Modernisme.
   - Chacun naît dans la capitale du pays le plus cultivé de son ère, puis gagne les villes voisines, porté par la culture, les routes commerciales et les alliances. Les icônes des mouvements présents s'affichent à côté du nom des villes.
   - Pour chaque mouvement, vous choisissez d'**adhérer** (bonus dans chaque ville touchée, propagation plus rapide chez vous ; 2 adhésions au plus), de rester **neutre** ou de l'**interdire** (il se propage beaucoup moins chez vous).

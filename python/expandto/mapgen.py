@@ -70,7 +70,7 @@ def classify(e: float, m: float) -> str:
 
 
 MAP_TYPES = {
-    "continent": {"cell": 9, "gain": 1.25, "bias": -0.1, "fall0": 0.55},
+    "continent": {"cell": 9, "gain": 1.2, "bias": 0.0, "fall0": 0.55, "margin": (2, 3)},  # mer de 2 à 3 cases sur les bords
     "pangaea": {"cell": 11, "gain": 1.15, "bias": 0.0, "fall0": 0.7},
     "archipelago": {"cell": 5, "gain": 1.35, "bias": -0.16, "fall0": 0.62},
 }
@@ -90,7 +90,18 @@ def generate_map(seed: int, width: int = 36, height: int = 26, map_type: str = "
             d = max(abs(nx), abs(ny) * 1.05)
             falloff = min(1, max(0, (d - T["fall0"]) / (1 - T["fall0"])))
             e = elev(x, y) * T["gain"] + T["bias"]
-            e = e * (1 - falloff * 0.9) - falloff * 0.15
+            if T.get("margin"):
+                # Bords du plateau : toujours de la mer sur margin[0] cases, la terre le plus souvent dès margin[1] cases (quelques criques).
+                dist = min(x, y, width - 1 - x, height - 1 - y)
+                if dist < T["margin"][0]:
+                    e = 0.2
+                elif dist == T["margin"][1]:
+                    if e < 0.43:
+                        e = max(e + 0.1, 0.36)  # terre le plus souvent, quelques criques
+                elif dist < T["margin"][1]:
+                    e -= 0.3  # quelques avancées de terre seulement
+            else:
+                e = e * (1 - falloff * 0.9) - falloff * 0.15
             e = min(1, max(0, e))
             m = moist(x, y)
             row.append({"x": x, "y": y, "e": e, "m": m, "type": classify(e, m)})

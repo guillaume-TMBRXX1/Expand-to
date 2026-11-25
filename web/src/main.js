@@ -192,6 +192,7 @@ function startGame(state) {
   $('#summary').hidden = true;
   applyLayout();
   renderer.setState(s, 0);
+  tradeKey = ''; setTimeout(() => updateTradeLines(true), 0);
   sel = null; mode = null;
   const u = s.units.find((x) => x.owner === 0 && x.type === 'settler') || s.units.find((x) => x.owner === 0);
   const c = G.citiesOf(s, 0)[0];
@@ -205,7 +206,7 @@ function startGame(state) {
 
 // ------------------------------------------------------------------ rendu UI
 function renderAll() {
-  renderTop(); renderStock(); renderSide(); renderSelection(); renderBuildbar(); renderHighlights(); renderTutorial(); drawMinimap();
+  renderTop(); renderStock(); renderSide(); renderSelection(); renderBuildbar(); renderHighlights(); renderTutorial(); drawMinimap(); updateTradeLines();
 }
 
 // ---------------------------------------------------------------- tutoriel
@@ -863,6 +864,26 @@ function setMode(next) {
 // Terrain modifié (aménagement, incendie) : on reconstruit la scène pour replacer arbres et décor.
 function refreshWorld() { if (s.terrainDirty) { delete s.terrainDirty; renderer.setState(s, 0); } else renderer.refresh(); renderAll(); }
 
+// Routes commerciales qui vous concernent, tracées sur la carte : les vôtres (doré) et celles des voisins vers vos villes (bleu).
+const TRADE_COLORS = { mine: '#e8a317', theirs: '#3e8ed0' };
+let tradeKey = '';
+function updateTradeLines(force = false) {
+  const routes = s.tradeRoutes.filter((r) => r.a === 0 || r.b === 0);
+  const key = `${s.turn}|${routes.map((r) => `${r.a}-${r.cityId}-${r.fromCityId}-${r.sea ? 1 : 0}`).join(',')}`;
+  if (!force && key === tradeKey) return;
+  tradeKey = key;
+  const lines = [];
+  for (const r of routes) {
+    const to = s.cities.find((c) => c.id === r.cityId);
+    const from = s.cities.find((c) => c.id === r.fromCityId && c.owner === r.a) || G.citiesOf(s, r.a).sort((p, q) => G.cheb(p.x, p.y, to.x, to.y) - G.cheb(q.x, q.y, to.x, to.y))[0];
+    if (!to || !from) continue;
+    const path = G.findPath(s, { id: -1, type: r.sea ? 'ship' : 'caravan', owner: r.a, x: from.x, y: from.y, movesLeft: 99 }, to.x, to.y);
+    const start = from.y * s.map.width + from.x;
+    lines.push({ pts: path?.length ? [start, ...path] : [start, to.y * s.map.width + to.x], color: r.a === 0 ? TRADE_COLORS.mine : TRADE_COLORS.theirs });
+  }
+  renderer.setTradeRoutes(lines);
+}
+
 function handleTileClick(i, shift) {
   if (s.winner) return;
   const t = s.map.tiles[i];
@@ -936,6 +957,12 @@ function showTileTip(i, x, y) {
   const c = G.cityAt(s, t.x, t.y);
   const units = s.units.filter((u) => u.x === t.x && u.y === t.y && (u.owner === 0 || renderer.visible?.[i]));
   const lines = [`<b>${c ? esc(c.name) : ter.name}</b>${t.owner !== -1 ? ` <span class="muted">· ${esc(s.players[t.owner].name)}</span>` : ''}`];
+  if (c) {
+    const inc = s.tradeRoutes.filter((r) => r.cityId === c.id && (r.a === 0 || r.b === 0));
+    const out = c.owner === 0 ? s.tradeRoutes.filter((r) => r.a === 0 && (r.fromCityId === c.id)) : [];
+    for (const r of inc) lines.push(`<span class="chip" style="color:${r.a === 0 ? TRADE_COLORS.mine : TRADE_COLORS.theirs}">Route ${r.sea ? 'maritime' : 'commerciale'} : ${r.a === 0 ? 'la vôtre' : `de ${esc(s.players[r.a].name)}`}</span>`);
+    for (const r of out) lines.push(`<span class="chip" style="color:${TRADE_COLORS.mine}">Route vers ${esc(s.cities.find((x) => x.id === r.cityId)?.name || '?')}</span>`);
+  }
   if (c) lines.push(`<span class="muted">Ville · ${c.pop} hab. · ${s.rules.tiers[c.tier || 0].name}${SOC.cityPollution(s, c).net > 0 ? ' · polluée' : ''}</span>`);
   if (!c) lines.push(`<span class="muted">${ter.passable ? `Déplacement ${G.enterCost(s, { owner: 0, type: 'explorer' }, t)}` : 'Impraticable'}${t.road !== -1 ? ' · route' : ''}</span>`);
   const reg = s.rules.regions?.[t.region];

@@ -678,7 +678,8 @@ function establishTradeRoute(s, u, city) {
   if (mine >= max) { log(s, `Limite de routes commerciales atteinte (${max}).`, [u.owner], 'bad'); return; }
   if (s.tradeRoutes.some((r) => r.a === u.owner && r.cityId === city.id)) { log(s, `Une route vers ${city.name} existe déjà.`, [u.owner], 'bad'); return; }
   const sea = u.type === 'ship';
-  s.tradeRoutes.push({ a: u.owner, b: city.owner, cityId: city.id, sea });
+  const from = citiesOf(s, u.owner).sort((p, q) => cheb(p.x, p.y, city.x, city.y) - cheb(q.x, q.y, city.x, city.y))[0];
+  s.tradeRoutes.push({ a: u.owner, b: city.owner, cityId: city.id, sea, fromCityId: from?.id ?? null });
   remember(s, u.owner, city.owner, `Route ${sea ? 'maritime' : 'commerciale'} vers ${city.name}`, (sea ? s.rules.seaRoute : s.rules.tradeRoute).relation);
   s.units = s.units.filter((v) => v.id !== u.id);
   log(s, `Route ${sea ? 'maritime' : 'commerciale'} ouverte entre ${s.players[u.owner].name} et ${city.name} (${s.players[city.owner].name}).`, [u.owner, city.owner], 'good');

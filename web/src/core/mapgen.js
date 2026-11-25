@@ -40,7 +40,7 @@ export function classify(e, m) {
 // Types de carte : continent (une grande terre), pangée (terre plus vaste), archipel (îles séparées
 // par des lagunes peu profondes, franchissables avec la Navigation).
 export const MAP_TYPES = {
-  continent: { cell: 9, gain: 1.25, bias: -0.1, fall0: 0.55 },
+  continent: { cell: 9, gain: 1.2, bias: 0.0, fall0: 0.55, margin: [2, 3] }, // mer de 2 à 3 cases sur les bords
   pangaea: { cell: 11, gain: 1.15, bias: 0.0, fall0: 0.7 },
   archipelago: { cell: 5, gain: 1.35, bias: -0.16, fall0: 0.62 },
 };
@@ -57,7 +57,13 @@ export function generateMap(seed, width, height, type = 'continent') {
       const d = Math.max(Math.abs(nx), Math.abs(ny) * 1.05);
       const falloff = Math.min(1, Math.max(0, (d - T.fall0) / (1 - T.fall0)));
       let e = elev(x, y) * T.gain + T.bias;
-      e = e * (1 - falloff * 0.9) - falloff * 0.15;
+      if (T.margin) {
+        // Bords du plateau : toujours de la mer sur margin[0] cases, la terre le plus souvent dès margin[1] cases (quelques criques).
+        const dist = Math.min(x, y, width - 1 - x, height - 1 - y);
+        if (dist < T.margin[0]) e = 0.2;
+        else if (dist === T.margin[1]) { if (e < 0.43) e = Math.max(e + 0.1, 0.36); } // terre le plus souvent, quelques criques
+        else if (dist < T.margin[1]) e -= 0.3; // quelques avancées de terre seulement
+      } else e = e * (1 - falloff * 0.9) - falloff * 0.15;
       e = Math.min(1, Math.max(0, e));
       const m = moist(x, y);
       tiles.push({ x, y, e, m, type: classify(e, m), owner: -1, cityId: null, road: -1 });
