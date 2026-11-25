@@ -563,3 +563,6 @@ html.compact #selection .kv { font-size: 13.5px; }
 .city-label .mv { margin-left: 4px; font-size: 11px; letter-spacing: 1px; }
 .mv-row { align-items: center; gap: 10px; }
 .mv-row .row { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* Chemin d'une unité : repère de fin de tour, plus discret que l'arrivée */
+.tile-badge .turn-end { font-weight: 600; color: var(--muted); font-size: 10.5px; }
