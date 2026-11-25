@@ -364,7 +364,7 @@ export function canBuild(s, pid, type, x, y, opts = {}) {
   const def = buildingDef(s, type);
   const t = tileAt(s, x, y);
   if (!def || !t) return { ok: false, reason: 'Invalide.' };
-  if (def.tech && !opts.plan && !hasTech(s, pid, def.tech)) return { ok: false, reason: `Nécessite ${techDef(s, def.tech).name}.` };
+  if (def.tech && !opts.plan && !opts.moving && !hasTech(s, pid, def.tech)) return { ok: false, reason: `Nécessite ${techDef(s, def.tech).name}.` };
   if (def.profile && s.players[pid].profile !== def.profile) return { ok: false, reason: `Réservé au profil ${s.data.profilesById[def.profile].name}.` };
   if (def.era && !opts.plan && s.rules.eras && AGE.eraOf(s, pid) < def.era) return { ok: false, reason: `Disponible à l'ère ${AGE.eraDef(s, def.era).name}.` };
   const tiles = footprintTiles(s, type, x, y);
@@ -385,7 +385,7 @@ export function canBuild(s, pid, type, x, y, opts = {}) {
     if (s.buildings.some((b) => b.type === type && b.owner === pid)) return { ok: false, reason: 'Déjà en construction.' };
   }
   if (def.perCity && s.buildings.filter((b) => b.cityId === t.cityId && b.type === type).length >= def.perCity) return { ok: false, reason: `Limité à ${def.perCity} par ville.` };
-  if (!opts.plan && !canAfford(s, pid, costOf(s, pid, def))) return { ok: false, reason: 'Ressources insuffisantes.' };
+  if (!opts.plan && !opts.moving && !canAfford(s, pid, costOf(s, pid, def))) return { ok: false, reason: 'Ressources insuffisantes.' };
   return { ok: true };
 }
 
@@ -457,6 +457,38 @@ export function build(s, pid, type, x, y) {
     }
   }
   return { ok: true, building: b };
+}
+
+// Déplacer un bâtiment (comme dans Anno) : même règles de placement, sans technologie ni coût de construction,
+// contre un petit forfait. Les merveilles et les comptoirs (liés à leur ressource rare) restent en place.
+export function canRelocate(s, pid, bid, x, y) {
+  const b = s.buildings.find((v) => v.id === bid);
+  if (!b || b.owner !== pid) return { ok: false, reason: 'Bâtiment introuvable.' };
+  const def = buildingDef(s, b.type);
+  if (def.wonder) return { ok: false, reason: 'Une merveille ne se déplace pas.' };
+  if (def.luxuryOnly) return { ok: false, reason: 'Un comptoir reste sur sa ressource rare.' };
+  if (b.x === x && b.y === y) return { ok: false, reason: 'Choisissez une autre case.' };
+  const cost = s.rules.relocate?.cost || {};
+  if (!canAfford(s, pid, cost)) return { ok: false, reason: `Déplacer coûte ${fmtBundle(s, cost)}.` };
+  // Le bâtiment libère sa propre place le temps de la vérification (un quartier 2×2 peut glisser d'une case).
+  const i = s.buildings.indexOf(b);
+  s.buildings.splice(i, 1);
+  try { return canBuild(s, pid, b.type, x, y, { moving: true }); } finally { s.buildings.splice(i, 0, b); }
+}
+export function relocate(s, pid, bid, x, y) {
+  const chk = canRelocate(s, pid, bid, x, y);
+  if (!chk.ok) return chk;
+  const b = s.buildings.find((v) => v.id === bid);
+  pay(s, pid, s.rules.relocate?.cost || {});
+  b.x = x; b.y = y; b.cityId = tileAt(s, x, y).cityId;
+  return { ok: true, building: b };
+}
+// Adjacence qu'aurait un bâtiment s'il était posé ailleurs (sans se compter lui-même à son ancienne place).
+export function adjacencyIfMoved(s, pid, bid, x, y, planned = null) {
+  const b = s.buildings.find((v) => v.id === bid);
+  const i = s.buildings.indexOf(b);
+  s.buildings.splice(i, 1);
+  try { return adjacencyBonus(s, pid, b.type, x, y, planned); } finally { s.buildings.splice(i, 0, b); }
 }
 
 // Chantiers en cours d'une merveille (les débuts de merveille sont annoncés à tous, c'est donc une information publique).
