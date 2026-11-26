@@ -203,6 +203,12 @@ function buildSomething(s, pid, w, B) {
   const pwDef = PATH_WONDER[topBranch] && s.wonders[PATH_WONDER[topBranch]] === undefined ? G.buildingDef(s, PATH_WONDER[topBranch]) : null;
   const missingFor = new Set();
   if (pwDef) for (const [k, v] of Object.entries(G.costOf(s, pid, pwDef))) if (PRODUCER[k] && (p.res[k] || 0) < v) missingFor.add(PRODUCER[k]);
+  // Pôle savant : une IA qui vise la science veut un Laboratoire par ville, puis un Campus ; il lui faut des Outils.
+  const sciencePath = topBranch === 'science' || (w.science || 0) >= 2;
+  const citiesWithout = (type) => G.citiesOf(s, pid).filter((c) => !s.buildings.some((b) => b.cityId === c.id && b.type === type)).length;
+  const wantsLab = G.hasTech(s, pid, 'chemistry') && citiesWithout('lab') > 0 && (sciencePath || s.buildings.some((b) => b.owner === pid && b.type === 'library'));
+  const wantsCampus = G.hasTech(s, pid, 'method') && citiesWithout('campus') > 0;
+  if ((wantsLab || wantsCampus) && (p.res.tools || 0) < (wantsCampus ? 15 : 5)) missingFor.add('forge');
   const scored = s.data.buildings.filter((def) => !def.profile || def.profile === p.profile).map((def) => {
     let score = 0;
     if (def.profile) score += B.unique ?? 8; // bâtiment propre au profil
@@ -221,8 +227,9 @@ function buildSomething(s, pid, w, B) {
     if (def.id === 'manufactory' && count < 1 + Math.floor(nCities / 2) && y.food >= 3 && (p.res.goods || 0) < 25) score += B.manufactory;
     if (def.id === 'outpost') score += B.outpost;
     if (def.id === 'markethall' && count === 0) score += B.markethall;
-    if (def.id === 'lab') score += B.lab;
+    if (def.id === 'lab') score += B.lab + (wantsLab ? (sciencePath ? 14 : 6) : 0);
     if (def.footprint) score += B.quarter;
+    if (def.id === 'campus' && wantsCampus) score += sciencePath ? 16 : 6;
     // Cadre de vie : un parc là où ça pollue, l'eau courante et les soins avant que les villes ne plafonnent.
     if (def.id === 'park') score += G.citiesOf(s, pid).filter((c) => cityPollution(s, c).net > 0).length > count ? 10 : -20;
     if ((def.id === 'aqueduct' || def.id === 'hospital') && G.citiesOf(s, pid).some((c) => healthCap(s, c).needs === def.id && c.pop >= healthCap(s, c).cap - 1)) score += 16;
@@ -237,7 +244,8 @@ function buildSomething(s, pid, w, B) {
   // Épargne pour une merveille : tant qu'une merveille est accessible, l'IA ne construit plus que l'essentiel.
   const target = B.saveForWonders && scored.find(({ def }) => def.wonder && s.wonders[def.id] === undefined && (!def.tech || G.hasTech(s, pid, def.tech)) && (!def.era || eraOf(s, pid) >= def.era)
     && !s.buildings.some((b) => b.owner === pid && b.type === def.id) && tiles.some((t) => def.terrain.includes(t.type) && !G.cityAt(s, t.x, t.y) && !G.buildingAt(s, t.x, t.y) && (!def.coastal || G.isCoastal(s, t))));
-  const essential = (def) => (def.yields.food && y.food < 2) || def.id === 'quarry' || (def.id === 'lumber' && y.wood < 4) || missingFor.has(def.id);
+  const essential = (def) => (def.yields.food && y.food < 2) || def.id === 'quarry' || (def.id === 'lumber' && y.wood < 4) || missingFor.has(def.id)
+    || (sciencePath && ((def.id === 'lab' && wantsLab) || (def.id === 'campus' && wantsCampus))); // le pôle savant ne s'efface pas devant l'épargne
   for (const { def } of scored) {
     if (target && !def.wonder && !essential(def)) continue;
     const cost = G.costOf(s, pid, def);
