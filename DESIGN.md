@@ -209,3 +209,20 @@ Les couleurs des modèles se trouvent dans `PAL`, dans `web/src/render/models.js
   - **Épidémie de grippe** (et crise mondiale « Grande épidémie », chez tous les joueurs) : un promeneur ou touriste sur deux reste chez lui, et les autres portent un masque blanc.
   - **Krach** : la crise mondiale « Krach financier » fait aussi paniquer les traders, comme la phase de krach du marché.
 - **Coût** : les effets (flammes, fumée, pluie, confettis) tiennent en 4 maillages instanciés de plus, et ne s'affichent que de près, sur des cases visibles. Avec « Réduire les animations », il ne reste que les flammes et la fumée, immobiles, et les figurines restent à leur poste.
+
+## Cinquième passage : finition de l'image
+
+- **Chaîne d'effets** (`web/src/render/postfx.js`, modules de post-traitement Three.js r160 copiés dans `web/vendor/three/addons/`) :
+  - **Occlusion ambiante (GTAO)** : ombres douces de contact dans les recoins, au pied des murs et entre les cases. Calculée à mi-résolution.
+  - **Halo (bloom)** : seuil haut, si bien que seules les vraies sources de lumière rayonnent (flammes, braises, ampoules, faisceau du phare).
+  - **Flou de miniature (tilt-shift)** : le haut et le bas de l'écran se floutent doucement, comme une photo de maquette. Il est plus marqué en vue d'ensemble et presque nul de très près.
+  - **Étalonnage** : contraste et saturation légèrement relevés, ombres un peu chaudes, vignette ovale discrète.
+  - Le rendu passe par une cible multi-échantillonnée (4×) : l'anticrénelage est conservé.
+- **Finition « argile » des matériaux** (gratuite, à tous les niveaux) :
+  - **Liseré de lumière** (`clayFinish`) : un éclairage chaud et doux sur les bords détache les bâtiments et les unités du fond, sans contour noir.
+  - **Ombre de contact précalculée** (`bake`) : le bas des murs et des objets posés sur un socle s'assombrit sur 0,11 de hauteur (jusqu'à −26 %).
+- **Trois niveaux de qualité** (Menu → « Qualité visuelle ») :
+  - **Léger** : rendu direct, avec seulement la finition argile.
+  - **Équilibré** : halo, flou de miniature et étalonnage. C'est le niveau par défaut sur tablette.
+  - **Élevé** : ajoute l'occlusion ambiante, qui redessine la scène une seconde fois. C'est le niveau par défaut sur ordinateur.
+- **Baisse automatique** : pendant les premières secondes, si l'image tourne sous ~40 images par seconde (médiane au-dessus de 25 ms), le niveau baisse d'un cran et un message l'indique. Un choix fait dans le menu est mémorisé et n'est jamais modifié automatiquement.

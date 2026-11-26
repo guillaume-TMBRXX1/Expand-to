@@ -8,6 +8,7 @@ import { seasonOf } from '../core/society.js';
 import { eraOf } from '../core/ages.js';
 import { Villagers } from './villagers.js';
 import { Ambience } from './ambience.js';
+import { PostFX, QUALITY } from './postfx.js';
 
 const FOG_COLOR = new THREE.Color('#e4dcd6');
 const BG = '#efe8e4';
@@ -45,6 +46,11 @@ export class Renderer {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(this.renderer.domElement);
+    // Qualité visuelle : choix du joueur s'il existe, sinon « Équilibré » sur tablette et « Élevé » sur ordinateur.
+    let q = null;
+    try { q = localStorage.getItem('expandto.quality'); } catch { /* ignore */ }
+    this.quality = QUALITY.includes(q) ? q : (window.matchMedia?.('(pointer: coarse)').matches ? 'balanced' : 'high');
+    this.qualityChosen = QUALITY.includes(q);
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(BG);
@@ -104,6 +110,13 @@ export class Renderer {
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    if (!this.postfx) { this.postfx = new PostFX(this.renderer, this.scene, this.camera); this.postfx.setLevel(this.quality); this.postfx.onAutoDrop = (lvl) => { if (!this.qualityChosen) { this.quality = lvl; this.onQualityDrop?.(lvl); } else this.postfx.setLevel(this.quality); }; }
+    this.postfx.setSize(w, h);
+  }
+  setQuality(level) {
+    this.quality = level; this.qualityChosen = true;
+    try { localStorage.setItem('expandto.quality', level); } catch { /* ignore */ }
+    this.postfx.setLevel(level);
   }
 
   // ------------------------------------------------------------ coordonnées
@@ -1093,7 +1106,8 @@ export class Renderer {
       if (d.length() <= step) { obj.position.copy(path[0]); path.shift(); } else obj.position.add(d.setLength(step));
     }
     if (this.cursors?.select.visible) this.cursors.select.position.y += Math.sin(performance.now() / 300) * 0.0008;
-    this.renderer.render(this.scene, this.camera);
+    this.postfx.setZoom(this.camera.position.distanceTo(this.controls.target), this.controls.maxDistance);
+    this.postfx.render(dt);
     this.updateLabels();
   }
 
