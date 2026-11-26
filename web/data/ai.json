@@ -117,60 +117,60 @@
     }
   },
   "trained": {
-    "_note": "Paramètres issus de python -m expandto.train (8 générations, 40 parties), utilisés par les IA en difficulté Difficile.",
+    "_note": "Paramètres issus de python -m expandto.train --objective mixed (force en duel moins écart entre profils ; départ : anciens paramètres Difficile, 8 générations × 6 candidats, 60 parties par évaluation, tous les systèmes des phases 13 à 15), utilisés par les IA en difficulté Difficile.",
     "branchWeights": {
       "merchant": {
         "economy": 2.92,
-        "science": 1.39,
+        "science": 1.21,
         "culture": 1,
-        "diplomacy": 1.8
+        "diplomacy": 2.13
       },
       "scholar": {
         "economy": 1.12,
         "science": 2.53,
-        "culture": 1.2,
+        "culture": 1.24,
         "diplomacy": 1.31
       },
       "builder": {
-        "economy": 1.8,
+        "economy": 1.47,
         "science": 1.35,
         "culture": 2.5,
-        "diplomacy": 0.8
+        "diplomacy": 0.68
       },
       "diplomat": {
         "economy": 1.5,
         "science": 1,
-        "culture": 1.17,
-        "diplomacy": 3
+        "culture": 1.18,
+        "diplomacy": 3.68
       },
       "explorer": {
-        "economy": 1.51,
+        "economy": 1.2,
         "science": 1.41,
         "culture": 2.2,
-        "diplomacy": 1.1
+        "diplomacy": 1.23
       }
     },
     "build": {
-      "foodNeed": 12.58,
-      "woodNeed": 6.0,
-      "stoneNeed": 8.4,
-      "wonderPrestige": 1.22,
-      "monumentPrestige": 1.78,
-      "popCap": 5.37,
-      "sawmill": 21.03,
-      "forge": 12.09,
-      "manufactory": 13.49,
-      "outpost": 9.79,
+      "foodNeed": 14.15,
+      "woodNeed": 2.67,
+      "stoneNeed": 6.42,
+      "wonderPrestige": 1.44,
+      "monumentPrestige": 2.51,
+      "popCap": 5.4,
+      "sawmill": 17.55,
+      "forge": 11.25,
+      "manufactory": 17.69,
+      "outpost": 7.38,
       "markethall": 5.6,
-      "quarter": 4.32,
-      "lab": 0.95,
-      "diversity": 0.04,
-      "goldReserve": 52.61,
-      "saveForWonders": 1,
-      "pathWonder": 18.24,
-      "pathMaterials": 11.55,
-      "unique": 9.39
+      "quarter": 5.55,
+      "lab": 0.0,
+      "diversity": 0.58,
+      "goldReserve": 47.71,
+      "saveForWonders": 0,
+      "pathWonder": 21.31,
+      "pathMaterials": 8.43,
+      "unique": 20.21
     },
-    "researchFocus": 1.76
+    "researchFocus": 1.95
   }
 }

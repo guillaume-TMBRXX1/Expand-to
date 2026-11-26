@@ -71,7 +71,7 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 - [x] Niveaux de difficulté (Facile / Normal / Difficile : rendement, coûts et relations de départ des IA).
 - [x] Moteur plus rapide (file de priorité pour les chemins) : environ 0,35 s par partie simulée.
 - [x] ~~Les IA atteignent rarement les victoires Science, Culture et Économie~~ : réglé par les équilibrages (toutes les voies gagnent en partie normale).
-- [ ] À suivre : lancer un vrai entraînement de l'IA, plus long, dans Colab, avec tous les systèmes des phases 13 à 15 (les paramètres du mode Difficile datent d'avant).
+- [x] Entraînement relancé avec tous les systèmes des phases 13 à 15 (voir « Améliorations et réglages récents »).
 
 ## Phase 4 — Présentation (v0.5) · ~2 à 3 semaines ✅
 
@@ -154,7 +154,7 @@ Mesuré sur 100 parties simulées par réglage (`tools/sim.mjs` et scripts de me
   - Pas retenue : elle déséquilibre les profils (Érudit 40 %, Négociant 13 %, et 0 % en partie longue), car l'objectif ne récompense que la force brute.
   - En ne gardant que ses choix de construction : 30,5 %, mais le Négociant tombe encore à 16 %.
 - [x] **Niveau Difficile** : les IA y jouent avec les paramètres entraînés (`trained` dans `web/data/ai.json`), et leurs bonus chiffrés sont réduits (rendement +8 % au lieu de +15 %, coûts −5 % au lieu de −10 %). Un joueur jouant comme l'IA standard y gagne 8 % des parties (contre 8,7 % avant), mais la difficulté vient davantage du jeu des IA. Repères : Facile 38 %, Normal 27 %.
-- [ ] À suivre : un objectif d'entraînement qui récompense la force **et** l'équilibre entre profils.
+- [x] Objectif `--objective mixed` : force en duel moins 0,6 × l'écart entre profils.
 - [x] ~~En partie rapide, presque tout se gagne au prestige ; l'IA construit peu de laboratoires.~~ Réglé (voir « Améliorations et réglages récents »).
 - [ ] À suivre : en partie rapide, l'Érudit et l'Explorateur ont du mal à finir leur voie (environ 15 % de victoires contre 35 % pour le Négociant et le Bâtisseur).
 
@@ -369,9 +369,15 @@ Mesuré sur 160 parties IA contre IA (8 graines × 20 parties, carte moyenne, du
   - Équilibre en partie normale (160 parties) : profils entre 22 et 30 % de victoires, 37,9 tours en moyenne.
 - [x] **Partie rapide** : objectif de prestige un peu plus haut (×0,8), seuils de voies plus bas (×0,42), 10 technologies pour la science. Mesuré sur 80 parties : prestige 57 % des victoires (contre 71 %), culture 25 %, économie 11 %, science 5 % ; environ 33 tours.
 
+- [x] **IA du mode Difficile ré-entraînée** avec tous les systèmes récents (`python -m expandto.train --objective mixed --start trained --jobs 4`, 8 générations × 6 candidats, 60 parties par évaluation).
+  - En duel, sur 160 parties jamais vues : 31 % de victoires, contre 29 % pour les anciens paramètres et 25 % pour l'IA standard.
+  - En Difficile, sur 160 parties : le joueur qui joue comme l'IA standard gagne 8 % (9 % avant). La culture passe de 60 à 40 victoires, mais la science chute de 16 à 4.
+  - Un entraînement « force seule » donnait la même force sans corriger la domination culturelle : non retenu.
+  - Nouvelles options du script : `--start trained`, `--jobs N` (parties en parallèle) et `--write-trained`.
+
 ## Encore à faire
 
-- Relancer l'entraînement de l'IA (mode Difficile) avec tous les systèmes récents.
+- À suivre en Difficile : Bâtisseur et Explorateur gagnent environ 40 % des parties, Négociant 9 %, et les victoires scientifiques sont rares. Les deux entraînements laissent cet écart à peu près intact, il vient donc probablement des règles du mode Difficile (bonus de rendement des IA) : à vérifier, puis régler.
 - Rejouabilité : graine du jour avec classement, scénarios, éditeur de carte.
 - Plus tard : multijoueur asynchrone (petit serveur).
 - Valider le design des bâtiments par ère avec la conversation design.
