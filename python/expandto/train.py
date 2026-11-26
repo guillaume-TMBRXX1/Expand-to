@@ -69,6 +69,15 @@ def evaluate_one(params: dict, games: int, seed: int, everyone: bool = False) ->
     return json.loads(out.stdout.strip().splitlines()[-1])
 
 
+def score_mixed(params: dict, games: int, seed: int) -> float:
+    """Objectif mixte : force en face-à-face (joueur 0 contre les IA par défaut) moins l'écart entre profils
+    quand tous les joueurs utilisent ces paramètres (on ne veut pas d'une IA forte qui ne gagne qu'avec deux profils)."""
+    duel = evaluate(params, games, seed, everyone=False)
+    allp = evaluate(params, games, seed + 500, everyone=True)
+    rates = list(allp["profileWin"].values())
+    return duel["winRate0"] - 0.6 * (max(rates) - min(rates))
+
+
 def fitness(summary: dict, objective: str = "strength") -> float:
     if objective == "balance":
         # Équilibre : petit écart entre le meilleur et le moins bon profil, et parties de 37 à 41 tours.
@@ -110,16 +119,18 @@ def train(generations: int = 5, population: int = 6, games: int = 20, seed: int 
     rng = random.Random(seed)
     base = start_params(start)
     everyone = objective == "balance"
-    best, best_score = base, fitness(evaluate(base, games, seed, everyone), objective)
+    def judge(params, sd):
+        return score_mixed(params, games, sd) if objective == "mixed" else fitness(evaluate(params, games, sd, everyone), objective)
+    best, best_score = base, judge(base, seed)
     history = [{"generation": 0, "fitness": round(best_score, 4)}]
     if verbose:
         print(f"Génération 0 · paramètres actuels : {best_score:.3f}")
     for gen in range(1, generations + 1):
         # Comparaison équitable : le meilleur actuel rejoue les mêmes cartes que les candidats de la génération.
-        best_score = fitness(evaluate(best, games, seed + gen, everyone), objective)
+        best_score = judge(best, seed + gen)
         for _ in range(population):
             cand = mutate(best, rng)
-            score = fitness(evaluate(cand, games, seed + gen, everyone), objective)
+            score = judge(cand, seed + gen)
             if score > best_score:
                 best, best_score = cand, score
         history.append({"generation": gen, "fitness": round(best_score, 4)})
@@ -136,8 +147,8 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--write", action="store_true", help="écrire le meilleur résultat dans web/data/ai.json")
     ap.add_argument("--out", help="écrire le meilleur résultat dans ce fichier JSON")
-    ap.add_argument("--objective", choices=["strength", "balance"], default="strength",
-                    help="strength : joueur 0 plus fort que les IA actuelles ; balance : mêmes paramètres pour tous, profils équilibrés")
+    ap.add_argument("--objective", choices=["strength", "balance", "mixed"], default="strength",
+                    help="strength : joueur 0 plus fort que les IA actuelles ; balance : mêmes paramètres pour tous, profils équilibrés ; mixed : les deux à la fois")
     ap.add_argument("--start", choices=["defaults", "trained"], default="defaults", help="point de départ de la recherche")
     ap.add_argument("--jobs", type=int, default=1, help="lots de parties évalués en parallèle (un par cœur)")
     ap.add_argument("--write-trained", action="store_true", help="écrire le meilleur résultat dans la clé « trained » de web/data/ai.json (mode Difficile)")
