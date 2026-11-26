@@ -414,11 +414,11 @@
       "turnLimit": 40,
       "scale": 0.7,
       "secretaryWins": 3,
-      "prestigeScale": 0.74,
+      "prestigeScale": 0.8,
       "allyAllElections": 3,
       "techCostScale": 0.6,
-      "pathScale": 0.45,
-      "techScale": 0.7
+      "pathScale": 0.42,
+      "techScale": 0.62
     },
     "normal": {
       "name": "Normale (60 tours)",

@@ -59,7 +59,7 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 - [x] Unités civiles : Ingénieur (routes partout, défrichage) et Émissaire (ambassade : +15 relation, +1 par tour).
 - [x] Quartiers 2×2 : Campus, Quartier des arts, Quartier marchand.
 - [x] Halle marchande : vente des surplus (biens, matériaux, ressources rares) avec un prix qui baisse quand on vend beaucoup, et une vente automatique au-delà d'un seuil réglable par ressource (30 par défaut).
-- [ ] À suivre : l'IA construit encore peu de quartiers 2×2 et de laboratoires. (Moteur optimisé depuis : file de priorité et un seul calcul de chemins par décision.)
+- [x] ~~À suivre : l'IA construit encore peu de quartiers 2×2 et de laboratoires.~~ Réglé (voir « Améliorations et réglages récents ») : les Érudits bâtissent leur pôle savant.
 
 ## Phase 3 — Diplomatie et IA (v0.4) · ~3 semaines ✅
 
@@ -70,7 +70,8 @@ Pourquoi Python reste hors du navigateur : le jeu doit rester instantané et jou
 - [x] **Entraînement de l'IA** : paramètres dans `web/data/ai.json`, recherche évolutive `python -m expandto.train` (et une cellule dans le notebook Colab) qui fait jouer les candidats dans le vrai moteur.
 - [x] Niveaux de difficulté (Facile / Normal / Difficile : rendement, coûts et relations de départ des IA).
 - [x] Moteur plus rapide (file de priorité pour les chemins) : environ 0,35 s par partie simulée.
-- [ ] À suivre : les IA atteignent rarement les victoires Science, Culture et Économie, et les parties longues finissent vers le tour 47 sur 80 (seuils à ajuster selon vos parties) ; lancer un vrai entraînement de l'IA, plus long, dans Colab (l'outil n'a tourné que sur quelques parties de test).
+- [x] ~~Les IA atteignent rarement les victoires Science, Culture et Économie~~ : réglé par les équilibrages (toutes les voies gagnent en partie normale).
+- [ ] À suivre : lancer un vrai entraînement de l'IA, plus long, dans Colab, avec tous les systèmes des phases 13 à 15 (les paramètres du mode Difficile datent d'avant).
 
 ## Phase 4 — Présentation (v0.5) · ~2 à 3 semaines ✅
 
@@ -119,7 +120,7 @@ Objectif : que deux parties ne se ressemblent plus, et que les choix soient plus
 **Réglages provisoires** : objectif de prestige porté à 210. La voie « allié de tous » demande aussi d'avoir été élu 2 fois Secrétaire. En simulation (partie normale), les victoires se répartissent ainsi : 12 au prestige, 6 en diplomatie, 1 en économie, 1 en culture sur 20 parties, contre 18 au prestige et 2 en diplomatie avant cette phase.
 
 **Écartés ou à repenser**
-- Cités-États : écartées sous cette forme, une autre façon de faire reste à trouver.
+- Cités-États : écartées sous cette forme ; remplacées par les comptoirs indépendants (phase 14).
 - Épuisement des ressources rares : écarté. Le nombre de villes est limité (environ 4 en pratique) et on ne peut pas aller chercher de nouveaux gisements. À revoir seulement si le système d'expansion change.
 
 ## Phase 7 — Équilibrage ✅
@@ -154,7 +155,8 @@ Mesuré sur 100 parties simulées par réglage (`tools/sim.mjs` et scripts de me
   - En ne gardant que ses choix de construction : 30,5 %, mais le Négociant tombe encore à 16 %.
 - [x] **Niveau Difficile** : les IA y jouent avec les paramètres entraînés (`trained` dans `web/data/ai.json`), et leurs bonus chiffrés sont réduits (rendement +8 % au lieu de +15 %, coûts −5 % au lieu de −10 %). Un joueur jouant comme l'IA standard y gagne 8 % des parties (contre 8,7 % avant), mais la difficulté vient davantage du jeu des IA. Repères : Facile 38 %, Normal 27 %.
 - [ ] À suivre : un objectif d'entraînement qui récompense la force **et** l'équilibre entre profils.
-- [ ] À suivre : en partie rapide, presque tout se gagne au prestige ; en partie longue, le Bâtisseur est faible (aucune merveille de voie propre) ; l'IA construit encore peu de laboratoires.
+- [x] ~~En partie rapide, presque tout se gagne au prestige ; l'IA construit peu de laboratoires.~~ Réglé (voir « Améliorations et réglages récents »).
+- [ ] À suivre : en partie rapide, l'Érudit et l'Explorateur ont du mal à finir leur voie (environ 15 % de victoires contre 35 % pour le Négociant et le Bâtisseur).
 
 ## Phase 8 — Cartes, régions et ressources (fondations) ✅
 
@@ -352,6 +354,27 @@ Mesuré sur 160 parties IA contre IA (8 graines × 20 parties, carte moyenne, du
   - Explorateur : +20 % Culture, jusqu'à +40 prestige d'exploration.
 - Voies de victoire : science à 15 technologies et Observatoire Céleste plus cher ; culture à 680 ; économie à 2 300 Or (2 645 en partie normale).
 - Durée moyenne : 37,7 tours en partie normale, environ 32 en rapide, 47 en longue. Victoires : prestige 51 %, science 21 %, culture 15 %, diplomatie 9 %, économie 5 %.
+
+## Améliorations et réglages récents ✅
+
+- [x] **Repères** (touche K) : drapeaux et bâtiments prévus, comptés dans les aperçus d'adjacence.
+- [x] **Routes commerciales sur la carte** : pointillés animés, dorés pour les vôtres, bleus pour celles des IA vers vos villes.
+- [x] **Trajets des unités** sur plusieurs tours : pointillés, « Fin du tour N », arrivée ; destination nommée dans le panneau.
+- [x] **Déplacer un bâtiment** (10 Or), comme dans Anno ; infobulle de la population qui explique le plafond.
+- [x] **Musique de fond** générée (humeur selon la saison, instruments selon l'ère), réglable dans le menu.
+- [x] **Continent** plus terrestre, bordé de 2 à 3 cases de mer.
+- [x] **Fiche des adjacences** (`tools/adjacency-sheet.mjs`) et planches des quartiers conseillés (`/quartiers.html`).
+- [x] Correctif iPad : le panneau Infos ne bloque plus les touchers après défilement.
+- [x] **IA bâtisseuse** : une IA qui vise la science veut un Laboratoire par ville puis un Campus, sans les sacrifier à l'épargne pour une merveille, et produit les Outils qu'il faut. Sur 8 parties, les Érudits passent de 3 Laboratoires et 0 Campus à 14 et 8.
+  - Équilibre en partie normale (160 parties) : profils entre 22 et 30 % de victoires, 37,9 tours en moyenne.
+- [x] **Partie rapide** : objectif de prestige un peu plus haut (×0,8), seuils de voies plus bas (×0,42), 10 technologies pour la science. Mesuré sur 80 parties : prestige 57 % des victoires (contre 71 %), culture 25 %, économie 11 %, science 5 % ; environ 33 tours.
+
+## Encore à faire
+
+- Relancer l'entraînement de l'IA (mode Difficile) avec tous les systèmes récents.
+- Rejouabilité : graine du jour avec classement, scénarios, éditeur de carte.
+- Plus tard : multijoueur asynchrone (petit serveur).
+- Valider le design des bâtiments par ère avec la conversation design.
 
 ## Méthode de travail proposée
 
