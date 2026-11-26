@@ -15,10 +15,23 @@ export const PAL = {
   ink: '#2b2b33', water: '#7cc4e8',
 };
 
+// Finition « argile » : un liseré de lumière chaude souligne les bords tournés vers l'extérieur (comme la
+// lumière qui accroche une figurine), ce qui détache les volumes du fond sans contour noir.
+export function clayFinish(m, strength = 0.2) {
+  m.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', `{
+      float rim = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0);
+      outgoingLight += vec3(1.0, 0.93, 0.84) * pow(rim, 3.0) * ${strength.toFixed(3)} * (0.6 + 0.4 * diffuseColor.rgb);
+    }
+    #include <opaque_fragment>`);
+  };
+  m.customProgramCacheKey = () => `clay${strength}`;
+  return m;
+}
 const mats = new Map();
 export function mat(color, opts = {}) {
   const key = color + JSON.stringify(opts);
-  if (!mats.has(key)) mats.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0, ...opts }));
+  if (!mats.has(key)) mats.set(key, clayFinish(new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0, ...opts })));
   return mats.get(key);
 }
 
@@ -218,7 +231,10 @@ function shop({ w = 0.42, h = 0.26, d = 0.34, wall = PAL.cream, roof = PAL.roofG
 // ------------------------------------------------------------------ fusion
 // Fusionne les maillages d'un groupe par matériau : un modèle = quelques draw calls.
 // Matériau partagé : couleurs portées par les sommets → un seul appel de dessin par modèle.
-const BAKED = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0 });
+const BAKED = clayFinish(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0 }));
+// Ombre de contact précalculée : le bas des murs et des objets posés sur le socle s'assombrit doucement
+// (gratuit à l'affichage, visible même sans occlusion ambiante).
+const contactShade = (y) => 0.74 + 0.26 * THREE.MathUtils.smoothstep(y, Y0, Y0 + 0.11);
 const isPlain = (m) => !m.transparent && !m.metalness && m.emissive.getHex() === 0 && Math.abs(m.roughness - 0.62) < 1e-6;
 function bake(root) {
   root.updateMatrixWorld(true);
@@ -233,8 +249,11 @@ function bake(root) {
     for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
     g.applyMatrix4(o.matrixWorld);
     if (isPlain(o.material)) {
-      const n = g.attributes.position.count, c = o.material.color, arr = new Float32Array(n * 3);
-      for (let i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b; }
+      const n = g.attributes.position.count, c = o.material.color, arr = new Float32Array(n * 3), pos = g.attributes.position;
+      // Ombre de contact seulement pour ce qui est posé sur le socle (pas le socle lui-même, ni les unités).
+      let minY = Infinity; for (let i = 0; i < n; i++) minY = Math.min(minY, pos.getY(i));
+      const shade = minY >= Y0 - 0.002 && minY < Y0 + 0.06;
+      for (let i = 0; i < n; i++) { const k = shade ? contactShade(pos.getY(i)) : 1; arr[i * 3] = c.r * k; arr[i * 3 + 1] = c.g * k; arr[i * 3 + 2] = c.b * k; }
       g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
       plain.push(g);
     } else {

@@ -13,6 +13,7 @@ import * as IND from './core/independents.js';
 import * as MOV from './core/movements.js';
 import { playAITurns } from './core/ai.js';
 import { Renderer } from './render/renderer.js';
+import { QUALITY, QUALITY_NAMES } from './render/postfx.js';
 import { avatarSVG } from './ui/avatar.js';
 import * as Saves from './ui/saves.js';
 import * as Tuto from './ui/tutorial.js';
@@ -1511,7 +1512,8 @@ function showMenu() {
       <button class="btn small" data-action="toggle-blockend" aria-pressed="${blockEnd}" title="Empêche de finir le tour tant qu'une unité n'a pas reçu d'ordre">Attendre les unités avant la fin du tour : ${blockEnd ? 'activé' : 'désactivé'}</button>
       <button class="btn small" data-action="toggle-sound" aria-pressed="${Sound.soundEnabled()}">Sons : ${Sound.soundEnabled() ? 'activés' : 'coupés'}</button>
       <button class="btn small" data-action="toggle-music" aria-pressed="${Sound.musicEnabled()}" title="Musique d'ambiance générée en continu : son humeur suit la saison, ses instruments suivent l'ère">Musique : ${Sound.musicEnabled() ? 'activée' : 'coupée'}</button>
-      <button class="btn small" data-action="toggle-daynight" aria-pressed="${renderer.dayNight}">Cycle jour / nuit : ${renderer.dayNight ? 'activé' : 'désactivé'}</button></div>
+      <button class="btn small" data-action="toggle-daynight" aria-pressed="${renderer.dayNight}">Cycle jour / nuit : ${renderer.dayNight ? 'activé' : 'désactivé'}</button>
+      <button class="btn small" data-action="cycle-quality" title="Léger : rendu direct, le plus fluide. Équilibré : halo, flou de miniature et étalonnage. Élevé : ajoute les ombres douces de contact.">Qualité visuelle : ${QUALITY_NAMES[renderer.quality]}</button></div>
     <div class="start-row" style="margin-top:10px"><label class="field" style="max-width:260px">Volume des sons<input type="range" min="0" max="1" step="0.05" value="${Sound.soundVolume()}" id="f-volume"></label>
       <label class="field" style="max-width:260px">Volume de la musique<input type="range" min="0" max="1" step="0.05" value="${Sound.musicLevel()}" id="f-music"></label></div>
     <div class="actions"><button class="btn small" data-action="encyclopedia">Encyclopédie (E)</button></div>
@@ -1592,6 +1594,7 @@ function onAction(e) {
     case 'cancel-move': pendingMove = null; renderSelection(); renderHighlights(); break;
     case 'toggle-sound': Sound.setSound(!Sound.soundEnabled()); showMenu(); break;
     case 'toggle-music': Sound.setMusic(!Sound.musicEnabled()); showMenu(); break;
+    case 'cycle-quality': { const i = QUALITY.indexOf(renderer.quality); renderer.setQuality(QUALITY[(i + 1) % QUALITY.length]); showMenu(); break; }
     case 'toggle-daynight': renderer.dayNight = !renderer.dayNight; try { localStorage.setItem('expandto.daynight', renderer.dayNight ? '1' : '0'); } catch { /* ignore */ } if (!renderer.dayNight) renderer.resetLight(); showMenu(); break;
     case 'encyclopedia': showEncyclopedia(); break;
     case 'enc-tab': showEncyclopedia(b.dataset.tab); break;
@@ -1827,6 +1830,7 @@ function bindInput() {
 (async function boot() {
   data = await loadData();
   renderer = new Renderer($('#viewport'));
+  renderer.onQualityDrop = (lvl) => { if (s) toast(`Qualité visuelle réduite à « ${QUALITY_NAMES[lvl]} » pour garder le jeu fluide (Menu pour la changer).`); };
   renderer.setState(G.createGame({ data, seed: 7, aiCount: 3 }), 0);
   renderer.state.players[0].explored.fill(1);
   renderer.refresh();
