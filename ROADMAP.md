@@ -377,7 +377,7 @@ Mesuré sur 160 parties IA contre IA (8 graines × 20 parties, carte moyenne, du
 
 ## Encore à faire
 
-- À suivre en Difficile : Bâtisseur et Explorateur gagnent environ 40 % des parties, Négociant 9 %, et les victoires scientifiques sont rares. Les deux entraînements laissent cet écart à peu près intact, il vient donc probablement des règles du mode Difficile (bonus de rendement des IA) : à vérifier, puis régler.
+- À suivre en Difficile : Bâtisseur et Explorateur gagnent environ 40 % des parties, Négociant 9 %, et les victoires scientifiques sont rares. **Décision : on ne touche ni aux bonus de rendement ni aux bonus d'adjacence**, qui font la richesse du jeu. Si l'écart est à corriger, ce sera par d'autres leviers (choix de l'IA, seuils des voies de victoire).
 - Rejouabilité : graine du jour avec classement, scénarios, éditeur de carte.
 - Plus tard : multijoueur asynchrone (petit serveur).
 - Valider le design des bâtiments par ère avec la conversation design.
