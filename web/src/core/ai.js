@@ -91,7 +91,7 @@ function siteScore(s, pid, t, home) {
   return score - d * 0.9 - (foreignNear ? 12 : 0);
 }
 
-function bestSite(s, pid, u) {
+export function bestSite(s, pid, u) {
   const home = G.citiesOf(s, pid)[0] || u;
   const { dist } = G.dijkstra(s, u); // un seul calcul de chemins pour toutes les cases candidates
   let best = null, bestScore = -Infinity;
@@ -190,9 +190,10 @@ function trainUnits(s, pid, P) {
 
 // ------------------------------------------------------------ constructions
 
-function buildSomething(s, pid, w, B) {
+// Classement des bâtiments souhaitables (partagé avec le coach du joueur, qui passe jitter = () => 0
+// pour ne pas consommer le hasard de la partie).
+export function buildPlan(s, pid, w, B, jitter = () => s.rng.next() * 2) {
   const p = s.players[pid];
-  if (!G.citiesOf(s, pid).length) return false;
   const y = p.lastYield ? p.lastYield.net : { food: 1, wood: 1, stone: 1, gold: 2 };
   // Voie économique : avec la Grande Bourse, l'IA thésaurise pour atteindre l'Or demandé.
   const hoard = s.wonders.exchange === pid ? s.rules.victory.economyGold : 0;
@@ -238,8 +239,26 @@ function buildSomething(s, pid, w, B) {
     if (def.id === 'museum') score += aiWantsArchaeologist(s, pid) || s.map.tiles.some((t) => t.site && p.explored[G.idx(s, t.x, t.y)]) ? 8 : -5;
     if (def.id === 'levee' || def.id === 'granary') score += aiPreventionNeed(s, pid, def.id) > 0 ? 12 : -20;
     if (!def.wonder) score -= count * B.diversity; // diversité : on évite d'empiler toujours le même bâtiment
-    return { def, score: score + s.rng.next() * 2 };
+    return { def, score: score + jitter() };
   }).sort((a, b) => b.score - a.score);
+  return { scored, y, reserve, missingFor, sciencePath, wantsLab, wantsCampus };
+}
+
+// Meilleure case pour un bâtiment : celle qui rapporte le plus de bonus d'adjacence.
+export function bestTileFor(s, pid, id) {
+  let best = null, bestVal = -1;
+  for (const t of s.map.tiles) {
+    if (t.owner !== pid || !G.canBuild(s, pid, id, t.x, t.y).ok) continue;
+    const val = Object.values(G.adjacencyBonus(s, pid, id, t.x, t.y)).reduce((a, v) => a + v, 0);
+    if (val > bestVal) { bestVal = val; best = t; }
+  }
+  return best ? { tile: best, bonus: G.adjacencyBonus(s, pid, id, best.x, best.y) } : null;
+}
+
+function buildSomething(s, pid, w, B) {
+  const p = s.players[pid];
+  if (!G.citiesOf(s, pid).length) return false;
+  const { scored, y, reserve, missingFor, sciencePath, wantsLab, wantsCampus } = buildPlan(s, pid, w, B);
   const tiles = s.map.tiles.filter((t) => t.owner === pid);
   // Épargne pour une merveille : tant qu'une merveille est accessible, l'IA ne construit plus que l'essentiel.
   const target = B.saveForWonders && scored.find(({ def }) => def.wonder && s.wonders[def.id] === undefined && (!def.tech || G.hasTech(s, pid, def.tech)) && (!def.era || eraOf(s, pid) >= def.era)

@@ -566,3 +566,23 @@ html.compact #selection .kv { font-size: 13.5px; }
 
 /* Chemin d'une unité : repère de fin de tour, plus discret que l'arrivée */
 .tile-badge .turn-end { font-weight: 600; color: var(--muted); font-size: 10.5px; }
+
+/* ---------------------------------------------------------------- coach */
+#coach { position: absolute; top: 76px; left: 12px; width: 330px; padding: 10px 12px; border-left: 4px solid #2f6fde; max-height: min(46vh, calc(100% - 330px)); overflow: auto; overscroll-behavior: contain; z-index: 3; }
+#coach.min { max-height: none; padding-bottom: 4px; }
+#coach .section-title { margin-bottom: 6px; }
+#coach .coach-urgent { color: var(--accent); }
+.coach-list { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 8px; }
+.coach-item { background: rgba(47, 111, 222, 0.06); border-radius: 10px; padding: 7px 9px; }
+.coach-item.urgent { background: rgba(255, 107, 74, 0.1); }
+.coach-item.tip { background: rgba(120, 110, 115, 0.07); }
+.coach-top { display: flex; align-items: baseline; gap: 6px; }
+.coach-top b { flex: 1; font-size: 13.5px; line-height: 1.25; }
+.coach-kind { flex: none; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #2f6fde; }
+.coach-item.urgent .coach-kind { color: var(--accent); }
+.coach-item.tip .coach-kind { color: #8a7f84; }
+.coach-item p { margin: 3px 0 6px; font-size: 12.5px; line-height: 1.4; color: #4a4248; }
+.coach-x { flex: none; border: 0; background: none; font-size: 17px; line-height: 1; color: #8a7f84; cursor: pointer; padding: 0 2px; min-width: 24px; min-height: 24px; }
+.coach-x:hover { color: #2f2a33; }
+.coach-pick { background: #2f6fde !important; color: #fff !important; }
+html.compact #coach { top: calc(70px + env(safe-area-inset-top)); left: calc(8px + env(safe-area-inset-left)); width: 290px; }

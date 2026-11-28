@@ -12,6 +12,7 @@ import * as AGE from './core/ages.js';
 import * as IND from './core/independents.js';
 import * as MOV from './core/movements.js';
 import { playAITurns } from './core/ai.js';
+import { coachAdvice } from './core/coach.js';
 import { Renderer } from './render/renderer.js';
 import { QUALITY, QUALITY_NAMES } from './render/postfx.js';
 import { avatarSVG } from './ui/avatar.js';
@@ -37,6 +38,8 @@ const MARKER_COLORS = { red: ['Rouge', '#e5484d'], blue: ['Bleu', '#3e8ed0'], ye
 let data, s, renderer;
 let sel = null;          // { kind: 'unit'|'city'|'tile', id|i }
 let mode = null;         // null | { type: 'build', id } | { type: 'road' } | { type: 'marker', color } | { type: 'marker', plan: id }
+let coachOn = false, coachMin = false, coachAll = false, coachPick = null;
+try { coachOn = localStorage.getItem('expandto.coach') === '1'; coachMin = localStorage.getItem('expandto.coachMin') === '1'; } catch { /* ignore */ }
 let buildTab = 'prod';
 let hoverIdx = null;
 let pendingMove = null; // { uid, x, y, plan } : déplacement en attente de confirmation
@@ -141,6 +144,7 @@ function showStart() {
         </details>
         <div class="start-actions">
           <label class="check"><input type="checkbox" id="f-tuto" checked> Tutoriel guidé</label>
+          <label class="check" title="Un conseiller explique à chaque tour les meilleures actions et pourquoi. Désactivable dans le menu."><input type="checkbox" id="f-coach" ${coachOn ? 'checked' : ''}> Coach</label>
           <button class="btn primary big" id="start-go">Lancer la partie</button>
         </div>
         <details class="start-more"><summary>Parties sauvegardées${others.length ? ` (${others.length})` : ''}</summary>${renderSaveList(others)}</details>
@@ -167,6 +171,7 @@ function showStart() {
     const game = G.createGame({ data, seed, profile, name: $('#f-name').value.trim() || 'Vous', aiCount: Number($('#f-ai').value), difficulty: $('#f-diff').value,
       size: $('#f-size').value, mapType: $('#f-type').value, length: $('#f-length').value, ambitions: $('#f-amb').checked, disasters: $('#f-dis').checked });
     Tuto.initTutorial(game, $('#f-tuto').checked);
+    setCoach($('#f-coach').checked);
     startGame(game);
   });
 }
@@ -207,7 +212,7 @@ function startGame(state) {
 
 // ------------------------------------------------------------------ rendu UI
 function renderAll() {
-  renderTop(); renderStock(); renderSide(); renderSelection(); renderBuildbar(); renderHighlights(); renderTutorial(); drawMinimap(); updateTradeLines();
+  renderTop(); renderStock(); renderSide(); renderSelection(); renderBuildbar(); renderHighlights(); renderTutorial(); renderCoach(); drawMinimap(); updateTradeLines();
 }
 
 // ---------------------------------------------------------------- tutoriel
@@ -223,6 +228,55 @@ function renderTutorial() {
     <h3>${step.title}</h3><p>${step.text}</p>
     <div class="tuto-bar"><div style="width:${(t.step / Tuto.STEPS.length) * 100}%"></div></div>
     ${step.final ? '<button class="btn small primary" data-action="tuto-finish">Terminer le tutoriel</button>' : ''}`;
+}
+
+// ---------------------------------------------------------------- coach
+// Conseiller facultatif (menu ou écran d'accueil) : les meilleures actions du tour, chacune avec son « pourquoi ».
+const coachHidden = new Map(); // conseils écartés : id -> tour
+function setCoach(on) { coachOn = on; try { localStorage.setItem('expandto.coach', on ? '1' : '0'); } catch { /* ignore */ } }
+const COACH_KIND = { urgent: 'À faire', next: 'Conseillé', tip: 'Astuce' };
+const COACH_GO = { build: 'Construire ici', unit: 'Voir l\'unité', city: 'Voir la ville', tile: 'Voir la case', panel: 'Ouvrir' };
+let coachList = [];
+function renderCoach() {
+  const el = $('#coach');
+  if (!el) return;
+  if (!coachOn || !s || s.winner || s.tutorial?.active) { el.hidden = true; return; }
+  coachList = coachAdvice(s, 0, { freePolicies: freePolicySlots() }).filter((a) => coachHidden.get(a.id) !== s.turn);
+  el.hidden = false;
+  const urgent = coachList.filter((a) => a.kind === 'urgent').length;
+  const head = `<div class="section-title"><span>Coach · tour ${s.turn}${urgent ? ` · <b class="coach-urgent">${urgent} à faire</b>` : ''}</span>
+    <button class="btn small ghost" data-action="coach-min" aria-expanded="${!coachMin}" title="${coachMin ? 'Afficher les conseils' : 'Réduire le coach'}">${coachMin ? 'Afficher' : 'Réduire'}</button></div>`;
+  if (coachMin) { el.innerHTML = head; el.classList.add('min'); return; }
+  el.classList.remove('min');
+  const shown = coachAll ? coachList : coachList.slice(0, 3);
+  el.innerHTML = `${head}
+    ${shown.length ? '' : '<p class="muted">Rien d\'urgent : tout tourne. Finissez le tour quand vous êtes prêt.</p>'}
+    <ol class="coach-list">${shown.map((a, k) => `<li class="coach-item ${a.kind}">
+      <div class="coach-top"><span class="coach-kind">${COACH_KIND[a.kind]}</span><b>${esc(a.title)}</b>
+        <button class="coach-x" data-action="coach-hide" data-id="${esc(a.id)}" title="Masquer ce conseil jusqu'au prochain tour" aria-label="Masquer ce conseil">×</button></div>
+      <p>${esc(a.text)}</p>
+      ${a.action ? `<button class="btn small" data-action="coach-go" data-k="${coachList.indexOf(a)}">${COACH_GO[a.action.type]}</button>` : ''}</li>`).join('')}</ol>
+    ${coachList.length > 3 ? `<button class="btn small ghost" data-action="coach-all">${coachAll ? 'Moins de conseils' : `Tous les conseils (${coachList.length})`}</button>` : ''}`;
+}
+function coachGo(a) {
+  const act = a?.action;
+  if (!act) return;
+  const W = s.map.width;
+  if (act.type === 'build') {
+    select(null); coachPick = { id: act.id, i: act.y * W + act.x };
+    setMode({ type: 'build', id: act.id }); renderer.focus(act.x, act.y);
+  } else if (act.type === 'unit') {
+    const u = s.units.find((x) => x.id === act.id); if (!u) return;
+    coachPick = act.x !== undefined ? { site: true, i: act.y * W + act.x } : null;
+    select({ kind: 'unit', id: u.id }); renderer.focus(act.x ?? u.x, act.y ?? u.y);
+  } else if (act.type === 'city') {
+    const c = s.cities.find((x) => x.id === act.id); if (!c) return;
+    select({ kind: 'city', id: c.id }); renderer.focus(c.x, c.y);
+  } else if (act.type === 'tile') {
+    select({ kind: 'tile', i: act.y * W + act.x }); renderer.focus(act.x, act.y);
+  } else if (act.type === 'panel') {
+    ({ tech: showTech, policies: showPolicies, people: () => showPeople(), diplo: showDiplo, side: () => setSide(true) })[act.name]?.();
+  }
 }
 
 // ---------------------------------------------------------------- mini-carte
@@ -870,6 +924,10 @@ function renderHighlights() {
       badges.push({ i: b.y * W + b.x, html: bonusHtml(adj), dx: (f - 1) / 2, dy: (f - 1) / 2, lift: f > 1 ? 0.9 : 0.6 });
     }
   }
+  if (coachPick && ((mode?.type === 'build' && mode.id === coachPick.id && G.canBuild(s, 0, coachPick.id, coachPick.i % W, Math.floor(coachPick.i / W)).ok) || (coachPick.site && sel?.kind === 'unit'))) {
+    const f = coachPick.id ? G.footprintOf(s, coachPick.id) : 1;
+    badges.push({ i: coachPick.i, html: '<span class="plan coach-pick">conseillé</span>', dx: (f - 1) / 2, dy: (f - 1) / 2, lift: f > 1 ? 1.25 : 0.95 });
+  }
   renderer.setBadges(badges);
   const pu = pendingMove && s.units.find((x) => x.id === pendingMove.uid);
   const ou = !pu && orderPath && sel?.kind === 'unit' && s.units.find((x) => x.id === sel.id);
@@ -1510,6 +1568,7 @@ function showMenu() {
     <div class="section-title" style="margin-top:16px"><span>Options</span></div>
     <div class="actions"><button class="btn small" data-action="toggle-confirm" aria-pressed="${confirmMoves}">Confirmation des déplacements : ${confirmMoves ? 'activée' : 'désactivée'}</button>
       <button class="btn small" data-action="toggle-blockend" aria-pressed="${blockEnd}" title="Empêche de finir le tour tant qu'une unité n'a pas reçu d'ordre">Attendre les unités avant la fin du tour : ${blockEnd ? 'activé' : 'désactivé'}</button>
+      <button class="btn small" data-action="toggle-coach" aria-pressed="${coachOn}" title="Un conseiller explique à chaque tour les meilleures actions et pourquoi, pour apprendre les mécaniques et optimiser la partie">Coach : ${coachOn ? 'activé' : 'désactivé'}</button>
       <button class="btn small" data-action="toggle-sound" aria-pressed="${Sound.soundEnabled()}">Sons : ${Sound.soundEnabled() ? 'activés' : 'coupés'}</button>
       <button class="btn small" data-action="toggle-music" aria-pressed="${Sound.musicEnabled()}" title="Musique d'ambiance générée en continu : son humeur suit la saison, ses instruments suivent l'ère">Musique : ${Sound.musicEnabled() ? 'activée' : 'coupée'}</button>
       <button class="btn small" data-action="toggle-daynight" aria-pressed="${renderer.dayNight}">Cycle jour / nuit : ${renderer.dayNight ? 'activé' : 'désactivé'}</button>
@@ -1745,6 +1804,11 @@ function onAction(e) {
     }
     case 'export': Saves.exportFile(s); break;
     case 'import': importGame(); break;
+    case 'toggle-coach': setCoach(!coachOn); renderCoach(); showMenu(); break;
+    case 'coach-min': coachMin = !coachMin; try { localStorage.setItem('expandto.coachMin', coachMin ? '1' : '0'); } catch { /* ignore */ } renderCoach(); break;
+    case 'coach-all': coachAll = !coachAll; renderCoach(); break;
+    case 'coach-hide': coachHidden.set(b.dataset.id, s.turn); renderCoach(); break;
+    case 'coach-go': coachGo(coachList[Number(b.dataset.k)]); break;
     case 'tuto-skip': s.tutorial.active = false; renderAll(); save(); break;
     case 'tuto-finish': Tuto.flag(s, 'finished'); renderAll(); save(); break;
     case 'tuto-restart': Tuto.initTutorial(s, true); closeModal(); renderAll(); save(); break;
