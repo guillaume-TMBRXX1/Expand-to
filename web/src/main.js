@@ -13,6 +13,7 @@ import * as IND from './core/independents.js';
 import * as MOV from './core/movements.js';
 import { playAITurns } from './core/ai.js';
 import { coachAdvice } from './core/coach.js';
+import * as TND from './core/tenders.js';
 import { Renderer } from './render/renderer.js';
 import { QUALITY, QUALITY_NAMES } from './render/postfx.js';
 import { avatarSVG } from './ui/avatar.js';
@@ -1372,6 +1373,32 @@ function postsBox() {
       return `<div class="mem"><span>${K.icon} <b>${esc(post.name)}</b> <span class="muted">· ${K.name} · protecteur : ${post.patron === null ? 'aucun' : esc(s.players[post.patron].name)} · votre faveur ${Math.floor(IND.favorOf(post, 0))}</span></span><button class="btn small" data-action="post-gift" data-id="${post.id}" ${IND.canGift(s, 0, post.id).ok ? '' : 'disabled'}>Offrir ${G.fmtBundle(s, I.gift.cost)}</button></div>`; }).join('')}</div></div>`;
 }
 
+// Appel d'offres groupé : une seule annonce à tous les pays, réponses immédiates (acceptation, contre-offre, refus).
+let tender = null; // { turn, give, want, quotes }
+function tenderBox() {
+  const resOpts = (sel0) => G.STOCK.map((k) => `<option value="${k}" ${k === sel0 ? 'selected' : ''}>${data.resources[k].name}</option>`).join('');
+  const t = tender && tender.turn === s.turn ? tender : null;
+  const used = TND.tenderUsed(s, 0);
+  const [gk, gv] = t ? Object.entries(t.give)[0] : ['gold', 30];
+  const [wk, wv] = t ? Object.entries(t.want)[0] : ['wood', 20];
+  const STATUS = { accept: ['good', 'Accepte'], counter: ['warn', 'Contre-offre'], refuse: ['bad', 'Refuse'] };
+  const rows = t ? t.quotes.map((q, k) => {
+    const who = s.players[q.to], [tone, label] = STATUS[q.status];
+    const deal = q.payload ? `vous donnez <b>${G.fmtBundle(s, q.payload.give)}</b>, vous recevez <b>${G.fmtBundle(s, q.payload.want)}</b>` : '';
+    return `<div class="tender-row ${q.status}">${avatar(who, 26)}<div class="tender-txt"><b>${esc(who.name)}</b> <span class="tag ${tone}">${label}</span> <span class="muted">relation ${q.rel}</span>
+      <div>${deal}${q.reason ? `${deal ? ' · ' : ''}<span class="muted">${esc(q.reason)}</span>` : ''}</div></div>
+      ${q.payload ? `<button class="btn small ${q.status === 'accept' ? 'primary' : ''}" data-action="tender-deal" data-k="${k}" ${used ? 'disabled' : ''}>${q.status === 'accept' ? 'Conclure' : 'Accepter la contre-offre'}</button>` : ''}</div>`;
+  }).join('') : '';
+  return `<div class="tender card"><b>Appel d'offres</b> <span class="muted">— une seule annonce à tous les pays : chacun accepte, fait une contre-offre ou refuse. Ils ne cèdent que leur surplus, et une bonne relation donne de meilleurs prix. Un appel d'offres conclu par tour.</span>
+    <div class="form-row">
+      <label class="field">Je donne<span style="display:flex;gap:4px"><input type="number" min="1" value="${gv}" id="tender-give-amt" aria-label="Quantité donnée"><select id="tender-give-res">${resOpts(gk)}</select></span></label>
+      <label class="field">Je veux<span style="display:flex;gap:4px"><input type="number" min="1" value="${wv}" id="tender-want-amt" aria-label="Quantité demandée"><select id="tender-want-res">${resOpts(wk)}</select></span></label>
+      <button class="btn small primary" data-action="tender-launch" ${used ? 'disabled' : ''}>${t ? 'Relancer' : 'Lancer l\'appel d\'offres'}</button>
+    </div>
+    ${used ? '<div class="muted" style="margin-top:6px">Appel d\'offres conclu ce tour-ci : le prochain sera possible au tour suivant.</div>' : ''}
+    ${rows ? `<div class="tender-list">${rows}</div>` : ''}</div>`;
+}
+
 function leagueBox() {
   const L = s.rules.league, lg = s.league;
   const perks = `cotisation ${L.dues} Or/tour · +${L.routeGold} Or et +${L.routePrestige} prestige par route entre membres · ventes +${Math.round(L.sellBonus * 100)} %`;
@@ -1425,6 +1452,7 @@ function showDiplo() {
   openModal(`<div class="card dialog" role="dialog" aria-modal="true" aria-label="Diplomatie"><header><div><h2>Diplomatie</h2>
     <div class="muted" style="font-size:13px;margin-top:2px">Les voisins méfiants ou hostiles réduisent votre productivité. Les accords et alliances la renforcent. Vos alliés partagent leurs technologies (−25 % de coût).</div></div>
     <button class="btn" data-action="close">Fermer</button></header>
+    ${tenderBox()}
     ${leagueBox()}
     ${postsBox()}
     <div class="diplo-grid">${cards}</div>
@@ -1749,6 +1777,23 @@ function onAction(e) {
       if (Object.keys(give)[0] === Object.keys(want)[0]) { toast('Choisissez deux ressources différentes.', 'bad'); break; }
       const r = G.propose(s, 0, id, 'exchange', { give, want });
       toast(r.ok ? 'Échange accepté.' : r.reason, r.ok ? 'good' : 'bad');
+      showDiplo(); renderAll(); save(); break;
+    }
+    case 'tender-launch': {
+      const give = { [$('#tender-give-res').value]: Math.max(1, Math.floor(Number($('#tender-give-amt').value) || 0)) };
+      const want = { [$('#tender-want-res').value]: Math.max(1, Math.floor(Number($('#tender-want-amt').value) || 0)) };
+      const chk = TND.canTender(s, 0, give, want);
+      if (!chk.ok) { toast(chk.reason, 'bad'); break; }
+      tender = { turn: s.turn, give, want, quotes: TND.tenderQuotes(s, 0, give, want) };
+      const n = tender.quotes.filter((q) => q.status !== 'refuse').length;
+      toast(n ? `${n} réponse${n > 1 ? 's' : ''} favorable${n > 1 ? 's' : ''} ou contre-offre${n > 1 ? 's' : ''}.` : 'Personne ne peut répondre à cette offre pour l\'instant.', n ? 'good' : 'bad');
+      showDiplo(); $('.tender')?.scrollIntoView({ block: 'nearest' }); break;
+    }
+    case 'tender-deal': {
+      const q = tender?.turn === s.turn ? tender.quotes[Number(b.dataset.k)] : null;
+      const r = TND.concludeTender(s, 0, q);
+      toast(r.ok ? `Marché conclu avec ${s.players[q.to].name}.` : r.reason, r.ok ? 'good' : 'bad');
+      if (r.ok) { Sound.sfx.good(); tender = null; }
       showDiplo(); renderAll(); save(); break;
     }
     case 'new-game': Sound.music.setMood('menu', 0); closeModal(); save(); for (const x of ['#topbar', '#side', '#buildbar', '#selection', '#hint', '#tutorial', '#summary']) $(x).hidden = true; s = null; showStart(); break;

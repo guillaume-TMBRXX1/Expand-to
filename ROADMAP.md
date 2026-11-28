@@ -378,6 +378,8 @@ Mesuré sur 160 parties IA contre IA (8 graines × 20 parties, carte moyenne, du
 - [x] **Coach** (à activer dans le menu ou sur l'écran d'accueil) : à chaque tour, les meilleures actions classées (À faire, Conseillé, Astuce), chacune avec son « pourquoi » et un bouton qui mène à l'endroit voulu : la case conseillée pour un bâtiment, l'unité, la ville ou la bonne fenêtre. Il reprend le classement de l'IA, en lecture seule (environ 4 ms par tour). Il se met en pause pendant le tutoriel.
 - [x] **Rendu plus léger** : ombres recalculées à la demande, densité de pixels selon la qualité, 30 images par seconde au repos en Léger.
 
+- [x] **Appel d'offres groupé** (fenêtre Diplomatie) : « je donne X contre Y » annoncé à tous les pays d'un coup. Chacun accepte, fait une contre-offre (il demande un peu plus ou cède moins) ou refuse en disant pourquoi. Garde-fous : les IA ne cèdent que leur surplus, le prix suit la relation et la personnalité, les pays hostiles ne répondent pas, on n'aide pas un favori proche de la victoire, et un seul appel d'offres conclu par tour. Le coach le suggère quand une seule ressource manque pour le meilleur bâtiment.
+
 ## Encore à faire
 
 - À suivre en Difficile : Bâtisseur et Explorateur gagnent environ 40 % des parties, Négociant 9 %, et les victoires scientifiques sont rares. **Décision : on ne touche ni aux bonus de rendement ni aux bonus d'adjacence**, qui font la richesse du jeu. Si l'écart est à corriger, ce sera par d'autres leviers (choix de l'IA, seuils des voies de victoire).

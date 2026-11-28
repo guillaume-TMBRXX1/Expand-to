@@ -586,3 +586,14 @@ html.compact #selection .kv { font-size: 13.5px; }
 .coach-x:hover { color: #2f2a33; }
 .coach-pick { background: #2f6fde !important; color: #fff !important; }
 html.compact #coach { top: calc(70px + env(safe-area-inset-top)); left: calc(8px + env(safe-area-inset-left)); width: 290px; }
+
+/* ---------------------------------------------------------------- appel d'offres */
+.tender { margin-bottom: 12px; padding: 12px 14px; }
+.tender .form-row { margin-top: 8px; }
+.tender-list { display: grid; gap: 6px; margin-top: 10px; }
+.tender-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 10px; background: rgba(120, 110, 115, 0.06); }
+.tender-row.accept { background: rgba(52, 168, 83, 0.09); }
+.tender-row.counter { background: rgba(245, 183, 0, 0.1); }
+.tender-row.refuse { opacity: .75; }
+.tender-txt { flex: 1; min-width: 0; font-size: 13px; line-height: 1.4; }
+.tender-row .btn { flex: none; }
