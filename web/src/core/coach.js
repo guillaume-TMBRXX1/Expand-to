@@ -152,6 +152,19 @@ export function coachAdvice(s, pid = 0, opts = {}) {
     already.add(def.id); shown++;
   }
 
+  // Le meilleur bâtiment est hors de portée pour une seule ressource : un appel d'offres peut la trouver.
+  for (const { def } of plan.scored.slice(0, 4)) {
+    if (already.has(def.id)) continue;
+    const cost = G.costOf(s, pid, def);
+    const miss = Object.entries(cost).filter(([k, v]) => (p.res[k] || 0) < v);
+    if (miss.length !== 1 || miss[0][0] === 'gold' || !bestTileFor(s, pid, def.id)) continue;
+    const [k, v] = miss[0], n = Math.ceil(v - (p.res[k] || 0));
+    add({ id: 'tender', prio: 48, kind: 'tip', title: `Il vous manque ${n} ${s.data.resources[k].name} pour : ${def.name}`,
+      text: `Plutôt que de proposer un échange à chaque pays, lancez un appel d'offres (fenêtre Diplomatie) : tous répondent d'un coup, acceptent, font une contre-offre ou refusent. Seuls ceux qui ont du surplus vendent, et une bonne relation fait baisser le prix.`,
+      action: { type: 'panel', name: 'diplo' } });
+    break;
+  }
+
   // ------------------------------------------------------------ pollution
   for (const c of cities) {
     const pol = SOC.cityPollution(s, c).net;
