@@ -42,15 +42,23 @@ export class Renderer {
   constructor(container) {
     this.container = container;
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // La carte d'ombres couvre tout le plateau et ne dépend pas de la caméra : on ne la recalcule que
+    // quelques fois par seconde (moulins, cycle jour/nuit) et aussitôt que la scène change.
+    this.renderer.shadowMap.autoUpdate = false;
+    this.renderer.shadowMap.needsUpdate = true;
+    this.shadowClock = 0;
     container.appendChild(this.renderer.domElement);
     // Qualité visuelle : choix du joueur s'il existe, sinon « Équilibré » sur tablette et « Élevé » sur ordinateur.
     let q = null;
     try { q = localStorage.getItem('expandto.quality'); } catch { /* ignore */ }
     this.quality = QUALITY.includes(q) ? q : (window.matchMedia?.('(pointer: coarse)').matches ? 'balanced' : 'high');
     this.qualityChosen = QUALITY.includes(q);
+    this.applyPixelRatio();
+    this.lastInput = 0; this.frameWait = 0;
+    const wake = () => { this.lastInput = performance.now(); };
+    for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchstart']) window.addEventListener(ev, wake, { passive: true });
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(BG);
@@ -116,8 +124,20 @@ export class Renderer {
   setQuality(level) {
     this.quality = level; this.qualityChosen = true;
     try { localStorage.setItem('expandto.quality', level); } catch { /* ignore */ }
+    this.applyPixelRatio();
     this.postfx.setLevel(level);
+    this.resize();
   }
+  // Densité de pixels selon la qualité : sur un écran haute définition, « Léger » dessine 4 fois moins de pixels.
+  applyPixelRatio() {
+    const dpr = window.devicePixelRatio || 1;
+    const max = { low: 1, balanced: 1.5, high: 2 }[this.quality] ?? 1.5;
+    this.renderer.setPixelRatio(Math.min(dpr, max));
+    this.renderer.shadowMap.needsUpdate = true;
+  }
+  // Fréquences : ombres recalculées 10 fois par seconde (4 en « Léger ») ; en « Léger », 30 images par seconde
+  // quand on ne touche à rien (l'eau et les moulins restent animés), pleine fluidité dès qu'on bouge la carte.
+  get shadowPeriod() { return this.quality === 'low' ? 0.25 : 0.1; }
 
   // ------------------------------------------------------------ coordonnées
   wx(x) { return x - this.W / 2 + 0.5; }
@@ -134,6 +154,7 @@ export class Renderer {
   // ----------------------------------------------------------------- terrain
   setState(state, viewer = 0) {
     this.state = state; this.viewer = viewer;
+    this.renderer.shadowMap.needsUpdate = true;
     this.W = state.map.width; this.H = state.map.height;
     const sc0 = this.sun.shadow.camera; // ombres et zoom adaptés à la taille de la carte
     Object.assign(sc0, { left: -(this.W / 2 + 4), right: this.W / 2 + 4, top: this.H / 2 + 4, bottom: -(this.H / 2 + 4) });
@@ -914,6 +935,7 @@ export class Renderer {
 
   refresh() {
     if (!this.state) return;
+    this.renderer.shadowMap.needsUpdate = true;
     this.refreshTerrain();
     this.refreshOverlays();
     this.syncEntities();
@@ -1071,7 +1093,14 @@ export class Renderer {
   }
 
   tick() {
-    const dt = Math.min(0.05, this.clock.getDelta());
+    if (this.quality === 'low' && !this.focusAnim && performance.now() - this.lastInput > 1500) {
+      this.frameWait += this.clock.getDelta();
+      if (this.frameWait < 1 / 31) return;
+    } else this.frameWait += this.clock.getDelta();
+    const dt = Math.min(0.05, this.frameWait);
+    this.frameWait = 0;
+    this.shadowClock += dt;
+    if (this.shadowClock >= this.shadowPeriod) { this.shadowClock = 0; this.renderer.shadowMap.needsUpdate = true; }
     if (this.focusAnim) {
       const step = Math.min(this.focusAnim.left, dt * 3);
       const d = this.focusAnim.delta.clone().multiplyScalar(step);
